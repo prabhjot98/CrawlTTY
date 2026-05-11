@@ -519,19 +519,20 @@ Map generation types:
 
 ### MVP Dungeon Generator Rules
 
-The first dungeon should use simple room-and-corridor generation.
+The first dungeon should feel like a crypt and use room-and-corridor generation.
 
 Rules:
 
-- Map size: 60x25.
+- Map size currently implemented as 40x16 for terminal readability.
 - Floor 1: 6-8 rooms.
 - Floor 2: 8-10 rooms.
 - Floor 3: 5-7 rooms, ending in a boss room.
-- Rooms are rectangles, size 4x4 to 12x8.
-- Connect rooms with corridors.
+- Rooms are rectangular crypt chambers.
+- Corridors are narrow, creating tactical chokepoints.
 - Place player in the first room.
 - Place stairs in the farthest room.
 - On floor 3, the farthest room is the Bellkeeper boss room.
+- Place enemies and chests inside rooms instead of randomly in open space.
 - Add 1-3 chests per floor.
 - Chests open automatically when the player steps onto them.
 - Stairs activate automatically when the player steps onto them.

@@ -110,6 +110,8 @@ struct Dungeon {
     enemies: Vec<Enemy>,
     chests: Vec<Chest>,
     log: Vec<String>,
+    #[serde(default)]
+    tiles: Vec<char>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -761,8 +763,70 @@ fn enter_dungeon(c: &mut Character) {
     c.active_dungeon = Some(generate_dungeon(1));
 }
 
+#[derive(Clone)]
+struct Room {
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+}
+
+impl Room {
+    fn center(&self) -> (i32, i32) {
+        (self.x + self.w / 2, self.y + self.h / 2)
+    }
+
+    fn intersects(&self, other: &Room) -> bool {
+        self.x <= other.x + other.w + 1
+            && self.x + self.w + 1 >= other.x
+            && self.y <= other.y + other.h + 1
+            && self.y + self.h + 1 >= other.y
+    }
+}
+
 fn generate_dungeon(floor: u32) -> Dungeon {
     let mut rng = rand::thread_rng();
+    let mut tiles = vec!['#'; (MAP_W * MAP_H) as usize];
+    let target_rooms = match floor {
+        1 => rng.gen_range(6..=8),
+        2 => rng.gen_range(8..=10),
+        _ => rng.gen_range(5..=7),
+    };
+    let mut rooms: Vec<Room> = Vec::new();
+
+    for _ in 0..120 {
+        if rooms.len() >= target_rooms {
+            break;
+        }
+        let room = Room {
+            w: rng.gen_range(5..=11),
+            h: rng.gen_range(4..=7),
+            x: rng.gen_range(1..MAP_W - 12),
+            y: rng.gen_range(1..MAP_H - 8),
+        };
+        if rooms.iter().any(|existing| room.intersects(existing)) {
+            continue;
+        }
+        carve_room(&mut tiles, &room);
+        if let Some(previous) = rooms.last() {
+            carve_corridor(&mut tiles, previous.center(), room.center());
+        }
+        rooms.push(room);
+    }
+
+    if rooms.is_empty() {
+        let fallback = Room {
+            x: 2,
+            y: 2,
+            w: 10,
+            h: 6,
+        };
+        carve_room(&mut tiles, &fallback);
+        rooms.push(fallback);
+    }
+
+    let start = rooms.first().unwrap().center();
+    let stairs = farthest_room_center(&rooms, start);
     let mut enemies = Vec::new();
     let enemy_count = match floor {
         1 => 5,
@@ -770,7 +834,7 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         _ => 4,
     };
     for _ in 0..enemy_count {
-        let (x, y) = (rng.gen_range(3..MAP_W - 3), rng.gen_range(3..MAP_H - 3));
+        let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
         let e = match floor {
             1 => {
                 if rng.gen_bool(0.55) {
@@ -797,24 +861,100 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         enemies.push(e);
     }
     if floor == 2 {
-        enemies.push(elite_skeleton(MAP_W - 8, MAP_H - 5));
+        let (x, y) = farthest_room_center(&rooms, start);
+        enemies.push(elite_skeleton(x, y));
     }
     if floor == 3 {
-        enemies.push(bellkeeper(MAP_W - 8, MAP_H - 5));
+        enemies.push(bellkeeper(stairs.0, stairs.1));
     }
+
+    let chest_count = rng.gen_range(1..=3);
+    let mut chests = Vec::new();
+    for _ in 0..chest_count {
+        let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
+        chests.push(Chest {
+            x,
+            y,
+            opened: false,
+        });
+    }
+
     Dungeon {
         floor,
-        player_x: 2,
-        player_y: 2,
-        stairs_x: MAP_W - 3,
-        stairs_y: MAP_H - 3,
+        player_x: start.0,
+        player_y: start.1,
+        stairs_x: stairs.0,
+        stairs_y: stairs.1,
         enemies,
-        chests: vec![Chest {
-            x: MAP_W / 2,
-            y: MAP_H / 2,
-            opened: false,
-        }],
+        chests,
         log: vec![format!("Entered Hollow Crypts floor {}.", floor)],
+        tiles,
+    }
+}
+
+fn tile_index(x: i32, y: i32) -> usize {
+    (y * MAP_W + x) as usize
+}
+
+fn carve_room(tiles: &mut [char], room: &Room) {
+    for y in room.y..room.y + room.h {
+        for x in room.x..room.x + room.w {
+            tiles[tile_index(x, y)] = '.';
+        }
+    }
+}
+
+fn carve_corridor(tiles: &mut [char], from: (i32, i32), to: (i32, i32)) {
+    let mut x = from.0;
+    let mut y = from.1;
+    while x != to.0 {
+        tiles[tile_index(x, y)] = '.';
+        x += (to.0 - x).signum();
+    }
+    while y != to.1 {
+        tiles[tile_index(x, y)] = '.';
+        y += (to.1 - y).signum();
+    }
+    tiles[tile_index(x, y)] = '.';
+}
+
+fn farthest_room_center(rooms: &[Room], from: (i32, i32)) -> (i32, i32) {
+    rooms
+        .iter()
+        .map(Room::center)
+        .max_by_key(|(x, y)| (x - from.0).abs() + (y - from.1).abs())
+        .unwrap_or((MAP_W - 3, MAP_H - 3))
+}
+
+fn random_room_floor(
+    rooms: &[Room],
+    rng: &mut impl Rng,
+    start: (i32, i32),
+    stairs: (i32, i32),
+) -> (i32, i32) {
+    for _ in 0..30 {
+        let room = &rooms[rng.gen_range(0..rooms.len())];
+        let pos = (
+            rng.gen_range(room.x..room.x + room.w),
+            rng.gen_range(room.y..room.y + room.h),
+        );
+        if pos != start && pos != stairs {
+            return pos;
+        }
+    }
+    rooms.last().unwrap().center()
+}
+
+fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
+    if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H {
+        return '#';
+    }
+    if d.tiles.len() == (MAP_W * MAP_H) as usize {
+        d.tiles[tile_index(x, y)]
+    } else if x == 0 || y == 0 || x == MAP_W - 1 || y == MAP_H - 1 {
+        '#'
+    } else {
+        '.'
     }
 }
 
@@ -999,11 +1139,7 @@ fn draw_dungeon(c: &Character) {
     );
     for y in 0..MAP_H {
         for x in 0..MAP_W {
-            let mut ch = if x == 0 || y == 0 || x == MAP_W - 1 || y == MAP_H - 1 {
-                '#'
-            } else {
-                '.'
-            };
+            let mut ch = dungeon_tile(d, x, y);
             if x == d.stairs_x && y == d.stairs_y {
                 ch = '>';
             }
@@ -1090,8 +1226,8 @@ fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     let d = c.active_dungeon.as_mut().unwrap();
     let nx = d.player_x + dx;
     let ny = d.player_y + dy;
-    if nx <= 0 || ny <= 0 || nx >= MAP_W - 1 || ny >= MAP_H - 1 {
-        d.log.push("You bump into a wall.".to_string());
+    if dungeon_tile(d, nx, ny) == '#' {
+        d.log.push("You bump into a crypt wall.".to_string());
         return false;
     }
     if let Some(index) = d
@@ -1348,10 +1484,7 @@ fn enemy_turns(c: &mut Character) {
                 } else {
                     (d.enemies[i].x, d.enemies[i].y + step_y)
                 };
-            if nx > 0
-                && ny > 0
-                && nx < MAP_W - 1
-                && ny < MAP_H - 1
+            if dungeon_tile(&d, nx, ny) != '#'
                 && (nx, ny) != (d.player_x, d.player_y)
                 && !occupied.contains(&(nx, ny))
             {
