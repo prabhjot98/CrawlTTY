@@ -474,32 +474,44 @@ fn print_town(c: &Character) {
     println!("{BOLD}{CYAN}| Town: Hollow's Rest                              |{RESET}");
     println!("{BOLD}{CYAN}+--------------------------------------------------+{RESET}");
     println!(
-        "{BOLD}{}{RESET} the {GREEN}{}{RESET}  Level {}  XP {}  {YELLOW}Gold {}{RESET}",
-        c.name, c.class_name, c.level, c.xp, c.gold
+        "{BOLD}{}{RESET} the {GREEN}{}{RESET}  {}  {}  {}",
+        c.name,
+        c.class_name,
+        level_text(c.level),
+        xp_text(c.xp),
+        gold_text(c.gold)
     );
     println!(
-        "{RED}HP {}/{}{RESET}  {BLUE}Mana {}/{}{RESET}",
-        c.hp,
-        c.max_hp(),
-        c.mana,
-        c.max_mana()
+        "{}  {}",
+        hp_text(c.hp, c.max_hp()),
+        mana_text(c.mana, c.max_mana())
     );
     println!(
-        "STR {}  DEX {}  INT {}  Hit {}  Dodge {}  Speed {}",
-        c.strength,
-        c.dexterity,
-        c.intelligence,
-        c.hit_rating(),
-        c.dodge_rating(),
-        c.speed()
+        "{}  {}  {}  {}  {}  {}",
+        strength_text(c.strength),
+        dexterity_text(c.dexterity),
+        intelligence_text(c.intelligence),
+        hit_text(c.hit_rating()),
+        dodge_text(c.dodge_rating()),
+        speed_text(c.speed())
     );
     println!(
-        "Unspent attributes: {}  Unspent skills: {}",
-        c.unspent_attributes, c.unspent_skills
+        "{}  {}",
+        unspent_attributes_text(c.unspent_attributes),
+        unspent_skills_text(c.unspent_skills)
     );
-    println!("Weapon: {}", c.equipped_weapon.name);
-    println!("Armor : {}", c.equipped_armor.name);
-    println!("Shield: {}", c.equipped_shield.name);
+    println!(
+        "{BOLD}Weapon:{RESET} {}",
+        colored_item_name(&c.equipped_weapon)
+    );
+    println!(
+        "{BOLD}Armor :{RESET} {}",
+        colored_item_name(&c.equipped_armor)
+    );
+    println!(
+        "{BOLD}Shield:{RESET} {}",
+        colored_item_name(&c.equipped_shield)
+    );
     if c.act1_completed {
         println!(
             "{GREEN}Act I complete:{RESET} The Hollow Marches are safe for now. Act II is unlocked as a placeholder."
@@ -515,6 +527,70 @@ fn print_town(c: &Character) {
     }
 }
 
+fn colored_stat(label: &str, value: impl std::fmt::Display, color: &str) -> String {
+    format!("{color}{label} {value}{RESET}")
+}
+
+fn strength_text(value: u32) -> String {
+    colored_stat("STR", value, RED)
+}
+
+fn dexterity_text(value: u32) -> String {
+    colored_stat("DEX", value, GREEN)
+}
+
+fn intelligence_text(value: u32) -> String {
+    colored_stat("INT", value, BLUE)
+}
+
+fn hp_text(current: u32, max: u32) -> String {
+    format!("{RED}HP {current}/{max}{RESET}")
+}
+
+fn mana_text(current: u32, max: u32) -> String {
+    format!("{BLUE}Mana {current}/{max}{RESET}")
+}
+
+fn gold_text(value: u32) -> String {
+    format!("{YELLOW}Gold {value}{RESET}")
+}
+
+fn xp_text(value: u32) -> String {
+    format!("{MAGENTA}XP {value}{RESET}")
+}
+
+fn level_text(value: u32) -> String {
+    format!("{CYAN}Level {value}{RESET}")
+}
+
+fn hit_text(value: u32) -> String {
+    colored_stat("Hit", value, CYAN)
+}
+
+fn dodge_text(value: u32) -> String {
+    colored_stat("Dodge", value, GREEN)
+}
+
+fn speed_text(value: u32) -> String {
+    colored_stat("Speed", value, YELLOW)
+}
+
+fn armor_text(value: i32) -> String {
+    colored_stat("Armor", value, WHITE)
+}
+
+fn unspent_attributes_text(value: u32) -> String {
+    format!("{CYAN}Unspent attributes: {value}{RESET}")
+}
+
+fn unspent_skills_text(value: u32) -> String {
+    format!("{MAGENTA}Unspent skills: {value}{RESET}")
+}
+
+fn shard_text(label: &str, value: u32) -> String {
+    format!("{WHITE}{label} {value}{RESET}")
+}
+
 fn quest_giver(c: &mut Character) {
     clear_screen();
     println!("{BOLD}{CYAN}Warden Mara{RESET}");
@@ -527,7 +603,9 @@ fn quest_giver(c: &mut Character) {
     } else if c.bellkeeper_defeated {
         println!("\"The bells are silent. Hollow's Rest owes you its next dawn.\"");
         println!("Quest complete: Silence the Bellkeeper");
-        println!("Reward: 100 gold, +1 skill point, full heal, Act II placeholder unlocked.");
+        println!(
+            "Reward: {YELLOW}100 gold{RESET}, {MAGENTA}+1 skill point{RESET}, {GREEN}full heal{RESET}, {CYAN}Act II placeholder unlocked{RESET}."
+        );
         c.gold += 100;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
@@ -560,7 +638,7 @@ fn merchant(c: &mut Character) {
     loop {
         clamp_selection(&mut selected, options.len());
         clear_screen();
-        println!("{BOLD}{YELLOW}Merchant{RESET} - Gold {}", c.gold);
+        println!("{BOLD}{YELLOW}Merchant{RESET} - {}", gold_text(c.gold));
         println!("Selling gives 25% of item value.");
         if !message.is_empty() {
             println!("{YELLOW}{message}{RESET}");
@@ -614,10 +692,12 @@ fn blacksmith(c: &mut Character) {
     loop {
         clamp_selection(&mut selected, options.len());
         clear_screen();
-        println!("{BOLD}{WHITE}Blacksmith{RESET} - Gold {}", c.gold);
+        println!("{BOLD}{WHITE}Blacksmith{RESET} - {}", gold_text(c.gold));
         println!(
-            "Shards: weapon {}  armor {}  shield {}",
-            c.weapon_shards, c.armor_shards, c.shield_shards
+            "{BOLD}Shards:{RESET} {}  {}  {}",
+            shard_text("weapon", c.weapon_shards),
+            shard_text("armor", c.armor_shards),
+            shard_text("shield", c.shield_shards)
         );
         println!(
             "No durability or repairs. Salvage gear into type shards, then spend shards + gold to upgrade equipped gear."
@@ -691,8 +771,10 @@ fn salvage_screen(c: &mut Character) {
         clear_screen();
         println!("{BOLD}{WHITE}Salvage Gear{RESET}");
         println!(
-            "Shards: weapon {}  armor {}  shield {}",
-            c.weapon_shards, c.armor_shards, c.shield_shards
+            "{BOLD}Shards:{RESET} {}  {}  {}",
+            shard_text("weapon", c.weapon_shards),
+            shard_text("armor", c.armor_shards),
+            shard_text("shield", c.shield_shards)
         );
         if !message.is_empty() {
             println!("{YELLOW}{message}{RESET}");
@@ -868,7 +950,7 @@ fn sell_item_screen(c: &mut Character) {
     loop {
         clamp_selection(&mut selected, c.inventory.len());
         clear_screen();
-        println!("{BOLD}{YELLOW}Sell Items{RESET} - Gold {}", c.gold);
+        println!("{BOLD}{YELLOW}Sell Items{RESET} - {}", gold_text(c.gold));
         if !message.is_empty() {
             println!("{YELLOW}{message}{RESET}");
         }
@@ -879,7 +961,7 @@ fn sell_item_screen(c: &mut Character) {
             let item = &c.inventory[selected];
             println!();
             println!("Selected: {}", item_summary(item));
-            println!("Sell value: {} gold", item.value / 4);
+            println!("Sell value: {YELLOW}{} gold{RESET}", item.value / 4);
         }
         print_footer(&[&format!(
             "{BOLD}Sell:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=sell  {RED}Esc{RESET}=back"
@@ -918,7 +1000,7 @@ fn stash_menu(c: &mut Character) {
         clear_screen();
         println!("{BOLD}{MAGENTA}Stash{RESET}");
         println!(
-            "Inventory items: {}   Stash items: {}",
+            "{CYAN}Inventory items: {}{RESET}   {MAGENTA}Stash items: {}{RESET}",
             c.inventory.len(),
             c.stash.len()
         );
@@ -1011,26 +1093,26 @@ fn spend_attributes(c: &mut Character) {
     while c.unspent_attributes > 0 {
         clear_screen();
         println!(
-            "{BOLD}{CYAN}Spend attributes{RESET} ({} left)",
+            "{BOLD}{CYAN}Spend attributes{RESET} ({CYAN}{} left{RESET})",
             c.unspent_attributes
         );
         println!(
-            "1) Strength {} -> {} (+5 max HP)",
+            "{GREEN}1){RESET} {RED}Strength {} -> {}{RESET} ({RED}+5 max HP{RESET})",
             c.strength,
             c.strength + 1
         );
         println!(
-            "2) Dexterity {} -> {} (+5 hit, +5 speed)",
+            "{GREEN}2){RESET} {GREEN}Dexterity {} -> {}{RESET} ({CYAN}+5 hit{RESET}, {YELLOW}+5 speed{RESET})",
             c.dexterity,
             c.dexterity + 1
         );
         println!(
-            "3) Intelligence {} -> {} (+5 max mana)",
+            "{GREEN}3){RESET} {BLUE}Intelligence {} -> {}{RESET} ({BLUE}+5 max mana{RESET})",
             c.intelligence,
             c.intelligence + 1
         );
         print_footer(&[&format!(
-            "{BOLD}Attributes:{RESET} {GREEN}1{RESET}=Strength  {GREEN}2{RESET}=Dexterity  {GREEN}3{RESET}=Intelligence  {RED}Esc{RESET}=back"
+            "{BOLD}Attributes:{RESET} {GREEN}1{RESET}={RED}Strength{RESET}  {GREEN}2{RESET}={GREEN}Dexterity{RESET}  {GREEN}3{RESET}={BLUE}Intelligence{RESET}  {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
             '1' => {
@@ -1060,7 +1142,7 @@ fn skill_tree_menu(c: &mut Character) {
     loop {
         clear_screen();
         println!("{BOLD}{CYAN}Ironbound Skill Tree{RESET}");
-        println!("Unspent skill points: {}", c.unspent_skills);
+        println!("{}", unspent_skills_text(c.unspent_skills));
         println!();
         println!("{BOLD}Weapons Branch{RESET}");
         print_skill_upgrade_preview(
@@ -1117,12 +1199,12 @@ fn print_skill_upgrade_preview(
     value_label: &str,
 ) {
     println!("{GREEN}{key}) {name}{RESET} rank {rank}/5");
-    println!("   Current: {current_value}{value_label}; {details}");
+    println!("   Current: {CYAN}{current_value}{value_label}{RESET}; {details}");
     if rank >= 5 {
         println!("   Next: {YELLOW}MAX RANK{RESET}");
     } else {
         println!(
-            "   Next rank {}: {next_value}{value_label}; {details}",
+            "   Next rank {}: {GREEN}{next_value}{value_label}{RESET}; {details}",
             rank + 1
         );
     }
@@ -1550,14 +1632,12 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
 fn draw_dungeon(c: &Character) {
     let d = c.active_dungeon.as_ref().unwrap();
     println!(
-        "{BOLD}Hollow Crypts Floor {}{RESET}  {RED}HP {}/{}{RESET} {BLUE}Mana {}/{}{RESET} {YELLOW}Gold {}{RESET} XP {}",
+        "{BOLD}Hollow Crypts Floor {}{RESET}  {} {} {} {}",
         d.floor,
-        c.hp,
-        c.max_hp(),
-        c.mana,
-        c.max_mana(),
-        c.gold,
-        c.xp
+        hp_text(c.hp, c.max_hp()),
+        mana_text(c.mana, c.max_mana()),
+        gold_text(c.gold),
+        xp_text(c.xp)
     );
     for y in 0..MAP_H {
         for x in 0..MAP_W {
@@ -2518,10 +2598,10 @@ fn inventory_screen(c: &mut Character) {
         println!("Armor : {}", item_summary(&c.equipped_armor));
         println!("Shield: {}", item_summary(&c.equipped_shield));
         println!(
-            "Total armor: {}  Dodge: {}  Speed: {}",
-            c.armor(),
-            c.dodge_rating(),
-            c.speed()
+            "{}  {}  {}",
+            armor_text(c.armor()),
+            dodge_text(c.dodge_rating()),
+            speed_text(c.speed())
         );
         println!();
         println!("{BOLD}Inventory{RESET}");
@@ -2554,7 +2634,10 @@ fn inventory_screen(c: &mut Character) {
 }
 
 fn print_inventory_preview(c: &Character, max_rows: usize) {
-    println!("{BOLD}Your Inventory{RESET} ({})", c.inventory.len());
+    println!(
+        "{BOLD}Your Inventory{RESET} ({CYAN}{}{RESET})",
+        c.inventory.len()
+    );
     if c.inventory.is_empty() {
         println!("  Empty");
         return;
@@ -2577,7 +2660,12 @@ fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
     let offset = scroll_offset(selected, total, max_rows);
     let end = (offset + max_rows).min(total);
     if total > max_rows {
-        println!("Showing items {}-{} of {}", offset + 1, end, total);
+        println!(
+            "{DIM}Showing items {}-{} of {}{RESET}",
+            offset + 1,
+            end,
+            total
+        );
     }
     for (i, item) in c.inventory.iter().enumerate().skip(offset).take(max_rows) {
         let marker = if i == selected {
@@ -2609,7 +2697,12 @@ fn print_stash_column(title: &str, items: &[Item], selected: usize, active: bool
     let offset = scroll_offset(selected, items.len(), max_rows);
     let end = (offset + max_rows).min(items.len());
     if items.len() > max_rows {
-        println!("  Showing items {}-{} of {}", offset + 1, end, items.len());
+        println!(
+            "  {DIM}Showing items {}-{} of {}{RESET}",
+            offset + 1,
+            end,
+            items.len()
+        );
     }
     for (i, item) in items.iter().enumerate().skip(offset).take(max_rows) {
         let marker = if active && i == selected {
@@ -2663,14 +2756,17 @@ fn item_summary(item: &Item) -> String {
     };
     match item.kind {
         ItemKind::Weapon => format!(
-            "{}{} [{} {:?}] dmg {}-{} value {}",
+            "{}{} [{} {:?}] {RED}dmg {}-{}{RESET} {YELLOW}value {}{RESET}",
             name, upgrade, rarity, item.kind, item.damage_min, item.damage_max, item.value
         ),
         ItemKind::Armor | ItemKind::Shield => format!(
-            "{}{} [{} {:?}] armor {} dodge {} speed {} value {}",
+            "{}{} [{} {:?}] {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
             name, upgrade, rarity, item.kind, item.armor, item.dodge, item.speed, item.value
         ),
-        _ => format!("{} [{:?}] value {}", name, item.kind, item.value),
+        _ => format!(
+            "{} [{:?}] {YELLOW}value {}{RESET}",
+            name, item.kind, item.value
+        ),
     }
 }
 
