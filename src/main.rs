@@ -591,6 +591,33 @@ fn shard_text(label: &str, value: u32) -> String {
     format!("{WHITE}{label} {value}{RESET}")
 }
 
+fn damage_text(value: impl std::fmt::Display) -> String {
+    format!("{RED}{value} damage{RESET}")
+}
+
+fn xp_reward_text(value: u32) -> String {
+    format!("{MAGENTA}{value} XP{RESET}")
+}
+
+fn gold_reward_text(value: u32) -> String {
+    format!("{YELLOW}{value} gold{RESET}")
+}
+
+fn heal_amount_text(value: u32) -> String {
+    format!("{GREEN}{value} HP{RESET}")
+}
+
+fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
+    for level in levels_gained {
+        log.push(format!(
+            "{BOLD}{MAGENTA}*** LEVEL UP! Reached level {level}. +3 attributes, +1 skill point. ***{RESET}"
+        ));
+        log.push(format!(
+            "{CYAN}Town reminder:{RESET} press {GREEN}a{RESET} for attributes and {GREEN}k{RESET} for skills."
+        ));
+    }
+}
+
 fn quest_giver(c: &mut Character) {
     clear_screen();
     println!("{BOLD}{CYAN}Warden Mara{RESET}");
@@ -2010,8 +2037,11 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
     let armor = effective_enemy_armor(enemy);
     let damage = (raw - armor).max(1);
     enemy.hp -= damage;
-    d.log
-        .push(format!("You {verb} {} for {} damage.", enemy.name, damage));
+    d.log.push(format!(
+        "You {verb} {} for {}.",
+        enemy.name,
+        damage_text(damage)
+    ));
     if enemy.guarding {
         d.log
             .push(format!("{} blocks with its shield.", enemy.name));
@@ -2027,15 +2057,20 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         let name = enemy.name.clone();
         let was_boss = enemy.is_boss;
         c.gold += gold;
-        add_xp(c, xp);
+        let levels_gained = add_xp(c, xp);
         let d = c.active_dungeon.as_mut().unwrap();
-        d.log
-            .push(format!("{name} dies. Gained {xp} XP and {gold} gold."));
+        d.log.push(format!(
+            "{BOLD}{name} dies.{RESET} Gained {} and {}.",
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        ));
+        push_level_up_logs(&mut d.log, &levels_gained);
         if c.battle_cry_turns > 0 {
             let heal = (c.max_hp() / 10).max(1);
             c.hp = (c.hp + heal).min(c.max_hp());
             let d = c.active_dungeon.as_mut().unwrap();
-            d.log.push(format!("Second Wind restores {heal} HP."));
+            d.log
+                .push(format!("Second Wind restores {}.", heal_amount_text(heal)));
         }
         maybe_drop_loot(c, was_boss);
         if was_boss {
@@ -2072,8 +2107,9 @@ fn enemy_turns(c: &mut Character) {
             d.enemies[i].hp -= d.enemies[i].bleed_damage;
             d.enemies[i].bleed_turns -= 1;
             d.log.push(format!(
-                "{} bleeds for {} damage.",
-                d.enemies[i].name, d.enemies[i].bleed_damage
+                "{} bleeds for {}.",
+                d.enemies[i].name,
+                damage_text(d.enemies[i].bleed_damage)
             ));
             if d.enemies[i].hp <= 0 {
                 let name = d.enemies[i].name.clone();
@@ -2082,15 +2118,20 @@ fn enemy_turns(c: &mut Character) {
                 let mut rng = rand::thread_rng();
                 let gold = rng.gen_range(d.enemies[i].gold_min..=d.enemies[i].gold_max);
                 c.gold += gold;
-                add_xp(c, xp);
+                let levels_gained = add_xp(c, xp);
                 d.log.push(format!(
-                    "{name} dies from bleeding. Gained {xp} XP and {gold} gold."
+                    "{BOLD}{name} dies from bleeding.{RESET} Gained {} and {}.",
+                    xp_reward_text(xp),
+                    gold_reward_text(gold)
                 ));
+                push_level_up_logs(&mut d.log, &levels_gained);
                 if was_boss {
                     let loot = random_loot(d.floor, true);
                     let loot_name = colored_item_name(&loot);
                     c.inventory.push(loot);
-                    d.log.push(format!("*** LOOT DROPPED: {loot_name} ***"));
+                    d.log.push(format!(
+                        "{BOLD}{YELLOW}*** LOOT DROPPED: {loot_name} ***{RESET}"
+                    ));
                     c.bellkeeper_defeated = true;
                     return;
                 }
@@ -2218,13 +2259,16 @@ fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
             d.bell_wave_tiles.push(pos);
         }
     }
-    d.log
-        .push("The Bellkeeper rings a cursed bell wave!".to_string());
+    d.log.push(format!(
+        "{MAGENTA}The Bellkeeper rings a cursed bell wave!{RESET}"
+    ));
     if d.bell_wave_tiles.contains(&(d.player_x, d.player_y)) {
         let damage = enemy_damage_after_mitigation(6, c);
         c.hp = c.hp.saturating_sub(damage);
-        d.log
-            .push(format!("The bell wave hits you for {damage} damage."));
+        d.log.push(format!(
+            "The bell wave hits you for {}.",
+            damage_text(damage)
+        ));
     }
 }
 
@@ -2256,8 +2300,11 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
             + bellkeeper_enrage_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
-        d.log
-            .push(format!("{} hits you for {} damage.", enemy.name, damage));
+        d.log.push(format!(
+            "{} hits you for {}.",
+            enemy.name,
+            damage_text(damage)
+        ));
         apply_vampiric_heal(d, enemy_index);
     } else {
         d.log.push(format!("{} misses you.", enemy.name));
@@ -2298,15 +2345,15 @@ fn clear_cardinal_line(d: &Dungeon, from_x: i32, from_y: i32, to_x: i32, to_y: i
 fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
-    d.log.push(format!("{} hurls a shadow bolt.", enemy.name));
     if hit_roll(30, c.dodge_rating() as i32) {
         let raw =
             rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
         d.log.push(format!(
-            "{}'s shadow bolt hits you for {} damage.",
-            enemy.name, damage
+            "{}'s shadow bolt hits you for {}.",
+            enemy.name,
+            damage_text(damage)
         ));
         apply_vampiric_heal(d, enemy_index);
     } else {
@@ -2344,8 +2391,9 @@ fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
     let healed = enemy.hp - before;
     if healed > 0 {
         d.log.push(format!(
-            "{} drains life and heals {} HP.",
-            enemy.name, healed
+            "{} drains life and heals {}.",
+            enemy.name,
+            heal_amount_text(healed as u32)
         ));
     }
 }
@@ -2373,7 +2421,8 @@ fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
     let name = colored_item_name(&loot);
     c.inventory.push(loot);
     if let Some(d) = c.active_dungeon.as_mut() {
-        d.log.push(format!("*** LOOT DROPPED: {name} ***"));
+        d.log
+            .push(format!("{BOLD}{YELLOW}*** LOOT DROPPED: {name} ***{RESET}"));
     }
 }
 
@@ -2478,7 +2527,8 @@ fn loot_name(rarity: &Rarity, base: &str) -> String {
     }
 }
 
-fn add_xp(c: &mut Character, amount: u32) {
+fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
+    let mut levels_gained = Vec::new();
     c.xp += amount;
     loop {
         let needed = 10 * 2u32.pow(c.level - 1);
@@ -2487,11 +2537,13 @@ fn add_xp(c: &mut Character, amount: u32) {
         }
         c.xp -= needed;
         c.level += 1;
+        levels_gained.push(c.level);
         c.unspent_attributes += 3;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
         c.mana = c.max_mana();
     }
+    levels_gained
 }
 
 fn auto_interact_tile(c: &mut Character) {
@@ -2520,7 +2572,8 @@ fn open_chest_on_player(c: &mut Character) {
         let loot = random_loot(1, rng.gen_bool(0.35));
         let name = colored_item_name(&loot);
         d.log.push(format!(
-            "Opened chest and found {YELLOW}{gold} gold{RESET} and {name}."
+            "Opened chest: found {} and {name}.",
+            gold_reward_text(gold)
         ));
         c.inventory.push(loot);
     }
@@ -2555,11 +2608,10 @@ fn use_potion(c: &mut Character) {
         c.inventory.remove(index);
         let heal = (c.max_hp() / 4).max(1);
         c.hp = (c.hp + heal).min(c.max_hp());
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push(format!("You drink a health potion and restore {heal} HP."));
+        c.active_dungeon.as_mut().unwrap().log.push(format!(
+            "You drink a health potion and restore {}.",
+            heal_amount_text(heal)
+        ));
     } else {
         c.active_dungeon
             .as_mut()
@@ -2991,13 +3043,15 @@ mod tests {
     fn leveling_doubles_xp_requirements_and_grants_points() {
         let mut c = test_character();
 
-        add_xp(&mut c, 10);
+        let levels_gained = add_xp(&mut c, 10);
+        assert_eq!(levels_gained, vec![2]);
         assert_eq!(c.level, 2);
         assert_eq!(c.xp, 0);
         assert_eq!(c.unspent_attributes, 3);
         assert_eq!(c.unspent_skills, 1);
 
-        add_xp(&mut c, 20);
+        let levels_gained = add_xp(&mut c, 20);
+        assert_eq!(levels_gained, vec![3]);
         assert_eq!(c.level, 3);
         assert_eq!(c.xp, 0);
         assert_eq!(c.unspent_attributes, 6);
@@ -3250,11 +3304,7 @@ mod tests {
 
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!((d.enemies[0].x, d.enemies[0].y), (5, 2));
-        assert!(
-            d.log
-                .iter()
-                .any(|line| line.contains("hurls a shadow bolt"))
-        );
+        assert!(d.log.iter().any(|line| line.contains("shadow bolt")));
     }
 
     #[test]
