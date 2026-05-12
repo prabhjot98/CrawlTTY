@@ -50,6 +50,14 @@ struct Item {
     speed: i32,
     #[serde(default)]
     rarity: Rarity,
+    #[serde(default = "default_item_level")]
+    item_level: u32,
+    #[serde(default)]
+    required_strength: u32,
+    #[serde(default)]
+    required_dexterity: u32,
+    #[serde(default)]
+    required_intelligence: u32,
     #[serde(default)]
     upgrade_level: u32,
 }
@@ -187,6 +195,10 @@ fn default_skill_rank() -> u32 {
     1
 }
 
+fn default_item_level() -> u32 {
+    1
+}
+
 impl Character {
     fn new(name: String, death_mode: DeathMode) -> Self {
         let strength = 6;
@@ -271,6 +283,16 @@ fn item(
     dodge: i32,
     speed: i32,
 ) -> Item {
+    let required_strength = match kind {
+        ItemKind::Weapon => damage_max.max(0) as u32,
+        ItemKind::Armor | ItemKind::Shield => (armor + 3).max(0) as u32,
+        ItemKind::HealthPotion | ItemKind::ManaPotion => 0,
+    };
+    let required_dexterity = if kind == ItemKind::Weapon && name.contains("Sword") {
+        2
+    } else {
+        0
+    };
     Item {
         name: name.to_string(),
         kind,
@@ -281,6 +303,10 @@ fn item(
         dodge,
         speed,
         rarity: Rarity::Common,
+        item_level: 1,
+        required_strength,
+        required_dexterity,
+        required_intelligence: 0,
         upgrade_level: 0,
     }
 }
@@ -295,6 +321,10 @@ fn item_with_rarity(
     dodge: i32,
     speed: i32,
     rarity: Rarity,
+    item_level: u32,
+    required_strength: u32,
+    required_dexterity: u32,
+    required_intelligence: u32,
 ) -> Item {
     Item {
         name: name.to_string(),
@@ -306,6 +336,10 @@ fn item_with_rarity(
         dodge,
         speed,
         rarity,
+        item_level,
+        required_strength,
+        required_dexterity,
+        required_intelligence,
         upgrade_level: 0,
     }
 }
@@ -2437,12 +2471,13 @@ fn random_loot(floor: u32, better: bool) -> Item {
     } else {
         Rarity::Common
     };
-    let bonus = match rarity {
+    let rarity_bonus = match rarity {
         Rarity::Common => 0,
         Rarity::Magic => 1,
         Rarity::Rare => 2,
-    } + floor as i32
-        - 1;
+    };
+    let item_level = floor + rarity_bonus;
+    let bonus = item_level as i32 - 1;
     match rng.gen_range(0..5) {
         0 => item_with_rarity(
             &loot_name(&rarity, "Iron Sword"),
@@ -2454,6 +2489,10 @@ fn random_loot(floor: u32, better: bool) -> Item {
             0,
             0,
             rarity,
+            item_level,
+            4 + item_level,
+            2 + item_level,
+            0,
         ),
         1 => item_with_rarity(
             &loot_name(&rarity, "War Axe"),
@@ -2465,6 +2504,10 @@ fn random_loot(floor: u32, better: bool) -> Item {
             0,
             -1,
             rarity,
+            item_level,
+            5 + item_level,
+            0,
+            0,
         ),
         2 => item_with_rarity(
             &loot_name(&rarity, "Mail Vest"),
@@ -2476,6 +2519,10 @@ fn random_loot(floor: u32, better: bool) -> Item {
             0,
             -bonus.min(2),
             rarity,
+            item_level,
+            4 + item_level,
+            0,
+            0,
         ),
         3 => item_with_rarity(
             &loot_name(&rarity, "Guard Shield"),
@@ -2487,6 +2534,10 @@ fn random_loot(floor: u32, better: bool) -> Item {
             2 + bonus,
             0,
             rarity,
+            item_level,
+            3 + item_level,
+            0,
+            0,
         ),
         _ => {
             if rng.gen_bool(0.5) {
@@ -2798,6 +2849,46 @@ fn drop_selected_inventory_item(c: &mut Character, index: usize) {
     }
 }
 
+fn item_level_text(item: &Item) -> String {
+    if matches!(
+        item.kind,
+        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+    ) {
+        format!("{CYAN}ilvl {}{RESET}", item.item_level)
+    } else {
+        String::new()
+    }
+}
+
+fn item_requirements_text(item: &Item) -> String {
+    let mut reqs = Vec::new();
+    if item.required_strength > 0 {
+        reqs.push(format!("{RED}STR {}{RESET}", item.required_strength));
+    }
+    if item.required_dexterity > 0 {
+        reqs.push(format!("{GREEN}DEX {}{RESET}", item.required_dexterity));
+    }
+    if item.required_intelligence > 0 {
+        reqs.push(format!("{BLUE}INT {}{RESET}", item.required_intelligence));
+    }
+    if reqs.is_empty() {
+        String::new()
+    } else {
+        format!("req {}", reqs.join("/"))
+    }
+}
+
+fn item_level_and_requirements(item: &Item) -> String {
+    let item_level = item_level_text(item);
+    let requirements = item_requirements_text(item);
+    match (item_level.is_empty(), requirements.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => item_level,
+        (true, false) => requirements,
+        (false, false) => format!("{item_level} {requirements}"),
+    }
+}
+
 fn item_summary(item: &Item) -> String {
     let rarity = rarity_name(&item.rarity);
     let name = colored_item_name(item);
@@ -2806,14 +2897,30 @@ fn item_summary(item: &Item) -> String {
     } else {
         String::new()
     };
+    let level_and_requirements = item_level_and_requirements(item);
     match item.kind {
         ItemKind::Weapon => format!(
-            "{}{} [{} {:?}] {RED}dmg {}-{}{RESET} {YELLOW}value {}{RESET}",
-            name, upgrade, rarity, item.kind, item.damage_min, item.damage_max, item.value
+            "{}{} [{} {:?}] {} {RED}dmg {}-{}{RESET} {YELLOW}value {}{RESET}",
+            name,
+            upgrade,
+            rarity,
+            item.kind,
+            level_and_requirements,
+            item.damage_min,
+            item.damage_max,
+            item.value
         ),
         ItemKind::Armor | ItemKind::Shield => format!(
-            "{}{} [{} {:?}] {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
-            name, upgrade, rarity, item.kind, item.armor, item.dodge, item.speed, item.value
+            "{}{} [{} {:?}] {} {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
+            name,
+            upgrade,
+            rarity,
+            item.kind,
+            level_and_requirements,
+            item.armor,
+            item.dodge,
+            item.speed,
+            item.value
         ),
         _ => format!(
             "{} [{:?}] {YELLOW}value {}{RESET}",
@@ -2832,25 +2939,30 @@ fn colored_item_name(item: &Item) -> String {
 }
 
 fn item_comparison(c: &Character, item: &Item) -> Option<String> {
-    match item.kind {
+    let comparison = match item.kind {
         ItemKind::Weapon => {
             let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
             let new_avg = item.damage_min + item.damage_max;
-            Some(format_delta("damage", new_avg - cur_avg))
+            format_delta("damage", new_avg - cur_avg)
         }
-        ItemKind::Armor => Some(format!(
+        ItemKind::Armor => format!(
             "Compare: {}  {}  {}",
             format_delta("armor", item.armor - c.equipped_armor.armor),
             format_delta("dodge", item.dodge - c.equipped_armor.dodge),
             format_delta("speed", item.speed - c.equipped_armor.speed)
-        )),
-        ItemKind::Shield => Some(format!(
+        ),
+        ItemKind::Shield => format!(
             "Compare: {}  {}  {}",
             format_delta("armor", item.armor - c.equipped_shield.armor),
             format_delta("dodge", item.dodge - c.equipped_shield.dodge),
             format_delta("speed", item.speed - c.equipped_shield.speed)
-        )),
-        _ => None,
+        ),
+        _ => return None,
+    };
+    if let Some(requirements) = unmet_requirements_message(c, item) {
+        Some(format!("{comparison}  {RED}LOCKED:{RESET} {requirements}"))
+    } else {
+        Some(comparison)
     }
 }
 
@@ -2864,12 +2976,54 @@ fn format_delta(label: &str, delta: i32) -> String {
     }
 }
 
+fn can_equip_item(c: &Character, item: &Item) -> bool {
+    c.strength >= item.required_strength
+        && c.dexterity >= item.required_dexterity
+        && c.intelligence >= item.required_intelligence
+}
+
+fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
+    if can_equip_item(c, item) {
+        return None;
+    }
+    let mut missing = Vec::new();
+    if c.strength < item.required_strength {
+        missing.push(format!(
+            "{RED}STR {}/{}{RESET}",
+            c.strength, item.required_strength
+        ));
+    }
+    if c.dexterity < item.required_dexterity {
+        missing.push(format!(
+            "{GREEN}DEX {}/{}{RESET}",
+            c.dexterity, item.required_dexterity
+        ));
+    }
+    if c.intelligence < item.required_intelligence {
+        missing.push(format!(
+            "{BLUE}INT {}/{}{RESET}",
+            c.intelligence, item.required_intelligence
+        ));
+    }
+    Some(format!("Requires {}.", missing.join(", ")))
+}
+
 fn equip_or_use_inventory_item(c: &mut Character, index: usize) {
     if index >= c.inventory.len() {
         pause("No item in that slot.");
         return;
     }
     let selected = c.inventory.remove(index);
+    if matches!(
+        selected.kind,
+        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+    ) {
+        if let Some(message) = unmet_requirements_message(c, &selected) {
+            c.inventory.insert(index, selected);
+            pause(&message);
+            return;
+        }
+    }
     match selected.kind {
         ItemKind::Weapon => {
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
@@ -3166,6 +3320,72 @@ mod tests {
                 .iter()
                 .any(|item| item.name.starts_with("Rusted Sword"))
         );
+    }
+
+    #[test]
+    fn item_requirements_gate_equipping() {
+        let c = test_character();
+        let high_level_axe = item_with_rarity(
+            "Test Axe",
+            ItemKind::Weapon,
+            100,
+            8,
+            10,
+            0,
+            0,
+            -1,
+            Rarity::Rare,
+            5,
+            10,
+            0,
+            0,
+        );
+
+        assert!(!can_equip_item(&c, &high_level_axe));
+        assert!(
+            unmet_requirements_message(&c, &high_level_axe)
+                .unwrap()
+                .contains("STR")
+        );
+    }
+
+    #[test]
+    fn higher_level_loot_has_higher_requirements_and_stats() {
+        let low = item_with_rarity(
+            "Low Axe",
+            ItemKind::Weapon,
+            60,
+            4,
+            6,
+            0,
+            0,
+            -1,
+            Rarity::Common,
+            1,
+            6,
+            0,
+            0,
+        );
+        let high = item_with_rarity(
+            "High Axe",
+            ItemKind::Weapon,
+            120,
+            8,
+            10,
+            0,
+            0,
+            -1,
+            Rarity::Rare,
+            5,
+            10,
+            0,
+            0,
+        );
+
+        assert!(high.item_level > low.item_level);
+        assert!(high.damage_max > low.damage_max);
+        assert!(high.required_strength > low.required_strength);
+        assert!(item_summary(&high).contains("ilvl 5"));
     }
 
     #[test]
