@@ -207,7 +207,7 @@ x          = drop selected item
 Esc        = back
 ```
 
-Merchant selling uses the same pageless cursor pattern:
+Merchant selling uses the same pageless cursor pattern and sells immediately without a continue prompt:
 
 ```text
 ↑/↓ or w/s = select item
@@ -215,7 +215,7 @@ Enter      = sell selected item
 Esc        = back
 ```
 
-Stash uses two cursor lists:
+Stash uses two cursor lists and moves items immediately without a continue prompt:
 
 ```text
 ↑/↓ or w/s = select item

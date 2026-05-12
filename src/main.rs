@@ -525,6 +525,8 @@ fn merchant(c: &mut Character) {
         println!("Health Potion: 15 gold");
         println!("Mana Potion: 15 gold");
         println!("Selling gives 25% of item value.");
+        println!();
+        print_inventory_preview(c, inventory_visible_rows(9));
         print_footer(&[&format!(
             "{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell selected item  {RED}Esc{RESET}=back"
         )]);
@@ -578,14 +580,18 @@ fn buy_item(c: &mut Character, item: Item) {
 
 fn sell_item_screen(c: &mut Character) {
     let mut selected = 0usize;
+    let mut message = String::new();
     loop {
         clamp_selection(&mut selected, c.inventory.len());
         clear_screen();
         println!("{BOLD}{YELLOW}Sell Items{RESET} - Gold {}", c.gold);
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         if c.inventory.is_empty() {
             println!("Inventory is empty.");
         } else {
-            print_inventory_list(c, selected, inventory_visible_rows(7));
+            print_inventory_list(c, selected, inventory_visible_rows(8));
             let item = &c.inventory[selected];
             println!();
             println!("Selected: {}", item_summary(item));
@@ -604,13 +610,13 @@ fn sell_item_screen(c: &mut Character) {
             }
             '\n' => {
                 if c.inventory.is_empty() {
-                    pause("Inventory is empty.");
+                    message = "Inventory is empty.".to_string();
                     continue;
                 }
                 let item = c.inventory.remove(selected);
                 let sell_value = item.value / 4;
                 c.gold += sell_value;
-                pause(&format!("Sold {} for {} gold.", item.name, sell_value));
+                message = format!("Sold {} for {} gold.", item.name, sell_value);
             }
             _ => pause("Unknown sell command."),
         }
@@ -621,6 +627,7 @@ fn stash_menu(c: &mut Character) {
     let mut side = StashSide::Inventory;
     let mut inv_selected = 0usize;
     let mut stash_selected = 0usize;
+    let mut message = String::new();
     loop {
         clamp_selection(&mut inv_selected, c.inventory.len());
         clamp_selection(&mut stash_selected, c.stash.len());
@@ -631,6 +638,9 @@ fn stash_menu(c: &mut Character) {
             c.inventory.len(),
             c.stash.len()
         );
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         println!();
         let visible_rows = (inventory_visible_rows(12) / 2).max(4);
         print_stash_column(
@@ -670,14 +680,16 @@ fn stash_menu(c: &mut Character) {
                     }
                 }
             },
-            '\n' => match side {
-                StashSide::Inventory => {
-                    move_selected(&mut c.inventory, &mut c.stash, inv_selected, "Stored")
-                }
-                StashSide::Stash => {
-                    move_selected(&mut c.stash, &mut c.inventory, stash_selected, "Retrieved")
-                }
-            },
+            '\n' => {
+                message = match side {
+                    StashSide::Inventory => {
+                        move_selected(&mut c.inventory, &mut c.stash, inv_selected, "Stored")
+                    }
+                    StashSide::Stash => {
+                        move_selected(&mut c.stash, &mut c.inventory, stash_selected, "Retrieved")
+                    }
+                };
+            }
             _ => pause("Unknown stash command."),
         }
     }
@@ -698,16 +710,16 @@ impl StashSide {
     }
 }
 
-fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &str) {
+fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &str) -> String {
     if from.is_empty() {
-        pause("Nothing to move.");
+        "Nothing to move.".to_string()
     } else if index >= from.len() {
-        pause("No item selected.");
+        "No item selected.".to_string()
     } else {
         let item = from.remove(index);
         let msg = format!("{} {}.", verb, item.name);
         to.push(item);
-        pause(&msg);
+        msg
     }
 }
 
@@ -1941,6 +1953,24 @@ fn inventory_screen(c: &mut Character) {
     }
 }
 
+fn print_inventory_preview(c: &Character, max_rows: usize) {
+    println!("{BOLD}Your Inventory{RESET} ({})", c.inventory.len());
+    if c.inventory.is_empty() {
+        println!("  Empty");
+        return;
+    }
+    let max_rows = max_rows.max(1);
+    for item in c.inventory.iter().take(max_rows) {
+        println!("  {}", item_summary(item));
+    }
+    if c.inventory.len() > max_rows {
+        println!(
+            "  ...{} more. Open sell to browse all.",
+            c.inventory.len() - max_rows
+        );
+    }
+}
+
 fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
     let total = c.inventory.len();
     let max_rows = max_rows.max(1);
@@ -2180,4 +2210,181 @@ fn pause(message: &str) {
 fn clear_screen() {
     print!("\x1B[2J\x1B[1;1H");
     let _ = io::stdout().flush();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_character() -> Character {
+        Character::new("Tester".to_string(), DeathMode::Softcore)
+    }
+
+    #[test]
+    fn new_ironbound_matches_mvp_starting_state() {
+        let c = test_character();
+
+        assert_eq!(c.class_name, "Ironbound");
+        assert_eq!(c.level, 1);
+        assert_eq!(c.gold, 50);
+        assert_eq!((c.strength, c.dexterity, c.intelligence), (6, 3, 1));
+        assert_eq!(c.max_hp(), 40);
+        assert_eq!(c.max_mana(), 15);
+        assert_eq!(c.hp, c.max_hp());
+        assert_eq!(c.mana, c.max_mana());
+        assert_eq!(c.inventory.len(), 3);
+        assert_eq!(c.equipped_weapon.damage_min, 3);
+        assert_eq!(c.equipped_weapon.damage_max, 5);
+        assert_eq!(c.armor(), 4); // cloth 1 + shield 1 + Iron Guard 2
+        assert!(!c.bellkeeper_defeated);
+        assert!(!c.act1_completed);
+    }
+
+    #[test]
+    fn leveling_doubles_xp_requirements_and_grants_points() {
+        let mut c = test_character();
+
+        add_xp(&mut c, 10);
+        assert_eq!(c.level, 2);
+        assert_eq!(c.xp, 0);
+        assert_eq!(c.unspent_attributes, 3);
+        assert_eq!(c.unspent_skills, 1);
+
+        add_xp(&mut c, 20);
+        assert_eq!(c.level, 3);
+        assert_eq!(c.xp, 0);
+        assert_eq!(c.unspent_attributes, 6);
+        assert_eq!(c.unspent_skills, 2);
+    }
+
+    #[test]
+    fn skill_rank_scaling_matches_design() {
+        assert_eq!(cleave_percent_for_rank(1), 80);
+        assert_eq!(cleave_percent_for_rank(5), 120);
+        assert_eq!(shield_bash_percent_for_rank(1), 70);
+        assert_eq!(shield_bash_percent_for_rank(5), 110);
+        assert_eq!(battle_cry_bonus_percent_for_rank(1), 20);
+        assert_eq!(battle_cry_bonus_percent_for_rank(5), 40);
+        assert_eq!(next_skill_rank(5), 5);
+    }
+
+    #[test]
+    fn cursor_helpers_keep_selection_in_bounds_without_pages() {
+        assert_eq!(scroll_offset(0, 20, 5), 0);
+        assert_eq!(scroll_offset(4, 20, 5), 0);
+        assert_eq!(scroll_offset(5, 20, 5), 1);
+        assert_eq!(scroll_offset(19, 20, 5), 15);
+
+        let mut selected = 9;
+        clamp_selection(&mut selected, 3);
+        assert_eq!(selected, 2);
+        clamp_selection(&mut selected, 0);
+        assert_eq!(selected, 0);
+    }
+
+    #[test]
+    fn stash_move_selected_moves_requested_item_immediately() {
+        let mut inventory = vec![health_potion(), mana_potion(), crude_axe()];
+        let mut stash = Vec::new();
+
+        let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
+
+        assert!(message.starts_with("Stored Mana Potion"));
+        assert_eq!(inventory.len(), 2);
+        assert_eq!(stash.len(), 1);
+        assert!(matches!(stash[0].kind, ItemKind::ManaPotion));
+        assert!(matches!(inventory[0].kind, ItemKind::HealthPotion));
+        assert!(matches!(inventory[1].kind, ItemKind::Weapon));
+    }
+
+    #[test]
+    fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
+        let mut c = test_character();
+        c.inventory.push(crude_axe());
+        let index = c.inventory.len() - 1;
+
+        equip_or_use_inventory_item(&mut c, index);
+
+        assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
+        assert!(c
+            .inventory
+            .iter()
+            .any(|item| item.name.starts_with("Rusted Sword")));
+    }
+
+    #[test]
+    fn dungeon_generation_obeys_floor_content_rules() {
+        for floor in 1..=3 {
+            let d = generate_dungeon(floor);
+            assert_eq!(d.floor, floor);
+            assert_eq!(d.tiles.len(), (MAP_W * MAP_H) as usize);
+            assert_eq!(dungeon_tile(&d, d.player_x, d.player_y), '.');
+            assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
+            assert!((1..=3).contains(&d.chests.len()));
+            assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
+            assert!(d
+                .chests
+                .iter()
+                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
+        }
+
+        let floor2 = generate_dungeon(2);
+        assert!(floor2.enemies.iter().any(|e| e.glyph == 'E'));
+
+        let floor3 = generate_dungeon(3);
+        assert!(floor3
+            .enemies
+            .iter()
+            .any(|e| e.is_boss && e.name == "Bellkeeper"));
+    }
+
+    #[test]
+    fn stairs_advance_floors_but_floor_three_requires_boss() {
+        let mut c = test_character();
+        c.active_dungeon = Some(generate_dungeon(1));
+        {
+            let d = c.active_dungeon.as_mut().unwrap();
+            d.player_x = d.stairs_x;
+            d.player_y = d.stairs_y;
+        }
+        use_stairs(&mut c);
+        assert_eq!(c.active_dungeon.as_ref().unwrap().floor, 2);
+
+        c.active_dungeon = Some(generate_dungeon(3));
+        {
+            let d = c.active_dungeon.as_mut().unwrap();
+            d.player_x = d.stairs_x;
+            d.player_y = d.stairs_y;
+        }
+        use_stairs(&mut c);
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.floor, 3);
+        assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+    }
+
+    #[test]
+    fn potion_hotkey_consumes_one_health_potion_and_caps_healing() {
+        let mut c = test_character();
+        c.active_dungeon = Some(generate_dungeon(1));
+        c.hp = 1;
+        let starting_potions = c
+            .inventory
+            .iter()
+            .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
+            .count();
+
+        use_potion(&mut c);
+
+        let ending_potions = c
+            .inventory
+            .iter()
+            .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
+            .count();
+        assert_eq!(ending_potions, starting_potions - 1);
+        assert_eq!(c.hp, 1 + c.max_hp() / 4);
+
+        c.hp = c.max_hp() - 1;
+        use_potion(&mut c);
+        assert_eq!(c.hp, c.max_hp());
+    }
 }
