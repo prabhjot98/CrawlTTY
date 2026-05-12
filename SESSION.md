@@ -148,6 +148,7 @@ XP requirement starts at 10 and doubles each level
 - Hit chance uses `hit / (hit + dodge)` clamped between 20% and 95%
 - Weapon damage comes from equipped weapon stats
 - Armor reduces incoming damage
+- Cultists use ranged shadow bolts from 2-5 tiles away when the player is in a clear cardinal line of sight
 
 ### Skills
 
@@ -298,7 +299,7 @@ cargo test
 cargo check
 ```
 
-Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, and potion use.
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, cultist ranged attacks, and potion use.
 
 Rust dependencies:
 
@@ -326,7 +327,6 @@ cargo run -- reset-save
 
 1. Test full MVP run from fresh save through Bellkeeper and Act I turn-in.
 2. Improve enemy variety:
-   - Cultists ranged attack
    - Boneguards guard/block
    - Elite modifiers
 3. Polish Bellkeeper boss mechanics:

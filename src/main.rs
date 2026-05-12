@@ -1668,21 +1668,9 @@ fn enemy_turns(c: &mut Character) {
         }
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
-            let mut rng = rand::thread_rng();
-            if hit_roll(25, c.dodge_rating() as i32) {
-                let raw = rng.gen_range(d.enemies[i].damage_min..=d.enemies[i].damage_max);
-                let cry_penalty = if c.battle_cry_turns > 0 { 0.90 } else { 1.0 };
-                let damage = (((raw - c.armor()).max(1) as f32) * cry_penalty)
-                    .round()
-                    .max(1.0) as u32;
-                c.hp = c.hp.saturating_sub(damage);
-                d.log.push(format!(
-                    "{} hits you for {} damage.",
-                    d.enemies[i].name, damage
-                ));
-            } else {
-                d.log.push(format!("{} misses you.", d.enemies[i].name));
-            }
+            enemy_melee_attack(c, &mut d, i);
+        } else if can_cultist_ranged_attack(&d, i) {
+            cultist_shadow_bolt(c, &mut d, i);
         } else if dist < 8 {
             let old = (d.enemies[i].x, d.enemies[i].y);
             let step_x = (d.player_x - d.enemies[i].x).signum();
@@ -1707,6 +1695,76 @@ fn enemy_turns(c: &mut Character) {
     }
     d.enemies.retain(|e| e.hp > 0);
     c.active_dungeon = Some(d);
+}
+
+fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
+    let mut rng = rand::thread_rng();
+    let enemy = &d.enemies[enemy_index];
+    if hit_roll(25, c.dodge_rating() as i32) {
+        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max);
+        let damage = enemy_damage_after_mitigation(raw, c);
+        c.hp = c.hp.saturating_sub(damage);
+        d.log
+            .push(format!("{} hits you for {} damage.", enemy.name, damage));
+    } else {
+        d.log.push(format!("{} misses you.", enemy.name));
+    }
+}
+
+fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
+    let enemy = &d.enemies[enemy_index];
+    if enemy.glyph != 'c' {
+        return false;
+    }
+    let dx = (enemy.x - d.player_x).abs();
+    let dy = (enemy.y - d.player_y).abs();
+    let dist = dx + dy;
+    (2..=5).contains(&dist)
+        && (dx == 0 || dy == 0)
+        && clear_cardinal_line(d, enemy.x, enemy.y, d.player_x, d.player_y)
+}
+
+fn clear_cardinal_line(d: &Dungeon, from_x: i32, from_y: i32, to_x: i32, to_y: i32) -> bool {
+    if from_x != to_x && from_y != to_y {
+        return false;
+    }
+    let step_x = (to_x - from_x).signum();
+    let step_y = (to_y - from_y).signum();
+    let mut x = from_x + step_x;
+    let mut y = from_y + step_y;
+    while (x, y) != (to_x, to_y) {
+        if dungeon_tile(d, x, y) == '#' {
+            return false;
+        }
+        x += step_x;
+        y += step_y;
+    }
+    true
+}
+
+fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
+    let mut rng = rand::thread_rng();
+    let enemy = &d.enemies[enemy_index];
+    d.log.push(format!("{} hurls a shadow bolt.", enemy.name));
+    if hit_roll(30, c.dodge_rating() as i32) {
+        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max + 1);
+        let damage = enemy_damage_after_mitigation(raw, c);
+        c.hp = c.hp.saturating_sub(damage);
+        d.log.push(format!(
+            "{}'s shadow bolt hits you for {} damage.",
+            enemy.name, damage
+        ));
+    } else {
+        d.log
+            .push(format!("{}'s shadow bolt misses you.", enemy.name));
+    }
+}
+
+fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
+    let cry_penalty = if c.battle_cry_turns > 0 { 0.90 } else { 1.0 };
+    (((raw - c.armor()).max(1) as f32) * cry_penalty)
+        .round()
+        .max(1.0) as u32
 }
 
 fn hit_roll(hit: i32, dodge: i32) -> bool {
@@ -2252,6 +2310,20 @@ mod tests {
         Character::new("Tester".to_string(), DeathMode::Softcore)
     }
 
+    fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dungeon {
+        Dungeon {
+            floor: 2,
+            player_x,
+            player_y,
+            stairs_x: MAP_W - 2,
+            stairs_y: MAP_H - 2,
+            enemies,
+            chests: Vec::new(),
+            log: Vec::new(),
+            tiles: vec!['.'; (MAP_W * MAP_H) as usize],
+        }
+    }
+
     #[test]
     fn new_ironbound_matches_mvp_starting_state() {
         let c = test_character();
@@ -2338,11 +2410,10 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(
-            c.inventory
-                .iter()
-                .any(|item| item.name.starts_with("Rusted Sword"))
-        );
+        assert!(c
+            .inventory
+            .iter()
+            .any(|item| item.name.starts_with("Rusted Sword")));
     }
 
     #[test]
@@ -2355,23 +2426,20 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(
-                d.chests
-                    .iter()
-                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
-            );
+            assert!(d
+                .chests
+                .iter()
+                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
         }
 
         let floor2 = generate_dungeon(2);
         assert!(floor2.enemies.iter().any(|e| e.glyph == 'E'));
 
         let floor3 = generate_dungeon(3);
-        assert!(
-            floor3
-                .enemies
-                .iter()
-                .any(|e| e.is_boss && e.name == "Bellkeeper")
-        );
+        assert!(floor3
+            .enemies
+            .iter()
+            .any(|e| e.is_boss && e.name == "Bellkeeper"));
     }
 
     #[test]
@@ -2396,6 +2464,38 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!(d.floor, 3);
         assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+    }
+
+    #[test]
+    fn cultist_uses_shadow_bolt_at_cardinal_range_with_line_of_sight() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![cultist(5, 2)]));
+
+        assert!(can_cultist_ranged_attack(
+            c.active_dungeon.as_ref().unwrap(),
+            0
+        ));
+        enemy_turns(&mut c);
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!((d.enemies[0].x, d.enemies[0].y), (5, 2));
+        assert!(d
+            .log
+            .iter()
+            .any(|line| line.contains("hurls a shadow bolt")));
+    }
+
+    #[test]
+    fn cultist_shadow_bolt_requires_clear_cardinal_line() {
+        let mut d = open_test_dungeon(2, 2, vec![cultist(5, 2)]);
+        d.tiles[tile_index(4, 2)] = '#';
+        assert!(!can_cultist_ranged_attack(&d, 0));
+
+        let mut diagonal = open_test_dungeon(2, 2, vec![cultist(4, 4)]);
+        assert!(!can_cultist_ranged_attack(&diagonal, 0));
+
+        diagonal.enemies[0] = skeleton(5, 2);
+        assert!(!can_cultist_ranged_attack(&diagonal, 0));
     }
 
     #[test]
