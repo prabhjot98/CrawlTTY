@@ -126,6 +126,10 @@ struct Dungeon {
     log: Vec<String>,
     #[serde(default)]
     tiles: Vec<char>,
+    #[serde(default)]
+    bell_wave_tiles: Vec<(i32, i32)>,
+    #[serde(default)]
+    boss_turn_counter: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1321,6 +1325,8 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         chests,
         log: vec![format!("Entered Hollow Crypts floor {}.", floor)],
         tiles,
+        bell_wave_tiles: Vec::new(),
+        boss_turn_counter: 0,
     }
 }
 
@@ -1558,6 +1564,9 @@ fn draw_dungeon(c: &Character) {
             {
                 ch = '$';
             }
+            if d.bell_wave_tiles.contains(&(x, y)) {
+                ch = '*';
+            }
             if let Some(e) = d.enemies.iter().find(|e| e.x == x && e.y == y && e.hp > 0) {
                 ch = e.glyph;
             }
@@ -1644,6 +1653,7 @@ fn print_colored_tile(ch: char) {
         '.' => print!("{DIM}.{RESET}"),
         '>' => print!("{BOLD}{CYAN}>{RESET}"),
         '$' => print!("{BOLD}{YELLOW}${RESET}"),
+        '*' => print!("{BOLD}{MAGENTA}*{RESET}"),
         'r' => print!("{YELLOW}r{RESET}"),
         's' => print!("{WHITE}s{RESET}"),
         'c' => print!("{MAGENTA}c{RESET}"),
@@ -1863,6 +1873,7 @@ fn enemy_turns(c: &mut Character) {
     let Some(mut d) = c.active_dungeon.take() else {
         return;
     };
+    d.bell_wave_tiles.clear();
     let mut occupied: Vec<(i32, i32)> = d
         .enemies
         .iter()
@@ -1894,6 +1905,9 @@ fn enemy_turns(c: &mut Character) {
                 d.enemies[i].name
             ));
             continue;
+        }
+        if d.enemies[i].is_boss {
+            bellkeeper_specials(c, &mut d, i, &mut occupied);
         }
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
@@ -1930,6 +1944,91 @@ fn enemy_turns(c: &mut Character) {
     c.active_dungeon = Some(d);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BellkeeperPhase {
+    Tolling,
+    CursedBell,
+    Enraged,
+}
+
+fn bellkeeper_phase(enemy: &Enemy) -> BellkeeperPhase {
+    if enemy.hp * 4 <= enemy.max_hp {
+        BellkeeperPhase::Enraged
+    } else if enemy.hp * 10 <= enemy.max_hp * 6 {
+        BellkeeperPhase::CursedBell
+    } else {
+        BellkeeperPhase::Tolling
+    }
+}
+
+fn bellkeeper_specials(
+    c: &mut Character,
+    d: &mut Dungeon,
+    boss_index: usize,
+    occupied: &mut Vec<(i32, i32)>,
+) {
+    d.boss_turn_counter += 1;
+    let phase = bellkeeper_phase(&d.enemies[boss_index]);
+    if phase != BellkeeperPhase::Enraged && d.boss_turn_counter % 3 == 0 {
+        summon_bellkeeper_skeleton(d, boss_index, occupied);
+    }
+    if phase != BellkeeperPhase::Tolling && d.boss_turn_counter % 4 == 0 {
+        bellkeeper_wave(c, d, boss_index);
+    }
+    if phase == BellkeeperPhase::Enraged {
+        d.log.push("The Bellkeeper is enraged!".to_string());
+    }
+}
+
+fn summon_bellkeeper_skeleton(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i32, i32)>) {
+    let summon_count = d
+        .enemies
+        .iter()
+        .filter(|e| e.name == "Summoned Skeleton" && e.hp > 0)
+        .count();
+    if summon_count >= 3 {
+        return;
+    }
+    let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
+    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+        let pos = (boss_x + dx, boss_y + dy);
+        if dungeon_tile(d, pos.0, pos.1) != '#'
+            && pos != (d.player_x, d.player_y)
+            && !occupied.contains(&pos)
+        {
+            let mut summon = skeleton(pos.0, pos.1);
+            summon.name = "Summoned Skeleton".to_string();
+            d.enemies.push(summon);
+            occupied.push(pos);
+            d.log
+                .push("The Bellkeeper tolls, and a skeleton claws free.".to_string());
+            return;
+        }
+    }
+}
+
+fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
+    let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
+    d.bell_wave_tiles.clear();
+    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+        for step in 1..=5 {
+            let pos = (boss_x + dx * step, boss_y + dy * step);
+            if dungeon_tile(d, pos.0, pos.1) == '#' {
+                break;
+            }
+            d.bell_wave_tiles.push(pos);
+        }
+    }
+    d.log
+        .push("The Bellkeeper rings a cursed bell wave!".to_string());
+    if d.bell_wave_tiles.contains(&(d.player_x, d.player_y)) {
+        let damage = enemy_damage_after_mitigation(6, c);
+        c.hp = c.hp.saturating_sub(damage);
+        d.log
+            .push(format!("The bell wave hits you for {damage} damage."));
+    }
+}
+
 fn effective_enemy_armor(enemy: &Enemy) -> i32 {
     enemy.armor
         + if enemy.guarding { 2 } else { 0 }
@@ -1953,7 +2052,9 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
     if hit_roll(25, c.dodge_rating() as i32) {
-        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max) + elite_damage_bonus(enemy);
+        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max)
+            + elite_damage_bonus(enemy)
+            + bellkeeper_enrage_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
         d.log
@@ -2012,6 +2113,14 @@ fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     } else {
         d.log
             .push(format!("{}'s shadow bolt misses you.", enemy.name));
+    }
+}
+
+fn bellkeeper_enrage_damage_bonus(enemy: &Enemy) -> i32 {
+    if enemy.is_boss && bellkeeper_phase(enemy) == BellkeeperPhase::Enraged {
+        2
+    } else {
+        0
     }
 }
 
@@ -2608,6 +2717,8 @@ mod tests {
             chests: Vec::new(),
             log: Vec::new(),
             tiles: vec!['.'; (MAP_W * MAP_H) as usize],
+            bell_wave_tiles: Vec::new(),
+            boss_turn_counter: 0,
         }
     }
 
@@ -2751,10 +2862,11 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(c
-            .inventory
-            .iter()
-            .any(|item| item.name.starts_with("Rusted Sword")));
+        assert!(
+            c.inventory
+                .iter()
+                .any(|item| item.name.starts_with("Rusted Sword"))
+        );
     }
 
     #[test]
@@ -2767,10 +2879,11 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(d
-                .chests
-                .iter()
-                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
+            assert!(
+                d.chests
+                    .iter()
+                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
+            );
         }
 
         let floor2 = generate_dungeon(2);
@@ -2778,10 +2891,12 @@ mod tests {
         assert!(elite.elite_modifier.is_some());
 
         let floor3 = generate_dungeon(3);
-        assert!(floor3
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Bellkeeper"));
+        assert!(
+            floor3
+                .enemies
+                .iter()
+                .any(|e| e.is_boss && e.name == "Bellkeeper")
+        );
     }
 
     #[test]
@@ -2890,10 +3005,11 @@ mod tests {
 
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!((d.enemies[0].x, d.enemies[0].y), (5, 2));
-        assert!(d
-            .log
-            .iter()
-            .any(|line| line.contains("hurls a shadow bolt")));
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("hurls a shadow bolt"))
+        );
     }
 
     #[test]
@@ -2907,6 +3023,52 @@ mod tests {
 
         diagonal.enemies[0] = skeleton(5, 2);
         assert!(!can_cultist_ranged_attack(&diagonal, 0));
+    }
+
+    #[test]
+    fn bellkeeper_phase_and_enrage_damage_follow_health_thresholds() {
+        let mut boss = bellkeeper(5, 5);
+        assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::Tolling);
+        boss.hp = 36;
+        assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::CursedBell);
+        boss.hp = 15;
+        assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::Enraged);
+        assert_eq!(bellkeeper_enrage_damage_bonus(&boss), 2);
+    }
+
+    #[test]
+    fn bellkeeper_summons_skeletons_with_cap() {
+        let mut d = open_test_dungeon(2, 2, vec![bellkeeper(5, 5)]);
+        let mut occupied = vec![(5, 5)];
+
+        for _ in 0..5 {
+            summon_bellkeeper_skeleton(&mut d, 0, &mut occupied);
+        }
+
+        let summons = d
+            .enemies
+            .iter()
+            .filter(|e| e.name == "Summoned Skeleton")
+            .count();
+        assert_eq!(summons, 3);
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("skeleton claws free"))
+        );
+    }
+
+    #[test]
+    fn bellkeeper_wave_marks_map_tiles_and_damages_player_in_line() {
+        let mut c = test_character();
+        c.hp = c.max_hp();
+        let mut d = open_test_dungeon(7, 5, vec![bellkeeper(5, 5)]);
+
+        bellkeeper_wave(&mut c, &mut d, 0);
+
+        assert!(d.bell_wave_tiles.contains(&(7, 5)));
+        assert!(c.hp < c.max_hp());
+        assert!(d.log.iter().any(|line| line.contains("bell wave hits")));
     }
 
     #[test]

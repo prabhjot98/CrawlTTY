@@ -300,7 +300,16 @@ c = cultist
 b = boneguard
 E = elite enemy
 B = Bellkeeper boss
+* = Bellkeeper bell wave
 ```
+
+### Bellkeeper Boss Mechanics
+
+- Phase 1 / Tolling, 100%-61% health: melee and skeleton summons every 3 boss turns.
+- Phase 2 / Cursed Bell, 60%-26% health: keeps summoning and rings a cardinal bell wave every 4 boss turns.
+- Phase 3 / Enraged, 25% health or lower: gains +2 melee damage, stops summoning, and continues bell waves.
+- Bell waves appear on the map as `*` for the next redraw and damage the player if they are in the wave path.
+- Skeleton summons are capped at 3 active summoned skeletons.
 
 ## Current Technical Notes
 
@@ -311,7 +320,7 @@ cargo test
 cargo check
 ```
 
-Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, blacksmith salvage/upgrades, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, and potion use.
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, blacksmith salvage/upgrades, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, Bellkeeper phases/summons/waves, and potion use.
 
 Rust dependencies:
 
@@ -338,10 +347,9 @@ cargo run -- reset-save
 ## Recommended Next Tasks
 
 1. Test full MVP run from fresh save through Bellkeeper and Act I turn-in.
-2. Polish Bellkeeper boss mechanics:
-   - phase behavior
-   - skeleton summons
-   - bell-wave attack / cover pillars
+2. Polish Bellkeeper boss room:
+   - cover pillars / wall chunks that can block bell waves
+   - balance summon/wave timing and boss damage
 3. Expand skill tree:
    - upgrade Deep Cut
    - upgrade Iron Guard
