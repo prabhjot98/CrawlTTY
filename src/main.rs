@@ -130,6 +130,8 @@ struct Dungeon {
     bell_wave_tiles: Vec<(i32, i32)>,
     #[serde(default)]
     boss_turn_counter: u32,
+    #[serde(default)]
+    log_turn: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1327,6 +1329,7 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         tiles,
         bell_wave_tiles: Vec::new(),
         boss_turn_counter: 0,
+        log_turn: 0,
     }
 }
 
@@ -1506,8 +1509,11 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
         draw_dungeon(c);
         print_skill_help(c);
         print_dungeon_footer();
+        let key = read_key_char();
+        let before_log_len = current_dungeon_log_len(c);
+        let action_label = dungeon_action_label(key);
         let mut took_turn = false;
-        match read_key_char() {
+        match key {
             'w' | 'W' => took_turn = try_move(c, 0, -1),
             's' | 'S' => took_turn = try_move(c, 0, 1),
             'a' | 'A' => took_turn = try_move(c, -1, 0),
@@ -1527,6 +1533,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
             }
             _ => pause("Unknown dungeon command."),
         }
+        mark_latest_log_group(c, before_log_len, took_turn, action_label);
         if took_turn && c.active_dungeon.is_some() {
             tick_player_effects(c);
             enemy_turns(c);
@@ -1577,9 +1584,105 @@ fn draw_dungeon(c: &Character) {
         }
         println!();
     }
-    println!("{BOLD}--- Log ---{RESET}");
-    for msg in d.log.iter().rev().take(6).rev() {
-        println!("{msg}");
+    print_combat_log(d);
+}
+
+fn current_dungeon_log_len(c: &Character) -> usize {
+    c.active_dungeon
+        .as_ref()
+        .map(|d| d.log.len())
+        .unwrap_or_default()
+}
+
+fn dungeon_action_label(key: char) -> &'static str {
+    match key {
+        'w' | 'W' => "Move north / attack",
+        's' | 'S' => "Move south / attack",
+        'a' | 'A' => "Move west / attack",
+        'd' | 'D' => "Move east / attack",
+        '1' => "Cleave",
+        '2' => "Shield Bash",
+        '3' => "Battle Cry",
+        'p' | 'P' => "Drink potion",
+        _ => "Command",
+    }
+}
+
+fn mark_latest_log_group(
+    c: &mut Character,
+    before_log_len: usize,
+    took_turn: bool,
+    action_label: &'static str,
+) {
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return;
+    };
+    if d.log.len() < before_log_len || (!took_turn && d.log.len() == before_log_len) {
+        return;
+    }
+    let header = if took_turn {
+        d.log_turn += 1;
+        format!("== Turn {}: {} ==", d.log_turn, action_label)
+    } else {
+        format!("== No turn spent: {action_label} ==")
+    };
+    d.log.insert(before_log_len, header);
+    trim_dungeon_log(&mut d.log);
+}
+
+fn trim_dungeon_log(log: &mut Vec<String>) {
+    const MAX_LOG_LINES: usize = 120;
+    if log.len() > MAX_LOG_LINES {
+        let remove_count = log.len() - MAX_LOG_LINES;
+        log.drain(0..remove_count);
+    }
+}
+
+fn print_combat_log(d: &Dungeon) {
+    const MAX_LOG_LINES_ON_SCREEN: usize = 8;
+    println!("{BOLD}--- Combat Log: latest command ---{RESET}");
+
+    let Some(latest_header) = d.log.iter().rposition(|line| is_log_header(line)) else {
+        for msg in d.log.iter().rev().take(MAX_LOG_LINES_ON_SCREEN).rev() {
+            print_log_line(msg, false);
+        }
+        return;
+    };
+
+    let current = &d.log[latest_header..];
+    let current_start = current.len().saturating_sub(MAX_LOG_LINES_ON_SCREEN);
+    for msg in &current[current_start..] {
+        print_log_line(msg, true);
+    }
+
+    let printed_current = current.len().min(MAX_LOG_LINES_ON_SCREEN);
+    let remaining = MAX_LOG_LINES_ON_SCREEN.saturating_sub(printed_current);
+    if remaining > 1 && latest_header > 0 {
+        println!("{DIM}--- Previous ---{RESET}");
+        let previous_count = remaining - 1;
+        let previous_start = latest_header.saturating_sub(previous_count);
+        for msg in &d.log[previous_start..latest_header] {
+            print_log_line(msg, false);
+        }
+    }
+}
+
+fn is_log_header(line: &str) -> bool {
+    line.starts_with("== ") && line.ends_with(" ==")
+}
+
+fn print_log_line(line: &str, current_group: bool) {
+    if is_log_header(line) {
+        let color = if line.contains("No turn spent") {
+            YELLOW
+        } else {
+            CYAN
+        };
+        println!("{BOLD}{color}{line}{RESET}");
+    } else if current_group {
+        println!("  {line}");
+    } else {
+        println!("{DIM}  {line}{RESET}");
     }
 }
 
@@ -2735,7 +2838,37 @@ mod tests {
             tiles: vec!['.'; (MAP_W * MAP_H) as usize],
             bell_wave_tiles: Vec::new(),
             boss_turn_counter: 0,
+            log_turn: 0,
         }
+    }
+
+    #[test]
+    fn dungeon_log_groups_turns_even_when_action_has_no_message() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+        let before = current_dungeon_log_len(&c);
+        assert!(try_move(&mut c, 1, 0));
+        mark_latest_log_group(&mut c, before, true, "Move east / attack");
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.log_turn, 1);
+        assert_eq!(d.log, vec!["== Turn 1: Move east / attack =="]);
+    }
+
+    #[test]
+    fn dungeon_log_labels_failed_commands_as_no_turn_spent() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+        let before = current_dungeon_log_len(&c);
+        assert!(!use_cleave(&mut c));
+        mark_latest_log_group(&mut c, before, false, "Cleave");
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.log_turn, 0);
+        assert_eq!(d.log[0], "== No turn spent: Cleave ==");
+        assert_eq!(d.log[1], "No adjacent enemies for Cleave.");
     }
 
     #[test]
