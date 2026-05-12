@@ -136,7 +136,7 @@ Intelligence => +5 mana per point
 Leveling:
 
 ```text
-XP requirement starts at 10 and doubles each level
+XP requirement starts at 40 and doubles each level
 +3 attribute points per level
 +1 skill point per level
 ```

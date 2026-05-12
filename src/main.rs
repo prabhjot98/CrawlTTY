@@ -2730,7 +2730,7 @@ fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
     let mut levels_gained = Vec::new();
     c.xp += amount;
     loop {
-        let needed = 10 * 2u32.pow(c.level - 1);
+        let needed = xp_required_for_next_level(c.level);
         if c.xp < needed {
             break;
         }
@@ -2743,6 +2743,10 @@ fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
         c.mana = c.max_mana();
     }
     levels_gained
+}
+
+fn xp_required_for_next_level(current_level: u32) -> u32 {
+    40 * 2u32.pow(current_level - 1)
 }
 
 fn auto_interact_tile(c: &mut Character) {
@@ -3349,14 +3353,22 @@ mod tests {
     fn leveling_doubles_xp_requirements_and_grants_points() {
         let mut c = test_character();
 
-        let levels_gained = add_xp(&mut c, 10);
+        assert_eq!(xp_required_for_next_level(1), 40);
+        assert_eq!(xp_required_for_next_level(2), 80);
+
+        let levels_gained = add_xp(&mut c, 39);
+        assert!(levels_gained.is_empty());
+        assert_eq!(c.level, 1);
+        assert_eq!(c.xp, 39);
+
+        let levels_gained = add_xp(&mut c, 1);
         assert_eq!(levels_gained, vec![2]);
         assert_eq!(c.level, 2);
         assert_eq!(c.xp, 0);
         assert_eq!(c.unspent_attributes, 3);
         assert_eq!(c.unspent_skills, 1);
 
-        let levels_gained = add_xp(&mut c, 20);
+        let levels_gained = add_xp(&mut c, 80);
         assert_eq!(levels_gained, vec![3]);
         assert_eq!(c.level, 3);
         assert_eq!(c.xp, 0);

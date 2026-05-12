@@ -262,8 +262,8 @@ Example skills:
 ### Levels
 
 - Gain XP from monsters, quests, and events.
-- Level XP starts at 10 XP for level 2 and doubles every level after that.
-- Example XP requirements: level 2 = 10 XP, level 3 = 20 XP, level 4 = 40 XP, level 5 = 80 XP.
+- Level XP starts at 40 XP for level 2 and doubles every level after that.
+- Example XP requirements: level 2 = 40 XP, level 3 = 80 XP, level 4 = 160 XP, level 5 = 320 XP.
 - On level up, gain 3 attribute points and 1 skill point.
 - Attribute points improve Strength, Dexterity, or Intelligence.
 - Skill points unlock or improve abilities.
@@ -1078,7 +1078,7 @@ design.md
 - Intelligence gives +5 mana per point.
 - Hit chance uses `hit / (hit + dodge)` and is clamped between 20% and 95%.
 - Item damage scales from item base damage plus attribute scaling grades: F, D, C, B, A, S.
-- XP required to level starts at 10 and doubles each level.
+- XP required to level starts at 40 and doubles each level.
 - Each level gives 3 attribute points and 1 skill point.
 - The player starts with 2 health potions and 1 mana potion.
 - MVP includes both health potions and mana potions.
