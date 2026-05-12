@@ -163,6 +163,12 @@ struct Character {
     shield_bash_rank: u32,
     #[serde(default = "default_skill_rank")]
     battle_cry_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    deep_cut_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    iron_guard_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    second_wind_rank: u32,
     hp: u32,
     mana: u32,
     inventory: Vec<Item>,
@@ -221,6 +227,9 @@ impl Character {
             cleave_rank: 1,
             shield_bash_rank: 1,
             battle_cry_rank: 1,
+            deep_cut_rank: 1,
+            iron_guard_rank: 1,
+            second_wind_rank: 1,
             hp: max_hp,
             mana: max_mana,
             inventory: vec![health_potion(), health_potion(), mana_potion()],
@@ -262,8 +271,7 @@ impl Character {
             .max(1) as u32
     }
     fn armor(&self) -> i32 {
-        // Iron Guard passive MVP: +2 armor while using a shield.
-        self.equipped_armor.armor + self.equipped_shield.armor + 2
+        self.equipped_armor.armor + self.equipped_shield.armor + iron_guard_armor_bonus(self)
     }
     fn weapon_damage(&self) -> (i32, i32) {
         (
@@ -1215,6 +1223,20 @@ fn skill_tree_menu(c: &mut Character) {
             cleave_percent_for_rank(next_skill_rank(c.cleave_rank)),
             "% weapon damage",
         );
+        print_skill_upgrade_preview(
+            '4',
+            "Deep Cut",
+            c.deep_cut_rank,
+            "passive melee bleed chance and damage; requires Cleave rank 2 for upgrades",
+            deep_cut_chance_for_rank(c.deep_cut_rank),
+            deep_cut_chance_for_rank(next_skill_rank(c.deep_cut_rank)),
+            "% bleed chance",
+        );
+        println!(
+            "   Bleed damage: {} now, {} next.",
+            deep_cut_damage_for_rank(c.deep_cut_rank),
+            deep_cut_damage_for_rank(next_skill_rank(c.deep_cut_rank))
+        );
         println!("{BOLD}Defense Branch{RESET}");
         print_skill_upgrade_preview(
             '2',
@@ -1224,6 +1246,15 @@ fn skill_tree_menu(c: &mut Character) {
             shield_bash_percent_for_rank(c.shield_bash_rank),
             shield_bash_percent_for_rank(next_skill_rank(c.shield_bash_rank)),
             "% weapon damage",
+        );
+        print_skill_upgrade_preview(
+            '5',
+            "Iron Guard",
+            c.iron_guard_rank,
+            "passive armor while using a shield; requires Shield Bash rank 2 for upgrades",
+            iron_guard_armor_bonus_for_rank(c.iron_guard_rank) as u32,
+            iron_guard_armor_bonus_for_rank(next_skill_rank(c.iron_guard_rank)) as u32,
+            " armor",
         );
         println!("{BOLD}Warcry Branch{RESET}");
         print_skill_upgrade_preview(
@@ -1235,15 +1266,29 @@ fn skill_tree_menu(c: &mut Character) {
             battle_cry_bonus_percent_for_rank(next_skill_rank(c.battle_cry_rank)),
             "% bonus damage",
         );
+        print_skill_upgrade_preview(
+            '6',
+            "Second Wind",
+            c.second_wind_rank,
+            "passive heal on kill while Battle Cry is active; requires Battle Cry rank 2 for upgrades",
+            second_wind_heal_percent_for_rank(c.second_wind_rank),
+            second_wind_heal_percent_for_rank(next_skill_rank(c.second_wind_rank)),
+            "% max HP heal",
+        );
         println!();
-        println!("Each upgrade costs 1 skill point. Max rank is 5.");
+        println!(
+            "Each upgrade costs 1 skill point. Max rank is 5. Passive upgrades require rank 2 in their branch starter."
+        );
         print_footer(&[&format!(
-            "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=upgrade Cleave  {GREEN}2{RESET}=upgrade Shield Bash  {GREEN}3{RESET}=upgrade Battle Cry  {RED}Esc{RESET}=back"
+            "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
             '1' => upgrade_skill(c, "Cleave"),
             '2' => upgrade_skill(c, "Shield Bash"),
             '3' => upgrade_skill(c, "Battle Cry"),
+            '4' => upgrade_skill(c, "Deep Cut"),
+            '5' => upgrade_skill(c, "Iron Guard"),
+            '6' => upgrade_skill(c, "Second Wind"),
             '\u{1b}' => break,
             _ => pause("Unknown action."),
         }
@@ -1276,20 +1321,53 @@ fn upgrade_skill(c: &mut Character, skill: &str) {
         pause("No unspent skill points.");
         return;
     }
-    let rank = match skill {
-        "Cleave" => &mut c.cleave_rank,
-        "Shield Bash" => &mut c.shield_bash_rank,
-        "Battle Cry" => &mut c.battle_cry_rank,
-        _ => return,
-    };
-    if *rank >= 5 {
+    if skill_rank(c, skill) >= 5 {
         pause("That skill is already at max rank.");
         return;
     }
-    *rank += 1;
+    if let Some(requirement) = unmet_skill_prerequisite(c, skill) {
+        pause(&requirement);
+        return;
+    }
+    match skill {
+        "Cleave" => c.cleave_rank += 1,
+        "Shield Bash" => c.shield_bash_rank += 1,
+        "Battle Cry" => c.battle_cry_rank += 1,
+        "Deep Cut" => c.deep_cut_rank += 1,
+        "Iron Guard" => c.iron_guard_rank += 1,
+        "Second Wind" => c.second_wind_rank += 1,
+        _ => return,
+    }
     c.unspent_skills -= 1;
     // Do not pause here: immediately return to the skill tree loop so the
     // upgraded rank and next-rank preview redraw right away.
+}
+
+fn skill_rank(c: &Character, skill: &str) -> u32 {
+    match skill {
+        "Cleave" => c.cleave_rank,
+        "Shield Bash" => c.shield_bash_rank,
+        "Battle Cry" => c.battle_cry_rank,
+        "Deep Cut" => c.deep_cut_rank,
+        "Iron Guard" => c.iron_guard_rank,
+        "Second Wind" => c.second_wind_rank,
+        _ => 5,
+    }
+}
+
+fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
+    match skill {
+        "Deep Cut" if c.cleave_rank < 2 => {
+            Some("Deep Cut upgrades require Cleave rank 2.".to_string())
+        }
+        "Iron Guard" if c.shield_bash_rank < 2 => {
+            Some("Iron Guard upgrades require Shield Bash rank 2.".to_string())
+        }
+        "Second Wind" if c.battle_cry_rank < 2 => {
+            Some("Second Wind upgrades require Battle Cry rank 2.".to_string())
+        }
+        _ => None,
+    }
 }
 
 fn next_skill_rank(rank: u32) -> u32 {
@@ -1330,6 +1408,24 @@ fn shield_bash_percent(c: &Character) -> u32 {
 }
 fn battle_cry_bonus_percent(c: &Character) -> u32 {
     battle_cry_bonus_percent_for_rank(c.battle_cry_rank)
+}
+fn deep_cut_chance_for_rank(rank: u32) -> u32 {
+    10 + rank.min(5) * 5
+}
+fn deep_cut_damage_for_rank(rank: u32) -> i32 {
+    1 + rank.min(5).div_ceil(2) as i32
+}
+fn iron_guard_armor_bonus(c: &Character) -> i32 {
+    iron_guard_armor_bonus_for_rank(c.iron_guard_rank)
+}
+fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
+    1 + rank.min(5) as i32
+}
+fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
+    5 + rank.min(5) * 5
+}
+fn second_wind_heal_amount(c: &Character) -> u32 {
+    ((c.max_hp() * second_wind_heal_percent_for_rank(c.second_wind_rank)) / 100).max(1)
 }
 
 fn enter_dungeon(c: &mut Character) {
@@ -1854,11 +1950,21 @@ fn print_skill_help(c: &Character) {
                 c.shield_bash_cooldown
             ),
             &format!(
-                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. +{}% damage, -10% enemy damage, Second Wind on kill. Ready in {}, active {}.",
+                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. +{}% damage, -10% enemy damage, Second Wind r{} heals {}%. Ready in {}, active {}.",
                 c.battle_cry_rank,
                 battle_cry_bonus_percent(c),
+                c.second_wind_rank,
+                second_wind_heal_percent_for_rank(c.second_wind_rank),
                 c.battle_cry_cooldown,
                 c.battle_cry_turns
+            ),
+            &format!(
+                "{GREEN}Passives:{RESET} Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
+                c.deep_cut_rank,
+                deep_cut_chance_for_rank(c.deep_cut_rank),
+                deep_cut_damage_for_rank(c.deep_cut_rank),
+                c.iron_guard_rank,
+                iron_guard_armor_bonus(c)
             ),
         ],
         2,
@@ -2080,9 +2186,10 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         d.log
             .push(format!("{} blocks with its shield.", enemy.name));
     }
-    if rng.gen_bool(0.15) && enemy.hp > 0 {
+    let bleed_chance = deep_cut_chance_for_rank(c.deep_cut_rank) as f64 / 100.0;
+    if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
         enemy.bleed_turns = 3;
-        enemy.bleed_damage = 2;
+        enemy.bleed_damage = deep_cut_damage_for_rank(c.deep_cut_rank);
         d.log.push(format!("{} starts bleeding.", enemy.name));
     }
     if enemy.hp <= 0 {
@@ -2100,7 +2207,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         ));
         push_level_up_logs(&mut d.log, &levels_gained);
         if c.battle_cry_turns > 0 {
-            let heal = (c.max_hp() / 10).max(1);
+            let heal = second_wind_heal_amount(c);
             c.hp = (c.hp + heal).min(c.max_hp());
             let d = c.active_dungeon.as_mut().unwrap();
             d.log
@@ -3188,7 +3295,11 @@ mod tests {
         assert_eq!(c.inventory.len(), 3);
         assert_eq!(c.equipped_weapon.damage_min, 3);
         assert_eq!(c.equipped_weapon.damage_max, 5);
-        assert_eq!(c.armor(), 4); // cloth 1 + shield 1 + Iron Guard 2
+        assert_eq!(c.armor(), 4); // cloth 1 + shield 1 + Iron Guard rank 1 (+2)
+        assert_eq!(
+            (c.deep_cut_rank, c.iron_guard_rank, c.second_wind_rank),
+            (1, 1, 1)
+        );
         assert!(!c.bellkeeper_defeated);
         assert!(!c.act1_completed);
     }
@@ -3220,7 +3331,36 @@ mod tests {
         assert_eq!(shield_bash_percent_for_rank(5), 110);
         assert_eq!(battle_cry_bonus_percent_for_rank(1), 20);
         assert_eq!(battle_cry_bonus_percent_for_rank(5), 40);
+        assert_eq!(deep_cut_chance_for_rank(1), 15);
+        assert_eq!(deep_cut_chance_for_rank(5), 35);
+        assert_eq!(deep_cut_damage_for_rank(1), 2);
+        assert_eq!(deep_cut_damage_for_rank(5), 4);
+        assert_eq!(iron_guard_armor_bonus_for_rank(1), 2);
+        assert_eq!(iron_guard_armor_bonus_for_rank(5), 6);
+        assert_eq!(second_wind_heal_percent_for_rank(1), 10);
+        assert_eq!(second_wind_heal_percent_for_rank(5), 30);
         assert_eq!(next_skill_rank(5), 5);
+    }
+
+    #[test]
+    fn passive_skill_upgrades_require_branch_starter_rank_two() {
+        let mut c = test_character();
+        assert!(unmet_skill_prerequisite(&c, "Deep Cut").is_some());
+        assert!(unmet_skill_prerequisite(&c, "Iron Guard").is_some());
+        assert!(unmet_skill_prerequisite(&c, "Second Wind").is_some());
+
+        c.unspent_skills = 6;
+        c.cleave_rank = 2;
+        c.shield_bash_rank = 2;
+        c.battle_cry_rank = 2;
+        upgrade_skill(&mut c, "Deep Cut");
+        upgrade_skill(&mut c, "Iron Guard");
+        upgrade_skill(&mut c, "Second Wind");
+
+        assert_eq!(c.deep_cut_rank, 2);
+        assert_eq!(c.iron_guard_rank, 2);
+        assert_eq!(c.second_wind_rank, 2);
+        assert_eq!(c.armor(), 5);
     }
 
     #[test]
