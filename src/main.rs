@@ -91,6 +91,8 @@ struct Enemy {
     bleed_turns: u32,
     #[serde(default)]
     bleed_damage: i32,
+    #[serde(default)]
+    guarding: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1144,131 +1146,74 @@ fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
     }
 }
 
-fn rat(x: i32, y: i32) -> Enemy {
+fn enemy(
+    name: &str,
+    glyph: char,
+    x: i32,
+    y: i32,
+    hp: i32,
+    damage_min: i32,
+    damage_max: i32,
+    armor: i32,
+    speed: i32,
+    xp: u32,
+    gold_min: u32,
+    gold_max: u32,
+    is_boss: bool,
+) -> Enemy {
     Enemy {
-        name: "Rat".to_string(),
-        glyph: 'r',
+        name: name.to_string(),
+        glyph,
         x,
         y,
-        hp: 6,
-        max_hp: 6,
-        damage_min: 1,
-        damage_max: 2,
-        armor: 0,
-        speed: 11,
-        xp: 8,
-        gold_min: 0,
-        gold_max: 3,
-        is_boss: false,
+        hp,
+        max_hp: hp,
+        damage_min,
+        damage_max,
+        armor,
+        speed,
+        xp,
+        gold_min,
+        gold_max,
+        is_boss,
         stunned_turns: 0,
         bleed_turns: 0,
         bleed_damage: 0,
+        guarding: false,
     }
+}
+
+fn rat(x: i32, y: i32) -> Enemy {
+    enemy("Rat", 'r', x, y, 6, 1, 2, 0, 11, 8, 0, 3, false)
 }
 fn skeleton(x: i32, y: i32) -> Enemy {
-    Enemy {
-        name: "Skeleton".to_string(),
-        glyph: 's',
-        x,
-        y,
-        hp: 12,
-        max_hp: 12,
-        damage_min: 2,
-        damage_max: 4,
-        armor: 1,
-        speed: 9,
-        xp: 18,
-        gold_min: 2,
-        gold_max: 8,
-        is_boss: false,
-        stunned_turns: 0,
-        bleed_turns: 0,
-        bleed_damage: 0,
-    }
+    enemy("Skeleton", 's', x, y, 12, 2, 4, 1, 9, 18, 2, 8, false)
 }
 fn cultist(x: i32, y: i32) -> Enemy {
-    Enemy {
-        name: "Cultist".to_string(),
-        glyph: 'c',
-        x,
-        y,
-        hp: 10,
-        max_hp: 10,
-        damage_min: 2,
-        damage_max: 3,
-        armor: 0,
-        speed: 10,
-        xp: 22,
-        gold_min: 5,
-        gold_max: 12,
-        is_boss: false,
-        stunned_turns: 0,
-        bleed_turns: 0,
-        bleed_damage: 0,
-    }
+    enemy("Cultist", 'c', x, y, 10, 2, 3, 0, 10, 22, 5, 12, false)
 }
 fn boneguard(x: i32, y: i32) -> Enemy {
-    Enemy {
-        name: "Boneguard".to_string(),
-        glyph: 'b',
-        x,
-        y,
-        hp: 18,
-        max_hp: 18,
-        damage_min: 3,
-        damage_max: 5,
-        armor: 2,
-        speed: 8,
-        xp: 35,
-        gold_min: 8,
-        gold_max: 18,
-        is_boss: false,
-        stunned_turns: 0,
-        bleed_turns: 0,
-        bleed_damage: 0,
-    }
+    enemy("Boneguard", 'b', x, y, 18, 3, 5, 2, 8, 35, 8, 18, false)
 }
 fn elite_skeleton(x: i32, y: i32) -> Enemy {
-    Enemy {
-        name: "Elite Skeleton".to_string(),
-        glyph: 'E',
+    enemy(
+        "Elite Skeleton",
+        'E',
         x,
         y,
-        hp: 24,
-        max_hp: 24,
-        damage_min: 3,
-        damage_max: 6,
-        armor: 2,
-        speed: 10,
-        xp: 54,
-        gold_min: 20,
-        gold_max: 40,
-        is_boss: false,
-        stunned_turns: 0,
-        bleed_turns: 0,
-        bleed_damage: 0,
-    }
+        24,
+        3,
+        6,
+        2,
+        10,
+        54,
+        20,
+        40,
+        false,
+    )
 }
 fn bellkeeper(x: i32, y: i32) -> Enemy {
-    Enemy {
-        name: "Bellkeeper".to_string(),
-        glyph: 'B',
-        x,
-        y,
-        hp: 60,
-        max_hp: 60,
-        damage_min: 5,
-        damage_max: 8,
-        armor: 3,
-        speed: 8,
-        xp: 250,
-        gold_min: 100,
-        gold_max: 150,
-        is_boss: true,
-        stunned_turns: 0,
-        bleed_turns: 0,
-        bleed_damage: 0,
-    }
+    enemy("Bellkeeper", 'B', x, y, 60, 5, 8, 3, 8, 250, 100, 150, true)
 }
 
 fn dungeon_loop(c: &mut Character) -> Result<()> {
@@ -1591,10 +1536,15 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         return;
     }
     let raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
-    let damage = (raw - enemy.armor).max(1);
+    let armor = effective_enemy_armor(enemy);
+    let damage = (raw - armor).max(1);
     enemy.hp -= damage;
     d.log
         .push(format!("You {verb} {} for {} damage.", enemy.name, damage));
+    if enemy.guarding {
+        d.log
+            .push(format!("{} blocks with its shield.", enemy.name));
+    }
     if rng.gen_bool(0.15) && enemy.hp > 0 {
         enemy.bleed_turns = 3;
         enemy.bleed_damage = 2;
@@ -1642,6 +1592,7 @@ fn enemy_turns(c: &mut Character) {
         .map(|e| (e.x, e.y))
         .collect();
     for i in 0..d.enemies.len() {
+        d.enemies[i].guarding = false;
         if d.enemies[i].hp <= 0 {
             continue;
         }
@@ -1669,6 +1620,10 @@ fn enemy_turns(c: &mut Character) {
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
             enemy_melee_attack(c, &mut d, i);
+        } else if should_boneguard_guard(&d, i) {
+            d.enemies[i].guarding = true;
+            d.log
+                .push(format!("{} raises its shield.", d.enemies[i].name));
         } else if can_cultist_ranged_attack(&d, i) {
             cultist_shadow_bolt(c, &mut d, i);
         } else if dist < 8 {
@@ -1695,6 +1650,19 @@ fn enemy_turns(c: &mut Character) {
     }
     d.enemies.retain(|e| e.hp > 0);
     c.active_dungeon = Some(d);
+}
+
+fn effective_enemy_armor(enemy: &Enemy) -> i32 {
+    enemy.armor + if enemy.guarding { 2 } else { 0 }
+}
+
+fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
+    let enemy = &d.enemies[enemy_index];
+    if enemy.glyph != 'b' {
+        return false;
+    }
+    let dist = (enemy.x - d.player_x).abs() + (enemy.y - d.player_y).abs();
+    (2..=4).contains(&dist)
 }
 
 fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
@@ -2464,6 +2432,39 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!(d.floor, 3);
         assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+    }
+
+    #[test]
+    fn boneguard_guards_at_range_and_gains_armor() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boneguard(5, 2)]));
+
+        assert!(should_boneguard_guard(
+            c.active_dungeon.as_ref().unwrap(),
+            0
+        ));
+        enemy_turns(&mut c);
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert!(d.enemies[0].guarding);
+        assert_eq!(effective_enemy_armor(&d.enemies[0]), d.enemies[0].armor + 2);
+        assert!(d.log.iter().any(|line| line.contains("raises its shield")));
+    }
+
+    #[test]
+    fn adjacent_boneguard_attacks_instead_of_guarding() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boneguard(3, 2)]));
+
+        assert!(!should_boneguard_guard(
+            c.active_dungeon.as_ref().unwrap(),
+            0
+        ));
+        enemy_turns(&mut c);
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert!(!d.enemies[0].guarding);
+        assert!(!d.log.iter().any(|line| line.contains("raises its shield")));
     }
 
     #[test]
