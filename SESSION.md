@@ -189,10 +189,20 @@ Second Wind
 
 ## Loot and Equipment
 
-Inventory supports equipping/using items:
+Inventory supports equipping/using items, paging, and dropping:
 
 ```text
-1-9 = equip/use selected inventory item
+1-9 = equip/use selected visible item
+n/p = next/previous page
+x   = drop selected visible item
+Esc = back
+```
+
+Merchant selling supports selecting a visible item instead of only selling the first item:
+
+```text
+1-9 = sell selected visible item
+n/p = next/previous page
 Esc = back
 ```
 

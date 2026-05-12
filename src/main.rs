@@ -482,12 +482,12 @@ fn merchant(c: &mut Character) {
         println!("Mana Potion: 15 gold");
         println!("Selling gives 25% of item value.");
         print_footer(&[
-            &format!("{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell first item  {RED}Esc{RESET}=back"),
+            &format!("{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell selected item  {RED}Esc{RESET}=back"),
         ]);
         match read_key_char() {
             '1' => buy_item(c, health_potion()),
             '2' => buy_item(c, mana_potion()),
-            '3' => sell_first_item(c),
+            '3' => sell_item_screen(c),
             '\u{1b}' => break,
             _ => pause("Unknown action."),
         }
@@ -532,15 +532,38 @@ fn buy_item(c: &mut Character, item: Item) {
     pause(&message);
 }
 
-fn sell_first_item(c: &mut Character) {
-    if c.inventory.is_empty() {
-        pause("Inventory is empty.");
-        return;
+fn sell_item_screen(c: &mut Character) {
+    let mut offset = 0usize;
+    loop {
+        clear_screen();
+        println!("{BOLD}{YELLOW}Sell Items{RESET} - Gold {}", c.gold);
+        if c.inventory.is_empty() {
+            println!("Inventory is empty.");
+        } else {
+            print_inventory_page(c, offset);
+        }
+        print_footer(&[&format!(
+            "{BOLD}Sell:{RESET} {YELLOW}1-9{RESET}=sell item  {GREEN}n/p{RESET}=page  {RED}Esc{RESET}=back"
+        )]);
+        match read_key_char() {
+            '\u{1b}' => break,
+            'n' | 'N' => offset = next_inventory_offset(c.inventory.len(), offset),
+            'p' | 'P' => offset = offset.saturating_sub(9),
+            key @ '1'..='9' => {
+                let index = offset + key as usize - '1' as usize;
+                if index >= c.inventory.len() {
+                    pause("No item in that slot.");
+                    continue;
+                }
+                let item = c.inventory.remove(index);
+                let sell_value = item.value / 4;
+                c.gold += sell_value;
+                pause(&format!("Sold {} for {} gold.", item.name, sell_value));
+                offset = clamp_inventory_offset(c.inventory.len(), offset);
+            }
+            _ => pause("Unknown sell command."),
+        }
     }
-    let item = c.inventory.remove(0);
-    let sell_value = item.value / 4;
-    c.gold += sell_value;
-    pause(&format!("Sold {} for {} gold.", item.name, sell_value));
 }
 
 fn stash_menu(c: &mut Character) {
@@ -1732,6 +1755,7 @@ fn check_death(c: &mut Character) {
 }
 
 fn inventory_screen(c: &mut Character) {
+    let mut offset = 0usize;
     loop {
         clear_screen();
         println!("{BOLD}{CYAN}Equipment{RESET}");
@@ -1749,24 +1773,80 @@ fn inventory_screen(c: &mut Character) {
         if c.inventory.is_empty() {
             println!("  Empty");
         } else {
-            for (i, item) in c.inventory.iter().take(9).enumerate() {
-                println!("  {}) {}", i + 1, item_summary(item));
-                if let Some(compare) = item_comparison(c, item) {
-                    println!("     {compare}");
-                }
-            }
+            print_inventory_page(c, offset);
         }
         print_footer(&[&format!(
-            "{BOLD}Inventory:{RESET} {GREEN}1-9{RESET}=equip/use item  {RED}Esc{RESET}=back"
+            "{BOLD}Inventory:{RESET} {GREEN}1-9{RESET}=equip/use  {GREEN}n/p{RESET}=page  {RED}x{RESET}=drop item  {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
             '\u{1b}' => break,
+            'n' | 'N' => offset = next_inventory_offset(c.inventory.len(), offset),
+            'p' | 'P' => offset = offset.saturating_sub(9),
+            'x' | 'X' => {
+                drop_item_from_page(c, offset);
+                offset = clamp_inventory_offset(c.inventory.len(), offset);
+            }
             key @ '1'..='9' => {
-                let index = key as usize - '1' as usize;
+                let index = offset + key as usize - '1' as usize;
                 equip_or_use_inventory_item(c, index);
+                offset = clamp_inventory_offset(c.inventory.len(), offset);
             }
             _ => pause("Unknown inventory command."),
         }
+    }
+}
+
+fn print_inventory_page(c: &Character, offset: usize) {
+    let total = c.inventory.len();
+    let end = (offset + 9).min(total);
+    println!("Showing items {}-{} of {}", offset + 1, end, total);
+    for (i, item) in c.inventory.iter().enumerate().skip(offset).take(9) {
+        println!("  {}) {}", i - offset + 1, item_summary(item));
+        if let Some(compare) = item_comparison(c, item) {
+            println!("     {compare}");
+        }
+    }
+}
+
+fn next_inventory_offset(total: usize, offset: usize) -> usize {
+    if offset + 9 < total {
+        offset + 9
+    } else {
+        offset
+    }
+}
+
+fn clamp_inventory_offset(total: usize, offset: usize) -> usize {
+    if total == 0 {
+        0
+    } else if offset >= total {
+        ((total - 1) / 9) * 9
+    } else {
+        offset
+    }
+}
+
+fn drop_item_from_page(c: &mut Character, offset: usize) {
+    if c.inventory.is_empty() {
+        pause("Inventory is empty.");
+        return;
+    }
+    println!("{RED}Drop which item?{RESET}");
+    print_footer(&[&format!(
+        "{BOLD}Drop:{RESET} {RED}1-9{RESET}=drop item from this page  Esc=cancel"
+    )]);
+    match read_key_char() {
+        '\u{1b}' => {}
+        key @ '1'..='9' => {
+            let index = offset + key as usize - '1' as usize;
+            if index >= c.inventory.len() {
+                pause("No item in that slot.");
+            } else {
+                let item = c.inventory.remove(index);
+                pause(&format!("Dropped {}.", item.name));
+            }
+        }
+        _ => pause("Drop cancelled."),
     }
 }
 
