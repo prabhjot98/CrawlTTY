@@ -521,7 +521,7 @@ fn print_town(c: &Character) {
         c.name,
         c.class_name,
         level_text(c.level),
-        xp_text(c.xp),
+        xp_text(c.xp, xp_required_for_next_level(c.level)),
         gold_text(c.gold)
     );
     println!(
@@ -598,8 +598,8 @@ fn gold_text(value: u32) -> String {
     format!("{YELLOW}Gold {value}{RESET}")
 }
 
-fn xp_text(value: u32) -> String {
-    format!("{MAGENTA}XP {value}{RESET}")
+fn xp_text(current: u32, needed: u32) -> String {
+    format!("{MAGENTA}XP {current}/{needed}{RESET}")
 }
 
 fn level_text(value: u32) -> String {
@@ -1840,7 +1840,7 @@ fn draw_dungeon(c: &Character) {
         hp_text(c.hp, c.max_hp()),
         mana_text(c.mana, c.max_mana()),
         gold_text(c.gold),
-        xp_text(c.xp)
+        xp_text(c.xp, xp_required_for_next_level(c.level))
     );
     for y in 0..MAP_H {
         for x in 0..MAP_W {
@@ -3352,6 +3352,14 @@ mod tests {
         );
         assert!(!c.bellkeeper_defeated);
         assert!(!c.act1_completed);
+    }
+
+    #[test]
+    fn xp_text_shows_current_and_needed_for_next_level() {
+        assert_eq!(
+            xp_text(8, xp_required_for_next_level(2)),
+            format!("{MAGENTA}XP 8/80{RESET}")
+        );
     }
 
     #[test]
