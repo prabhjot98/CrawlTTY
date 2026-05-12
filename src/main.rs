@@ -1,18 +1,14 @@
 use anyhow::{Context, Result};
-use chrono::{Datelike, TimeZone, Utc};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, size as terminal_size},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{
     env, fs,
     io::{self, Write},
     path::Path,
-    sync::{LazyLock, Mutex},
-    time::{Duration, Instant},
 };
 
 const SAVE_PATH: &str = "saves/save.json";
@@ -30,17 +26,6 @@ const MAGENTA: &str = "\x1b[35m";
 const CYAN: &str = "\x1b[36m";
 const WHITE: &str = "\x1b[37m";
 const BRIGHT_BLACK: &str = "\x1b[90m";
-const OPENAI_USAGE_CACHE_TTL: Duration = Duration::from_secs(300);
-const OPENAI_USAGE_TIMEOUT: Duration = Duration::from_secs(2);
-
-static OPENAI_USAGE_CACHE: LazyLock<Mutex<Option<CachedOpenAiUsage>>> =
-    LazyLock::new(|| Mutex::new(None));
-
-#[derive(Debug, Clone)]
-struct CachedOpenAiUsage {
-    fetched_at: Instant,
-    line: Option<String>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum DeathMode {
@@ -1632,12 +1617,8 @@ fn print_skill_help(c: &Character) {
                 c.battle_cry_turns
             ),
         ],
-        footer_line_count(2),
+        2,
     );
-}
-
-fn footer_line_count(base_lines: u16) -> u16 {
-    base_lines + u16::from(openai_usage_footer_line().is_some())
 }
 
 fn print_above_footer(lines: &[&str], footer_lines: u16) {
@@ -1654,111 +1635,15 @@ fn print_above_footer(lines: &[&str], footer_lines: u16) {
 }
 
 fn print_footer(lines: &[&str]) {
-    let usage_line = openai_usage_footer_line();
-    let total_lines = lines.len() as u16 + u16::from(usage_line.is_some());
     let (_, height) = terminal_size().unwrap_or((80, 24));
-    let start_row = height.saturating_sub(total_lines).saturating_add(1).max(1);
+    let start_row = height
+        .saturating_sub(lines.len() as u16)
+        .saturating_add(1)
+        .max(1);
     for (i, line) in lines.iter().enumerate() {
         print!("\x1B[{};1H\x1B[2K{}", start_row + i as u16, line);
     }
-    if let Some(line) = usage_line {
-        print!("\x1B[{};1H\x1B[2K{}", start_row + lines.len() as u16, line);
-    }
     let _ = io::stdout().flush();
-}
-
-fn openai_usage_footer_line() -> Option<String> {
-    let key = openai_usage_api_key()?;
-    let now = Instant::now();
-    if let Ok(cache) = OPENAI_USAGE_CACHE.lock() {
-        if let Some(cached) = cache.as_ref() {
-            if now.duration_since(cached.fetched_at) < OPENAI_USAGE_CACHE_TTL {
-                return cached.line.clone();
-            }
-        }
-    }
-
-    let line = match fetch_openai_monthly_spend(&key) {
-        Ok(spent) => Some(format_openai_usage_line(spent)),
-        Err(err) => Some(format!(
-            "{BOLD}OpenAI usage:{RESET} {YELLOW}unavailable{RESET} ({err})"
-        )),
-    };
-
-    if let Ok(mut cache) = OPENAI_USAGE_CACHE.lock() {
-        *cache = Some(CachedOpenAiUsage {
-            fetched_at: now,
-            line: line.clone(),
-        });
-    }
-    line
-}
-
-fn openai_usage_api_key() -> Option<String> {
-    env::var("OPENAI_ADMIN_KEY")
-        .or_else(|_| env::var("OPENAI_API_KEY"))
-        .ok()
-        .filter(|key| !key.trim().is_empty())
-}
-
-fn format_openai_usage_line(spent: f64) -> String {
-    match env::var("OPENAI_MONTHLY_BUDGET_USD")
-        .ok()
-        .and_then(|raw| raw.parse::<f64>().ok())
-    {
-        Some(budget) if budget > 0.0 => {
-            let left = (budget - spent).max(0.0);
-            format!(
-                "{BOLD}OpenAI usage:{RESET} spent {YELLOW}${spent:.2}{RESET} / ${budget:.2}; {GREEN}${left:.2} left{RESET} this month"
-            )
-        }
-        _ => format!(
-            "{BOLD}OpenAI usage:{RESET} spent {YELLOW}${spent:.2}{RESET} this month; set OPENAI_MONTHLY_BUDGET_USD to show left"
-        ),
-    }
-}
-
-fn fetch_openai_monthly_spend(api_key: &str) -> Result<f64> {
-    let now = Utc::now();
-    let start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-        .single()
-        .context("invalid month start")?
-        .timestamp();
-    let end = now.timestamp();
-    let url = format!(
-        "https://api.openai.com/v1/organization/costs?start_time={start}&end_time={end}&limit=180"
-    );
-    let response: Value = reqwest::blocking::Client::builder()
-        .timeout(OPENAI_USAGE_TIMEOUT)
-        .build()
-        .context("client")?
-        .get(url)
-        .bearer_auth(api_key)
-        .send()
-        .context("request")?
-        .error_for_status()
-        .context("status")?
-        .json()
-        .context("json")?;
-    Ok(sum_openai_costs(&response))
-}
-
-fn sum_openai_costs(value: &Value) -> f64 {
-    value
-        .get("data")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|bucket| bucket.get("results").and_then(Value::as_array))
-        .flatten()
-        .filter_map(|result| {
-            result
-                .get("amount")
-                .and_then(|amount| amount.get("value"))
-                .and_then(Value::as_f64)
-        })
-        .sum()
 }
 
 fn print_colored_tile(ch: char) {
@@ -2837,18 +2722,6 @@ mod tests {
         Character::new("Tester".to_string(), DeathMode::Softcore)
     }
 
-    #[test]
-    fn sums_openai_cost_bucket_amounts() {
-        let costs = serde_json::json!({
-            "data": [
-                { "results": [{ "amount": { "value": 1.25, "currency": "usd" } }] },
-                { "results": [{ "amount": { "value": 2.75, "currency": "usd" } }] }
-            ]
-        });
-
-        assert_eq!(sum_openai_costs(&costs), 4.0);
-    }
-
     fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dungeon {
         Dungeon {
             floor: 2,
@@ -3005,11 +2878,10 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(
-            c.inventory
-                .iter()
-                .any(|item| item.name.starts_with("Rusted Sword"))
-        );
+        assert!(c
+            .inventory
+            .iter()
+            .any(|item| item.name.starts_with("Rusted Sword")));
     }
 
     #[test]
@@ -3022,11 +2894,10 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(
-                d.chests
-                    .iter()
-                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
-            );
+            assert!(d
+                .chests
+                .iter()
+                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
         }
 
         let floor2 = generate_dungeon(2);
@@ -3034,12 +2905,10 @@ mod tests {
         assert!(elite.elite_modifier.is_some());
 
         let floor3 = generate_dungeon(3);
-        assert!(
-            floor3
-                .enemies
-                .iter()
-                .any(|e| e.is_boss && e.name == "Bellkeeper")
-        );
+        assert!(floor3
+            .enemies
+            .iter()
+            .any(|e| e.is_boss && e.name == "Bellkeeper"));
     }
 
     #[test]
@@ -3148,11 +3017,10 @@ mod tests {
 
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!((d.enemies[0].x, d.enemies[0].y), (5, 2));
-        assert!(
-            d.log
-                .iter()
-                .any(|line| line.contains("hurls a shadow bolt"))
-        );
+        assert!(d
+            .log
+            .iter()
+            .any(|line| line.contains("hurls a shadow bolt")));
     }
 
     #[test]
@@ -3194,11 +3062,10 @@ mod tests {
             .filter(|e| e.name == "Summoned Skeleton")
             .count();
         assert_eq!(summons, 3);
-        assert!(
-            d.log
-                .iter()
-                .any(|line| line.contains("skeleton claws free"))
-        );
+        assert!(d
+            .log
+            .iter()
+            .any(|line| line.contains("skeleton claws free")));
     }
 
     #[test]
