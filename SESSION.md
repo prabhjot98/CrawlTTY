@@ -241,6 +241,16 @@ Shield
 
 Equipping gear swaps old gear back into inventory.
 
+Blacksmith crafting:
+
+- No durability and no repairs.
+- Carried weapons, armor, and shields can be salvaged into matching type shards.
+- Equipped gear can be upgraded with type shards + gold.
+- Weapons gain +1 min/+1 max damage per upgrade.
+- Armor gains +1 armor per upgrade.
+- Shields gain +1 armor per upgrade.
+- Upgrade costs scale by next upgrade level: `2 * next_level` shards and `25 * next_level` gold.
+
 Loot rarity:
 
 ```text
@@ -301,7 +311,7 @@ cargo test
 cargo check
 ```
 
-Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, and potion use.
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, blacksmith salvage/upgrades, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, and potion use.
 
 Rust dependencies:
 

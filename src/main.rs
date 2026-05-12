@@ -50,9 +50,11 @@ struct Item {
     speed: i32,
     #[serde(default)]
     rarity: Rarity,
+    #[serde(default)]
+    upgrade_level: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 enum Rarity {
     #[default]
     Common,
@@ -60,7 +62,7 @@ enum Rarity {
     Rare,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 enum ItemKind {
     HealthPotion,
     ManaPotion,
@@ -167,6 +169,12 @@ struct Character {
     battle_cry_turns: u32,
     #[serde(default)]
     active_dungeon: Option<Dungeon>,
+    #[serde(default)]
+    weapon_shards: u32,
+    #[serde(default)]
+    armor_shards: u32,
+    #[serde(default)]
+    shield_shards: u32,
 }
 
 fn default_skill_rank() -> u32 {
@@ -209,6 +217,9 @@ impl Character {
             battle_cry_cooldown: 0,
             battle_cry_turns: 0,
             active_dungeon: None,
+            weapon_shards: 0,
+            armor_shards: 0,
+            shield_shards: 0,
         }
     }
 
@@ -264,6 +275,7 @@ fn item(
         dodge,
         speed,
         rarity: Rarity::Common,
+        upgrade_level: 0,
     }
 }
 
@@ -288,6 +300,7 @@ fn item_with_rarity(
         dodge,
         speed,
         rarity,
+        upgrade_level: 0,
     }
 }
 fn health_potion() -> Item {
@@ -581,35 +594,70 @@ fn merchant(c: &mut Character) {
 }
 
 fn blacksmith(c: &mut Character) {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    let options = [
+        "Buy Crude Axe - 60 gold",
+        "Buy Battered Mail - 55 gold",
+        "Buy Worn Shield - 40 gold",
+        "Salvage carried gear for shards",
+        "Sharpen equipped weapon",
+        "Reinforce equipped armor",
+        "Brace equipped shield",
+    ];
     loop {
+        clamp_selection(&mut selected, options.len());
         clear_screen();
         println!("{BOLD}{WHITE}Blacksmith{RESET} - Gold {}", c.gold);
-        println!("No durability or repairs in the MVP.");
-        println!("Crude Axe: 4-6 dmg, STR F, 60 gold");
-        println!("Battered Mail: +2 armor, -5 speed, 55 gold");
-        println!("Worn Shield: +1 armor, +2 dodge, 40 gold");
+        println!(
+            "Shards: weapon {}  armor {}  shield {}",
+            c.weapon_shards, c.armor_shards, c.shield_shards
+        );
+        println!(
+            "No durability or repairs. Salvage gear into type shards, then spend shards + gold to upgrade equipped gear."
+        );
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        println!();
+        println!("{BOLD}Services{RESET}");
+        for (i, option) in options.iter().enumerate() {
+            let marker = if i == selected {
+                format!("{GREEN}>{RESET}")
+            } else {
+                " ".to_string()
+            };
+            println!("{marker} {option}");
+        }
+        println!();
+        println!("{BOLD}Equipped{RESET}");
+        println!("Weapon: {}", item_summary(&c.equipped_weapon));
+        println!("Armor : {}", item_summary(&c.equipped_armor));
+        println!("Shield: {}", item_summary(&c.equipped_shield));
         print_footer(&[&format!(
-            "{BOLD}Blacksmith:{RESET} {GREEN}1{RESET}=Crude Axe  {GREEN}2{RESET}=Battered Mail  {GREEN}3{RESET}=Worn Shield  {RED}Esc{RESET}=back"
+            "{BOLD}Blacksmith:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
-        let item = match read_key_char() {
-            '1' => Some(crude_axe()),
-            '2' => Some(battered_mail()),
-            '3' => Some(worn_shield()),
+        match read_key_char_nav() {
             '\u{1b}' => break,
-            _ => {
-                pause("Unknown action.");
-                None
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < options.len() {
+                    selected += 1;
+                }
             }
-        };
-        if let Some(item) = item {
-            buy_item(c, item);
+            '\n' => match selected {
+                0 => message = buy_item_message(c, crude_axe()),
+                1 => message = buy_item_message(c, battered_mail()),
+                2 => message = buy_item_message(c, worn_shield()),
+                3 => salvage_screen(c),
+                4 => message = upgrade_equipped_message(c, UpgradeSlot::Weapon),
+                5 => message = upgrade_equipped_message(c, UpgradeSlot::Armor),
+                6 => message = upgrade_equipped_message(c, UpgradeSlot::Shield),
+                _ => {}
+            },
+            _ => message = "Unknown blacksmith command.".to_string(),
         }
     }
-}
-
-fn buy_item(c: &mut Character, item: Item) {
-    let message = buy_item_message(c, item);
-    pause(&message);
 }
 
 fn buy_item_message(c: &mut Character, item: Item) -> String {
@@ -620,6 +668,192 @@ fn buy_item_message(c: &mut Character, item: Item) -> String {
     let message = format!("Bought {}.", item.name);
     c.inventory.push(item);
     message
+}
+
+#[derive(Clone, Copy)]
+enum UpgradeSlot {
+    Weapon,
+    Armor,
+    Shield,
+}
+
+fn salvage_screen(c: &mut Character) {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        clamp_selection(&mut selected, c.inventory.len());
+        clear_screen();
+        println!("{BOLD}{WHITE}Salvage Gear{RESET}");
+        println!(
+            "Shards: weapon {}  armor {}  shield {}",
+            c.weapon_shards, c.armor_shards, c.shield_shards
+        );
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        if c.inventory.is_empty() {
+            println!("Inventory is empty.");
+        } else {
+            print_inventory_list(c, selected, inventory_visible_rows(8));
+            println!();
+            println!("Selected: {}", item_summary(&c.inventory[selected]));
+            if let Some(kind) = shard_kind(&c.inventory[selected]) {
+                println!(
+                    "Salvage yield: {} {} shard(s)",
+                    salvage_shard_yield(&c.inventory[selected]),
+                    shard_name(kind)
+                );
+            } else {
+                println!("Consumables cannot be salvaged.");
+            }
+        }
+        print_footer(&[&format!(
+            "{BOLD}Salvage:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=salvage  {RED}Esc{RESET}=back"
+        )]);
+        match read_key_char_nav() {
+            '\u{1b}' => break,
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < c.inventory.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => message = salvage_inventory_item(c, selected),
+            _ => message = "Unknown salvage command.".to_string(),
+        }
+    }
+}
+
+fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
+    if index >= c.inventory.len() {
+        return "No item selected.".to_string();
+    }
+    let Some(kind) = shard_kind(&c.inventory[index]) else {
+        return "Only weapons, armor, and shields can be salvaged.".to_string();
+    };
+    let item = c.inventory.remove(index);
+    let amount = salvage_shard_yield(&item);
+    add_shards(c, kind, amount);
+    format!(
+        "Salvaged {} into {} {} shard(s).",
+        item.name,
+        amount,
+        shard_name(kind)
+    )
+}
+
+fn salvage_shard_yield(item: &Item) -> u32 {
+    let rarity_bonus = match item.rarity {
+        Rarity::Common => 1,
+        Rarity::Magic => 2,
+        Rarity::Rare => 3,
+    };
+    rarity_bonus + item.upgrade_level
+}
+
+fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> String {
+    let (cost_shards, cost_gold, kind, item_name) = {
+        let item = equipped_item(c, slot);
+        let kind = shard_kind(item).expect("equipped gear has shard kind");
+        let (cost_shards, cost_gold) = upgrade_cost(item);
+        (cost_shards, cost_gold, kind, item.name.clone())
+    };
+    if shard_count(c, kind) < cost_shards {
+        return format!(
+            "Need {} {} shard(s) to upgrade {}.",
+            cost_shards,
+            shard_name(kind),
+            item_name
+        );
+    }
+    if c.gold < cost_gold {
+        return format!("Need {cost_gold} gold to upgrade {item_name}.");
+    }
+    spend_shards(c, kind, cost_shards);
+    c.gold -= cost_gold;
+    let item = equipped_item_mut(c, slot);
+    upgrade_item(item);
+    format!("Upgraded {} to +{}.", item.name, item.upgrade_level)
+}
+
+fn upgrade_cost(item: &Item) -> (u32, u32) {
+    let next = item.upgrade_level + 1;
+    (next * 2, next * 25)
+}
+
+fn upgrade_item(item: &mut Item) {
+    item.upgrade_level += 1;
+    item.value += 10 * item.upgrade_level;
+    match item.kind {
+        ItemKind::Weapon => {
+            item.damage_min += 1;
+            item.damage_max += 1;
+        }
+        ItemKind::Armor => item.armor += 1,
+        ItemKind::Shield => item.armor += 1,
+        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+    }
+}
+
+fn equipped_item(c: &Character, slot: UpgradeSlot) -> &Item {
+    match slot {
+        UpgradeSlot::Weapon => &c.equipped_weapon,
+        UpgradeSlot::Armor => &c.equipped_armor,
+        UpgradeSlot::Shield => &c.equipped_shield,
+    }
+}
+
+fn equipped_item_mut(c: &mut Character, slot: UpgradeSlot) -> &mut Item {
+    match slot {
+        UpgradeSlot::Weapon => &mut c.equipped_weapon,
+        UpgradeSlot::Armor => &mut c.equipped_armor,
+        UpgradeSlot::Shield => &mut c.equipped_shield,
+    }
+}
+
+fn shard_kind(item: &Item) -> Option<ItemKind> {
+    match item.kind {
+        ItemKind::Weapon => Some(ItemKind::Weapon),
+        ItemKind::Armor => Some(ItemKind::Armor),
+        ItemKind::Shield => Some(ItemKind::Shield),
+        ItemKind::HealthPotion | ItemKind::ManaPotion => None,
+    }
+}
+
+fn shard_name(kind: ItemKind) -> &'static str {
+    match kind {
+        ItemKind::Weapon => "weapon",
+        ItemKind::Armor => "armor",
+        ItemKind::Shield => "shield",
+        ItemKind::HealthPotion | ItemKind::ManaPotion => "unknown",
+    }
+}
+
+fn shard_count(c: &Character, kind: ItemKind) -> u32 {
+    match kind {
+        ItemKind::Weapon => c.weapon_shards,
+        ItemKind::Armor => c.armor_shards,
+        ItemKind::Shield => c.shield_shards,
+        ItemKind::HealthPotion | ItemKind::ManaPotion => 0,
+    }
+}
+
+fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
+    match kind {
+        ItemKind::Weapon => c.weapon_shards += amount,
+        ItemKind::Armor => c.armor_shards += amount,
+        ItemKind::Shield => c.shield_shards += amount,
+        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+    }
+}
+
+fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
+    match kind {
+        ItemKind::Weapon => c.weapon_shards = c.weapon_shards.saturating_sub(amount),
+        ItemKind::Armor => c.armor_shards = c.armor_shards.saturating_sub(amount),
+        ItemKind::Shield => c.shield_shards = c.shield_shards.saturating_sub(amount),
+        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+    }
 }
 
 fn sell_item_screen(c: &mut Character) {
@@ -2194,14 +2428,19 @@ fn drop_selected_inventory_item(c: &mut Character, index: usize) {
 fn item_summary(item: &Item) -> String {
     let rarity = rarity_name(&item.rarity);
     let name = colored_item_name(item);
+    let upgrade = if item.upgrade_level > 0 {
+        format!(" +{}", item.upgrade_level)
+    } else {
+        String::new()
+    };
     match item.kind {
         ItemKind::Weapon => format!(
-            "{} [{} {:?}] dmg {}-{} value {}",
-            name, rarity, item.kind, item.damage_min, item.damage_max, item.value
+            "{}{} [{} {:?}] dmg {}-{} value {}",
+            name, upgrade, rarity, item.kind, item.damage_min, item.damage_max, item.value
         ),
         ItemKind::Armor | ItemKind::Shield => format!(
-            "{} [{} {:?}] armor {} dodge {} speed {} value {}",
-            name, rarity, item.kind, item.armor, item.dodge, item.speed, item.value
+            "{}{} [{} {:?}] armor {} dodge {} speed {} value {}",
+            name, upgrade, rarity, item.kind, item.armor, item.dodge, item.speed, item.value
         ),
         _ => format!("{} [{:?}] value {}", name, item.kind, item.value),
     }
@@ -2447,6 +2686,60 @@ mod tests {
         assert!(matches!(stash[0].kind, ItemKind::ManaPotion));
         assert!(matches!(inventory[0].kind, ItemKind::HealthPotion));
         assert!(matches!(inventory[1].kind, ItemKind::Weapon));
+    }
+
+    #[test]
+    fn blacksmith_salvage_converts_gear_to_type_shards() {
+        let mut c = test_character();
+        c.inventory.clear();
+        c.inventory.push(crude_axe());
+        c.inventory.push(health_potion());
+
+        let message = salvage_inventory_item(&mut c, 0);
+
+        assert!(message.contains("weapon shard"));
+        assert_eq!(c.weapon_shards, 1);
+        assert_eq!(c.inventory.len(), 1);
+        assert!(matches!(c.inventory[0].kind, ItemKind::HealthPotion));
+        assert!(salvage_inventory_item(&mut c, 0).contains("Only weapons"));
+    }
+
+    #[test]
+    fn blacksmith_upgrades_equipped_gear_with_shards_and_gold() {
+        let mut c = test_character();
+        c.weapon_shards = 2;
+        c.armor_shards = 2;
+        c.shield_shards = 2;
+        c.gold = 100;
+
+        let weapon_message = upgrade_equipped_message(&mut c, UpgradeSlot::Weapon);
+        assert!(weapon_message.contains("+1"));
+        assert_eq!(c.equipped_weapon.upgrade_level, 1);
+        assert_eq!(
+            (c.equipped_weapon.damage_min, c.equipped_weapon.damage_max),
+            (4, 6)
+        );
+        assert_eq!(c.weapon_shards, 0);
+        assert_eq!(c.gold, 75);
+
+        let armor_message = upgrade_equipped_message(&mut c, UpgradeSlot::Armor);
+        assert!(armor_message.contains("+1"));
+        assert_eq!(c.equipped_armor.upgrade_level, 1);
+        assert_eq!(c.equipped_armor.armor, 2);
+
+        let shield_message = upgrade_equipped_message(&mut c, UpgradeSlot::Shield);
+        assert!(shield_message.contains("+1"));
+        assert_eq!(c.equipped_shield.upgrade_level, 1);
+        assert_eq!(c.equipped_shield.armor, 2);
+    }
+
+    #[test]
+    fn blacksmith_upgrade_cost_scales_with_upgrade_level() {
+        let mut item = crude_axe();
+        assert_eq!(upgrade_cost(&item), (2, 25));
+        upgrade_item(&mut item);
+        assert_eq!(upgrade_cost(&item), (4, 50));
+        assert_eq!(salvage_shard_yield(&item), 2);
     }
 
     #[test]
