@@ -528,8 +528,10 @@ Rules:
 - Floors 2-4: 7-9 rooms.
 - Floors 5-9: 8-10 rooms.
 - Floor 10: 5-7 rooms, ending in a boss room.
-- Enemy difficulty scales steadily by floor, reaching roughly 2x health, damage, XP, and gold rewards by floor 10.
-- Armor also rises modestly on deeper floors.
+- Enemy difficulty is doubled across the board: floor 1 enemies have roughly 2x base health and damage.
+- Enemy difficulty still scales steadily by floor, reaching roughly 4x base health and damage by floor 10.
+- XP and gold rewards scale more conservatively by floor, reaching roughly 2x base rewards by floor 10.
+- Armor also rises on all floors and increases modestly on deeper floors.
 - Rooms are rectangular crypt chambers.
 - Corridors are narrow, creating tactical chokepoints.
 - Place player in the first room.
@@ -930,7 +932,8 @@ The inventory screen should show currently equipped weapon, armor, and shield. P
 Loot should feel rewarding:
 
 - Enemies have a chance to drop equipment or potions.
-- Enemy health, damage, XP, and gold rewards scale up by floor, reaching roughly double values on floor 10.
+- Enemy health and damage are doubled across the board and scale up by floor, reaching roughly 4x base values on floor 10.
+- XP and gold rewards scale up by floor, reaching roughly double values on floor 10.
 - Chests always drop gold and an item.
 - Bellkeeper drops guaranteed better loot.
 - Items can be Common, Magic, or Rare.

@@ -1585,19 +1585,24 @@ fn generate_dungeon(floor: u32) -> Dungeon {
 }
 
 fn floor_difficulty_multiplier(floor: u32) -> f32 {
+    floor_reward_multiplier(floor) * 2.0
+}
+
+fn floor_reward_multiplier(floor: u32) -> f32 {
     1.0 + floor.saturating_sub(1) as f32 / ACT1_FLOORS.saturating_sub(1).max(1) as f32
 }
 
 fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
-    let multiplier = floor_difficulty_multiplier(floor);
-    enemy.max_hp = scale_i32(enemy.max_hp, multiplier);
+    let difficulty_multiplier = floor_difficulty_multiplier(floor);
+    let reward_multiplier = floor_reward_multiplier(floor);
+    enemy.max_hp = scale_i32(enemy.max_hp, difficulty_multiplier);
     enemy.hp = enemy.max_hp;
-    enemy.damage_min = scale_i32(enemy.damage_min, multiplier);
-    enemy.damage_max = scale_i32(enemy.damage_max, multiplier).max(enemy.damage_min);
-    enemy.armor += (floor.saturating_sub(1) / 4) as i32;
-    enemy.xp = scale_u32(enemy.xp, multiplier);
-    enemy.gold_min = scale_u32(enemy.gold_min, multiplier);
-    enemy.gold_max = scale_u32(enemy.gold_max, multiplier).max(enemy.gold_min);
+    enemy.damage_min = scale_i32(enemy.damage_min, difficulty_multiplier);
+    enemy.damage_max = scale_i32(enemy.damage_max, difficulty_multiplier).max(enemy.damage_min);
+    enemy.armor += 1 + (floor.saturating_sub(1) / 3) as i32;
+    enemy.xp = scale_u32(enemy.xp, reward_multiplier);
+    enemy.gold_min = scale_u32(enemy.gold_min, reward_multiplier);
+    enemy.gold_max = scale_u32(enemy.gold_max, reward_multiplier).max(enemy.gold_min);
     enemy
 }
 
@@ -3582,18 +3587,22 @@ mod tests {
     }
 
     #[test]
-    fn floor_difficulty_scales_to_roughly_double_by_final_floor() {
-        assert_eq!(floor_difficulty_multiplier(1), 1.0);
-        assert_eq!(floor_difficulty_multiplier(ACT1_FLOORS), 2.0);
+    fn floor_difficulty_is_doubled_across_act_one() {
+        assert_eq!(floor_difficulty_multiplier(1), 2.0);
+        assert_eq!(floor_difficulty_multiplier(ACT1_FLOORS), 4.0);
+        assert_eq!(floor_reward_multiplier(1), 1.0);
+        assert_eq!(floor_reward_multiplier(ACT1_FLOORS), 2.0);
 
+        let baseline = skeleton(1, 1);
         let early = scale_enemy_for_floor(skeleton(1, 1), 1);
         let late = scale_enemy_for_floor(skeleton(1, 1), ACT1_FLOORS);
 
-        assert_eq!(late.max_hp, early.max_hp * 2);
-        assert_eq!(late.damage_min, early.damage_min * 2);
-        assert_eq!(late.damage_max, early.damage_max * 2);
+        assert_eq!(early.max_hp, baseline.max_hp * 2);
+        assert_eq!(early.damage_min, baseline.damage_min * 2);
+        assert_eq!(late.max_hp, baseline.max_hp * 4);
+        assert_eq!(late.damage_min, baseline.damage_min * 4);
         assert!(late.armor > early.armor);
-        assert_eq!(late.xp, early.xp * 2);
+        assert_eq!(late.xp, baseline.xp * 2);
     }
 
     #[test]
