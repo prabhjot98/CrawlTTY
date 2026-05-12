@@ -66,6 +66,7 @@ h = healer
 m = merchant
 b = blacksmith
 s = stash
+t = quest / Warden Mara
 d = dungeon
 i = inventory
 a = attributes
@@ -99,6 +100,14 @@ $ = chest, opens when stepped on
 ```
 
 ## Current Gameplay Systems
+
+### Quest Flow
+
+- Warden Mara in town gives the Act I objective with `t`.
+- Defeating the Bellkeeper returns the player to town and blocks further crypt entry.
+- Talk to Warden Mara after the Bellkeeper dies to complete Act I.
+- Act I completion rewards 100 gold, +1 skill point, full heal, and unlocks the Act II placeholder.
+- After Act I completion, the dungeon entrance shows the Glass Wastes placeholder instead of starting another crypt run.
 
 ### Character
 
@@ -189,21 +198,30 @@ Second Wind
 
 ## Loot and Equipment
 
-Inventory supports equipping/using items, paging, and dropping:
+Inventory uses a pageless cursor list for equipping/using items and dropping:
 
 ```text
-1-9 = equip/use selected visible item
-n/p = next/previous page
-x   = drop selected visible item
-Esc = back
+↑/↓ or w/s = select item
+Enter      = equip/use selected item
+x          = drop selected item
+Esc        = back
 ```
 
-Merchant selling supports selecting a visible item instead of only selling the first item:
+Merchant selling uses the same pageless cursor pattern:
 
 ```text
-1-9 = sell selected visible item
-n/p = next/previous page
-Esc = back
+↑/↓ or w/s = select item
+Enter      = sell selected item
+Esc        = back
+```
+
+Stash uses two cursor lists:
+
+```text
+↑/↓ or w/s = select item
+Tab        = switch inventory/stash list
+Enter      = store/retrieve selected item
+Esc        = back
 ```
 
 Equipment slots:
@@ -293,26 +311,24 @@ cargo run -- reset-save
 
 ## Recommended Next Tasks
 
-1. Test and tune crypt dungeon generation.
-2. Fix any room/corridor placement weirdness.
-3. Improve enemy variety:
+1. Test full MVP run from fresh save through Bellkeeper and Act I turn-in.
+2. Improve enemy variety:
    - Cultists ranged attack
    - Boneguards guard/block
    - Elite modifiers
-4. Improve inventory:
-   - scrolling beyond 9 items
-   - drop item
-   - sell selected item
-5. Add quest completion flow after Bellkeeper:
-   - return to town
-   - talk to NPC
-   - complete Act I
-   - show Act II placeholder
-6. Expand skill tree:
+3. Polish Bellkeeper boss mechanics:
+   - phase behavior
+   - skeleton summons
+   - bell-wave attack / cover pillars
+4. Expand skill tree:
    - upgrade Deep Cut
    - upgrade Iron Guard
    - upgrade Second Wind
    - add prerequisites
+5. Balance and polish:
+   - enemy stats, XP, gold, loot rates
+   - combat log clarity
+   - dungeon generation edge cases
 
 ## Restart Instructions
 

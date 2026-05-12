@@ -144,6 +144,8 @@ struct Character {
     equipped_shield: Item,
     bellkeeper_defeated: bool,
     #[serde(default)]
+    act1_completed: bool,
+    #[serde(default)]
     cleave_cooldown: u32,
     #[serde(default)]
     shield_bash_cooldown: u32,
@@ -189,6 +191,7 @@ impl Character {
             equipped_armor: cloth_tunic(),
             equipped_shield: worn_shield(),
             bellkeeper_defeated: false,
+            act1_completed: false,
             cleave_cooldown: 0,
             shield_bash_cooldown: 0,
             battle_cry_cooldown: 0,
@@ -377,14 +380,19 @@ fn main() -> Result<()> {
         println!("\n{BOLD}Town services{RESET}");
         println!("Use the footer commands below to choose a service.");
         print_footer(&[
-            &format!("{BOLD}Town:{RESET} {GREEN}h{RESET}=healer  {GREEN}m{RESET}=merchant  {GREEN}b{RESET}=blacksmith  {GREEN}s{RESET}=stash  {GREEN}d{RESET}=dungeon"),
-            &format!("{GREEN}i{RESET}=inventory  {GREEN}a{RESET}=attributes  {GREEN}k{RESET}=skill tree  {RED}q{RESET}=save+quit"),
+            &format!(
+                "{BOLD}Town:{RESET} {GREEN}h{RESET}=healer  {GREEN}m{RESET}=merchant  {GREEN}b{RESET}=blacksmith  {GREEN}s{RESET}=stash  {GREEN}t{RESET}=quest  {GREEN}d{RESET}=dungeon"
+            ),
+            &format!(
+                "{GREEN}i{RESET}=inventory  {GREEN}a{RESET}=attributes  {GREEN}k{RESET}=skill tree  {RED}q{RESET}=save+quit"
+            ),
         ]);
         match read_key_char() {
             'h' | 'H' => healer(&mut character),
             'm' | 'M' => merchant(&mut character),
             'b' | 'B' => blacksmith(&mut character),
             's' | 'S' => stash_menu(&mut character),
+            't' | 'T' => quest_giver(&mut character),
             'd' | 'D' => enter_dungeon(&mut character),
             'i' | 'I' => inventory_screen(&mut character),
             'a' | 'A' => spend_attributes(&mut character),
@@ -461,10 +469,46 @@ fn print_town(c: &Character) {
     println!("Weapon: {}", c.equipped_weapon.name);
     println!("Armor : {}", c.equipped_armor.name);
     println!("Shield: {}", c.equipped_shield.name);
-    if c.bellkeeper_defeated {
-        println!("Quest complete: The Bellkeeper is dead. Act II placeholder unlocked.");
+    if c.act1_completed {
+        println!(
+            "{GREEN}Act I complete:{RESET} The Hollow Marches are safe for now. Act II is unlocked as a placeholder."
+        );
+    } else if c.bellkeeper_defeated {
+        println!(
+            "{YELLOW}Quest ready to turn in:{RESET} Speak with Warden Mara ({GREEN}t{RESET}) about the Bellkeeper."
+        );
     } else {
-        println!("Quest: Kill the Bellkeeper below the crypt.");
+        println!(
+            "Quest: Kill the Bellkeeper below the crypt. Speak with Warden Mara ({GREEN}t{RESET}) for details."
+        );
+    }
+}
+
+fn quest_giver(c: &mut Character) {
+    clear_screen();
+    println!("{BOLD}{CYAN}Warden Mara{RESET}");
+    if c.act1_completed {
+        println!("Mara stands at the northern road, watching ash drift over the marsh.");
+        println!(
+            "\"You broke the bell's curse. Beyond this road lie the Glass Wastes... but that journey is not yet playable.\""
+        );
+        pause("Act II placeholder: The Glass Wastes will open in a later milestone.");
+    } else if c.bellkeeper_defeated {
+        println!("\"The bells are silent. Hollow's Rest owes you its next dawn.\"");
+        println!("Quest complete: Silence the Bellkeeper");
+        println!("Reward: 100 gold, +1 skill point, full heal, Act II placeholder unlocked.");
+        c.gold += 100;
+        c.unspent_skills += 1;
+        c.hp = c.max_hp();
+        c.mana = c.max_mana();
+        c.act1_completed = true;
+        pause("Act I complete. The road to the Glass Wastes is now visible.");
+    } else {
+        println!(
+            "\"A cursed bell tolls beneath the crypt. Each ring wakes more dead. Descend, find the Bellkeeper, and end it.\""
+        );
+        println!("Objective: defeat the Bellkeeper on floor 3 of the Hollow Crypts.");
+        pause("Quest accepted: Silence the Bellkeeper.");
     }
 }
 
@@ -481,9 +525,9 @@ fn merchant(c: &mut Character) {
         println!("Health Potion: 15 gold");
         println!("Mana Potion: 15 gold");
         println!("Selling gives 25% of item value.");
-        print_footer(&[
-            &format!("{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell selected item  {RED}Esc{RESET}=back"),
-        ]);
+        print_footer(&[&format!(
+            "{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell selected item  {RED}Esc{RESET}=back"
+        )]);
         match read_key_char() {
             '1' => buy_item(c, health_potion()),
             '2' => buy_item(c, mana_potion()),
@@ -502,9 +546,9 @@ fn blacksmith(c: &mut Character) {
         println!("Crude Axe: 4-6 dmg, STR F, 60 gold");
         println!("Battered Mail: +2 armor, -5 speed, 55 gold");
         println!("Worn Shield: +1 armor, +2 dodge, 40 gold");
-        print_footer(&[
-            &format!("{BOLD}Blacksmith:{RESET} {GREEN}1{RESET}=Crude Axe  {GREEN}2{RESET}=Battered Mail  {GREEN}3{RESET}=Worn Shield  {RED}Esc{RESET}=back"),
-        ]);
+        print_footer(&[&format!(
+            "{BOLD}Blacksmith:{RESET} {GREEN}1{RESET}=Crude Axe  {GREEN}2{RESET}=Battered Mail  {GREEN}3{RESET}=Worn Shield  {RED}Esc{RESET}=back"
+        )]);
         let item = match read_key_char() {
             '1' => Some(crude_axe()),
             '2' => Some(battered_mail()),
@@ -533,33 +577,40 @@ fn buy_item(c: &mut Character, item: Item) {
 }
 
 fn sell_item_screen(c: &mut Character) {
-    let mut offset = 0usize;
+    let mut selected = 0usize;
     loop {
+        clamp_selection(&mut selected, c.inventory.len());
         clear_screen();
         println!("{BOLD}{YELLOW}Sell Items{RESET} - Gold {}", c.gold);
         if c.inventory.is_empty() {
             println!("Inventory is empty.");
         } else {
-            print_inventory_page(c, offset);
+            print_inventory_list(c, selected, inventory_visible_rows(7));
+            let item = &c.inventory[selected];
+            println!();
+            println!("Selected: {}", item_summary(item));
+            println!("Sell value: {} gold", item.value / 4);
         }
         print_footer(&[&format!(
-            "{BOLD}Sell:{RESET} {YELLOW}1-9{RESET}=sell item  {GREEN}n/p{RESET}=page  {RED}Esc{RESET}=back"
+            "{BOLD}Sell:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=sell  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char() {
+        match read_key_char_nav() {
             '\u{1b}' => break,
-            'n' | 'N' => offset = next_inventory_offset(c.inventory.len(), offset),
-            'p' | 'P' => offset = offset.saturating_sub(9),
-            key @ '1'..='9' => {
-                let index = offset + key as usize - '1' as usize;
-                if index >= c.inventory.len() {
-                    pause("No item in that slot.");
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < c.inventory.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => {
+                if c.inventory.is_empty() {
+                    pause("Inventory is empty.");
                     continue;
                 }
-                let item = c.inventory.remove(index);
+                let item = c.inventory.remove(selected);
                 let sell_value = item.value / 4;
                 c.gold += sell_value;
                 pause(&format!("Sold {} for {} gold.", item.name, sell_value));
-                offset = clamp_inventory_offset(c.inventory.len(), offset);
             }
             _ => pause("Unknown sell command."),
         }
@@ -567,29 +618,93 @@ fn sell_item_screen(c: &mut Character) {
 }
 
 fn stash_menu(c: &mut Character) {
+    let mut side = StashSide::Inventory;
+    let mut inv_selected = 0usize;
+    let mut stash_selected = 0usize;
     loop {
+        clamp_selection(&mut inv_selected, c.inventory.len());
+        clamp_selection(&mut stash_selected, c.stash.len());
         clear_screen();
         println!("{BOLD}{MAGENTA}Stash{RESET}");
-        println!("Inventory items: {}", c.inventory.len());
-        println!("Stash items: {}", c.stash.len());
-        print_footer(&[
-            &format!("{BOLD}Stash:{RESET} {GREEN}1{RESET}=store first item  {GREEN}2{RESET}=retrieve first item  {GREEN}3{RESET}=view lists  {RED}Esc{RESET}=back"),
-        ]);
-        match read_key_char() {
-            '1' => move_first(&mut c.inventory, &mut c.stash, "Stored"),
-            '2' => move_first(&mut c.stash, &mut c.inventory, "Retrieved"),
-            '3' => inventory_and_stash_screen(c),
+        println!(
+            "Inventory items: {}   Stash items: {}",
+            c.inventory.len(),
+            c.stash.len()
+        );
+        println!();
+        let visible_rows = (inventory_visible_rows(12) / 2).max(4);
+        print_stash_column(
+            "Inventory",
+            &c.inventory,
+            inv_selected,
+            side == StashSide::Inventory,
+            visible_rows,
+        );
+        println!();
+        print_stash_column(
+            "Stash",
+            &c.stash,
+            stash_selected,
+            side == StashSide::Stash,
+            visible_rows,
+        );
+        print_footer(&[&format!(
+            "{BOLD}Stash:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {CYAN}Tab{RESET}=switch list  {YELLOW}Enter{RESET}=move selected  {RED}Esc{RESET}=back"
+        )]);
+        match read_key_char_nav() {
             '\u{1b}' => break,
-            _ => pause("Unknown action."),
+            '\t' => side = side.other(),
+            'w' | 'W' => match side {
+                StashSide::Inventory => inv_selected = inv_selected.saturating_sub(1),
+                StashSide::Stash => stash_selected = stash_selected.saturating_sub(1),
+            },
+            's' | 'S' => match side {
+                StashSide::Inventory => {
+                    if inv_selected + 1 < c.inventory.len() {
+                        inv_selected += 1;
+                    }
+                }
+                StashSide::Stash => {
+                    if stash_selected + 1 < c.stash.len() {
+                        stash_selected += 1;
+                    }
+                }
+            },
+            '\n' => match side {
+                StashSide::Inventory => {
+                    move_selected(&mut c.inventory, &mut c.stash, inv_selected, "Stored")
+                }
+                StashSide::Stash => {
+                    move_selected(&mut c.stash, &mut c.inventory, stash_selected, "Retrieved")
+                }
+            },
+            _ => pause("Unknown stash command."),
         }
     }
 }
 
-fn move_first(from: &mut Vec<Item>, to: &mut Vec<Item>, verb: &str) {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StashSide {
+    Inventory,
+    Stash,
+}
+
+impl StashSide {
+    fn other(self) -> Self {
+        match self {
+            StashSide::Inventory => StashSide::Stash,
+            StashSide::Stash => StashSide::Inventory,
+        }
+    }
+}
+
+fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &str) {
     if from.is_empty() {
         pause("Nothing to move.");
+    } else if index >= from.len() {
+        pause("No item selected.");
     } else {
-        let item = from.remove(0);
+        let item = from.remove(index);
         let msg = format!("{} {}.", verb, item.name);
         to.push(item);
         pause(&msg);
@@ -618,9 +733,9 @@ fn spend_attributes(c: &mut Character) {
             c.intelligence,
             c.intelligence + 1
         );
-        print_footer(&[
-            &format!("{BOLD}Attributes:{RESET} {GREEN}1{RESET}=Strength  {GREEN}2{RESET}=Dexterity  {GREEN}3{RESET}=Intelligence  {RED}Esc{RESET}=back"),
-        ]);
+        print_footer(&[&format!(
+            "{BOLD}Attributes:{RESET} {GREEN}1{RESET}=Strength  {GREEN}2{RESET}=Dexterity  {GREEN}3{RESET}=Intelligence  {RED}Esc{RESET}=back"
+        )]);
         match read_key_char() {
             '1' => {
                 c.strength += 1;
@@ -683,9 +798,9 @@ fn skill_tree_menu(c: &mut Character) {
         );
         println!();
         println!("Each upgrade costs 1 skill point. Max rank is 5.");
-        print_footer(&[
-            &format!("{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=upgrade Cleave  {GREEN}2{RESET}=upgrade Shield Bash  {GREEN}3{RESET}=upgrade Battle Cry  {RED}Esc{RESET}=back"),
-        ]);
+        print_footer(&[&format!(
+            "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=upgrade Cleave  {GREEN}2{RESET}=upgrade Shield Bash  {GREEN}3{RESET}=upgrade Battle Cry  {RED}Esc{RESET}=back"
+        )]);
         match read_key_char() {
             '1' => upgrade_skill(c, "Cleave"),
             '2' => upgrade_skill(c, "Shield Bash"),
@@ -779,8 +894,12 @@ fn battle_cry_bonus_percent(c: &Character) -> u32 {
 }
 
 fn enter_dungeon(c: &mut Character) {
+    if c.act1_completed {
+        pause("Act II placeholder: The road to the Glass Wastes is visible, but not playable yet.");
+        return;
+    }
     if c.bellkeeper_defeated {
-        pause("Act II is visible beyond the road, but it is not playable yet.");
+        pause("The Bellkeeper is dead. Return to Warden Mara (t) to complete Act I.");
         return;
     }
     c.active_dungeon = Some(generate_dungeon(1));
@@ -1190,17 +1309,40 @@ fn draw_dungeon(c: &Character) {
 
 fn print_dungeon_footer() {
     print_footer(&[
-        &format!("{BOLD}Dungeon:{RESET} {GREEN}w/a/s/d{RESET}=move/attack  {GREEN}1{RESET}=Cleave  {GREEN}2{RESET}=Bash  {GREEN}3{RESET}=Cry  {BLUE}p{RESET}=potion  i=inventory  {RED}Esc{RESET}=town"),
-        &format!("{BOLD}Legend:{RESET} {GREEN}@{RESET}=you {BRIGHT_BLACK}#{RESET}=wall {DIM}.{RESET}=floor {YELLOW}${RESET}=chest {MAGENTA}E{RESET}=elite {RED}B{RESET}=boss"),
+        &format!(
+            "{BOLD}Dungeon:{RESET} {GREEN}w/a/s/d{RESET}=move/attack  {GREEN}1{RESET}=Cleave  {GREEN}2{RESET}=Bash  {GREEN}3{RESET}=Cry  {BLUE}p{RESET}=potion  i=inventory  {RED}Esc{RESET}=town"
+        ),
+        &format!(
+            "{BOLD}Legend:{RESET} {GREEN}@{RESET}=you {BRIGHT_BLACK}#{RESET}=wall {DIM}.{RESET}=floor {YELLOW}${RESET}=chest {MAGENTA}E{RESET}=elite {RED}B{RESET}=boss"
+        ),
     ]);
 }
 
 fn print_skill_help(c: &Character) {
-    print_above_footer(&[
-        &format!("{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit up to 3 enemies for {}% weapon damage. Ready in {}.", c.cleave_rank, cleave_percent(c), c.cleave_cooldown),
-        &format!("{GREEN}2 Shield Bash r{}{RESET}: cost 6 mana, cd 3. Hit 1 enemy for {}% damage and stun 1 turn. Ready in {}.", c.shield_bash_rank, shield_bash_percent(c), c.shield_bash_cooldown),
-        &format!("{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. +{}% damage, -10% enemy damage, Second Wind on kill. Ready in {}, active {}.", c.battle_cry_rank, battle_cry_bonus_percent(c), c.battle_cry_cooldown, c.battle_cry_turns),
-    ], 2);
+    print_above_footer(
+        &[
+            &format!(
+                "{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit up to 3 enemies for {}% weapon damage. Ready in {}.",
+                c.cleave_rank,
+                cleave_percent(c),
+                c.cleave_cooldown
+            ),
+            &format!(
+                "{GREEN}2 Shield Bash r{}{RESET}: cost 6 mana, cd 3. Hit 1 enemy for {}% damage and stun 1 turn. Ready in {}.",
+                c.shield_bash_rank,
+                shield_bash_percent(c),
+                c.shield_bash_cooldown
+            ),
+            &format!(
+                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. +{}% damage, -10% enemy damage, Second Wind on kill. Ready in {}, active {}.",
+                c.battle_cry_rank,
+                battle_cry_bonus_percent(c),
+                c.battle_cry_cooldown,
+                c.battle_cry_turns
+            ),
+        ],
+        2,
+    );
 }
 
 fn print_above_footer(lines: &[&str], footer_lines: u16) {
@@ -1755,8 +1897,9 @@ fn check_death(c: &mut Character) {
 }
 
 fn inventory_screen(c: &mut Character) {
-    let mut offset = 0usize;
+    let mut selected = 0usize;
     loop {
+        clamp_selection(&mut selected, c.inventory.len());
         clear_screen();
         println!("{BOLD}{CYAN}Equipment{RESET}");
         println!("Weapon: {}", item_summary(&c.equipped_weapon));
@@ -1773,80 +1916,110 @@ fn inventory_screen(c: &mut Character) {
         if c.inventory.is_empty() {
             println!("  Empty");
         } else {
-            print_inventory_page(c, offset);
+            print_inventory_list(c, selected, inventory_visible_rows(10));
+            println!();
+            println!("Selected: {}", item_summary(&c.inventory[selected]));
+            if let Some(compare) = item_comparison(c, &c.inventory[selected]) {
+                println!("{compare}");
+            }
         }
         print_footer(&[&format!(
-            "{BOLD}Inventory:{RESET} {GREEN}1-9{RESET}=equip/use  {GREEN}n/p{RESET}=page  {RED}x{RESET}=drop item  {RED}Esc{RESET}=back"
+            "{BOLD}Inventory:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=equip/use  {RED}x{RESET}=drop selected  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char() {
+        match read_key_char_nav() {
             '\u{1b}' => break,
-            'n' | 'N' => offset = next_inventory_offset(c.inventory.len(), offset),
-            'p' | 'P' => offset = offset.saturating_sub(9),
-            'x' | 'X' => {
-                drop_item_from_page(c, offset);
-                offset = clamp_inventory_offset(c.inventory.len(), offset);
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < c.inventory.len() {
+                    selected += 1;
+                }
             }
-            key @ '1'..='9' => {
-                let index = offset + key as usize - '1' as usize;
-                equip_or_use_inventory_item(c, index);
-                offset = clamp_inventory_offset(c.inventory.len(), offset);
-            }
+            'x' | 'X' => drop_selected_inventory_item(c, selected),
+            '\n' => equip_or_use_inventory_item(c, selected),
             _ => pause("Unknown inventory command."),
         }
     }
 }
 
-fn print_inventory_page(c: &Character, offset: usize) {
+fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
     let total = c.inventory.len();
-    let end = (offset + 9).min(total);
-    println!("Showing items {}-{} of {}", offset + 1, end, total);
-    for (i, item) in c.inventory.iter().enumerate().skip(offset).take(9) {
-        println!("  {}) {}", i - offset + 1, item_summary(item));
-        if let Some(compare) = item_comparison(c, item) {
-            println!("     {compare}");
-        }
+    let max_rows = max_rows.max(1);
+    let offset = scroll_offset(selected, total, max_rows);
+    let end = (offset + max_rows).min(total);
+    if total > max_rows {
+        println!("Showing items {}-{} of {}", offset + 1, end, total);
     }
-}
-
-fn next_inventory_offset(total: usize, offset: usize) -> usize {
-    if offset + 9 < total {
-        offset + 9
-    } else {
-        offset
-    }
-}
-
-fn clamp_inventory_offset(total: usize, offset: usize) -> usize {
-    if total == 0 {
-        0
-    } else if offset >= total {
-        ((total - 1) / 9) * 9
-    } else {
-        offset
-    }
-}
-
-fn drop_item_from_page(c: &mut Character, offset: usize) {
-    if c.inventory.is_empty() {
-        pause("Inventory is empty.");
-        return;
-    }
-    println!("{RED}Drop which item?{RESET}");
-    print_footer(&[&format!(
-        "{BOLD}Drop:{RESET} {RED}1-9{RESET}=drop item from this page  Esc=cancel"
-    )]);
-    match read_key_char() {
-        '\u{1b}' => {}
-        key @ '1'..='9' => {
-            let index = offset + key as usize - '1' as usize;
-            if index >= c.inventory.len() {
-                pause("No item in that slot.");
-            } else {
-                let item = c.inventory.remove(index);
-                pause(&format!("Dropped {}.", item.name));
+    for (i, item) in c.inventory.iter().enumerate().skip(offset).take(max_rows) {
+        let marker = if i == selected {
+            format!("{GREEN}>{RESET}")
+        } else {
+            " ".to_string()
+        };
+        println!("{marker} {}", item_summary(item));
+        if i == selected {
+            if let Some(compare) = item_comparison(c, item) {
+                println!("  {compare}");
             }
         }
-        _ => pause("Drop cancelled."),
+    }
+}
+
+fn print_stash_column(title: &str, items: &[Item], selected: usize, active: bool, max_rows: usize) {
+    let heading = if active {
+        format!("{BOLD}{GREEN}>{RESET} {BOLD}{title}{RESET}")
+    } else {
+        format!("  {BOLD}{title}{RESET}")
+    };
+    println!("{heading}");
+    if items.is_empty() {
+        println!("  Empty");
+        return;
+    }
+    let max_rows = max_rows.max(1);
+    let offset = scroll_offset(selected, items.len(), max_rows);
+    let end = (offset + max_rows).min(items.len());
+    if items.len() > max_rows {
+        println!("  Showing items {}-{} of {}", offset + 1, end, items.len());
+    }
+    for (i, item) in items.iter().enumerate().skip(offset).take(max_rows) {
+        let marker = if active && i == selected {
+            format!("{GREEN}>{RESET}")
+        } else {
+            " ".to_string()
+        };
+        println!("{marker} {}", item_summary(item));
+    }
+}
+
+fn inventory_visible_rows(reserved_rows: u16) -> usize {
+    let (_, height) = terminal_size().unwrap_or((80, 24));
+    height.saturating_sub(reserved_rows).max(5) as usize
+}
+
+fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
+    if total <= max_rows || selected < max_rows {
+        0
+    } else {
+        selected + 1 - max_rows
+    }
+}
+
+fn clamp_selection(selected: &mut usize, total: usize) {
+    if total == 0 {
+        *selected = 0;
+    } else if *selected >= total {
+        *selected = total - 1;
+    }
+}
+
+fn drop_selected_inventory_item(c: &mut Character, index: usize) {
+    if c.inventory.is_empty() {
+        pause("Inventory is empty.");
+    } else if index >= c.inventory.len() {
+        pause("No item selected.");
+    } else {
+        let item = c.inventory.remove(index);
+        pause(&format!("Dropped {}.", item.name));
     }
 }
 
@@ -1940,19 +2113,6 @@ fn equip_or_use_inventory_item(c: &mut Character, index: usize) {
     }
 }
 
-fn inventory_and_stash_screen(c: &Character) {
-    clear_screen();
-    println!("Inventory:");
-    for (i, item) in c.inventory.iter().enumerate() {
-        println!("  {}) {}", i + 1, item.name);
-    }
-    println!("\nStash:");
-    for (i, item) in c.stash.iter().enumerate() {
-        println!("  {}) {}", i + 1, item.name);
-    }
-    pause("Press any key to return.");
-}
-
 fn prompt(label: &str) -> String {
     print!("{label}");
     io::stdout().flush().expect("failed to flush stdout");
@@ -1961,6 +2121,32 @@ fn prompt(label: &str) -> String {
         .read_line(&mut input)
         .expect("failed to read input");
     input.trim_end().to_string()
+}
+
+fn read_key_char_nav() -> char {
+    enable_raw_mode().expect("failed to enable raw mode");
+    let key = loop {
+        if let Event::Key(KeyEvent {
+            code, modifiers, ..
+        }) = event::read().expect("failed to read terminal event")
+        {
+            if modifiers.contains(KeyModifiers::CONTROL) && matches!(code, KeyCode::Char('c')) {
+                disable_raw_mode().ok();
+                std::process::exit(0);
+            }
+            match code {
+                KeyCode::Char(c) => break c,
+                KeyCode::Esc => break '\u{1b}',
+                KeyCode::Enter => break '\n',
+                KeyCode::Tab => break '\t',
+                KeyCode::Up => break 'w',
+                KeyCode::Down => break 's',
+                _ => {}
+            }
+        }
+    };
+    disable_raw_mode().expect("failed to disable raw mode");
+    key
 }
 
 fn read_key_char() -> char {
