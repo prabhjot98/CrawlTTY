@@ -69,6 +69,14 @@ enum ItemKind {
     Shield,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+enum EliteModifier {
+    Armored,
+    Swift,
+    Vampiric,
+    Burning,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Enemy {
     name: String,
@@ -93,6 +101,8 @@ struct Enemy {
     bleed_damage: i32,
     #[serde(default)]
     guarding: bool,
+    #[serde(default)]
+    elite_modifier: Option<EliteModifier>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1180,6 +1190,7 @@ fn enemy(
         bleed_turns: 0,
         bleed_damage: 0,
         guarding: false,
+        elite_modifier: None,
     }
 }
 
@@ -1196,7 +1207,12 @@ fn boneguard(x: i32, y: i32) -> Enemy {
     enemy("Boneguard", 'b', x, y, 18, 3, 5, 2, 8, 35, 8, 18, false)
 }
 fn elite_skeleton(x: i32, y: i32) -> Enemy {
-    enemy(
+    let modifier = random_elite_modifier();
+    elite_skeleton_with_modifier(x, y, modifier)
+}
+
+fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifier) -> Enemy {
+    let mut elite = enemy(
         "Elite Skeleton",
         'E',
         x,
@@ -1210,7 +1226,35 @@ fn elite_skeleton(x: i32, y: i32) -> Enemy {
         20,
         40,
         false,
-    )
+    );
+    apply_elite_modifier(&mut elite, modifier);
+    elite
+}
+
+fn random_elite_modifier() -> EliteModifier {
+    match rand::thread_rng().gen_range(0..4) {
+        0 => EliteModifier::Armored,
+        1 => EliteModifier::Swift,
+        2 => EliteModifier::Vampiric,
+        _ => EliteModifier::Burning,
+    }
+}
+
+fn apply_elite_modifier(enemy: &mut Enemy, modifier: EliteModifier) {
+    enemy.name = format!("{} {}", elite_modifier_name(&modifier), enemy.name);
+    if matches!(modifier, EliteModifier::Swift) {
+        enemy.speed += 2;
+    }
+    enemy.elite_modifier = Some(modifier);
+}
+
+fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
+    match modifier {
+        EliteModifier::Armored => "Armored",
+        EliteModifier::Swift => "Swift",
+        EliteModifier::Vampiric => "Vampiric",
+        EliteModifier::Burning => "Burning",
+    }
 }
 fn bellkeeper(x: i32, y: i32) -> Enemy {
     enemy("Bellkeeper", 'B', x, y, 60, 5, 8, 3, 8, 250, 100, 150, true)
@@ -1653,7 +1697,13 @@ fn enemy_turns(c: &mut Character) {
 }
 
 fn effective_enemy_armor(enemy: &Enemy) -> i32 {
-    enemy.armor + if enemy.guarding { 2 } else { 0 }
+    enemy.armor
+        + if enemy.guarding { 2 } else { 0 }
+        + if matches!(enemy.elite_modifier, Some(EliteModifier::Armored)) {
+            2
+        } else {
+            0
+        }
 }
 
 fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
@@ -1669,11 +1719,12 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
     if hit_roll(25, c.dodge_rating() as i32) {
-        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max);
+        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
         d.log
             .push(format!("{} hits you for {} damage.", enemy.name, damage));
+        apply_vampiric_heal(d, enemy_index);
     } else {
         d.log.push(format!("{} misses you.", enemy.name));
     }
@@ -1715,16 +1766,45 @@ fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let enemy = &d.enemies[enemy_index];
     d.log.push(format!("{} hurls a shadow bolt.", enemy.name));
     if hit_roll(30, c.dodge_rating() as i32) {
-        let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max + 1);
+        let raw =
+            rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
         d.log.push(format!(
             "{}'s shadow bolt hits you for {} damage.",
             enemy.name, damage
         ));
+        apply_vampiric_heal(d, enemy_index);
     } else {
         d.log
             .push(format!("{}'s shadow bolt misses you.", enemy.name));
+    }
+}
+
+fn elite_damage_bonus(enemy: &Enemy) -> i32 {
+    if matches!(enemy.elite_modifier, Some(EliteModifier::Burning)) {
+        1
+    } else {
+        0
+    }
+}
+
+fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
+    if !matches!(
+        d.enemies[enemy_index].elite_modifier,
+        Some(EliteModifier::Vampiric)
+    ) {
+        return;
+    }
+    let enemy = &mut d.enemies[enemy_index];
+    let before = enemy.hp;
+    enemy.hp = (enemy.hp + 2).min(enemy.max_hp);
+    let healed = enemy.hp - before;
+    if healed > 0 {
+        d.log.push(format!(
+            "{} drains life and heals {} HP.",
+            enemy.name, healed
+        ));
     }
 }
 
@@ -2401,7 +2481,8 @@ mod tests {
         }
 
         let floor2 = generate_dungeon(2);
-        assert!(floor2.enemies.iter().any(|e| e.glyph == 'E'));
+        let elite = floor2.enemies.iter().find(|e| e.glyph == 'E').unwrap();
+        assert!(elite.elite_modifier.is_some());
 
         let floor3 = generate_dungeon(3);
         assert!(floor3
@@ -2432,6 +2513,42 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!(d.floor, 3);
         assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+    }
+
+    #[test]
+    fn elite_skeletons_have_exactly_one_modifier() {
+        let elite = elite_skeleton(5, 5);
+
+        assert_eq!(elite.glyph, 'E');
+        assert!(elite.elite_modifier.is_some());
+        assert!(elite.name.ends_with("Elite Skeleton"));
+    }
+
+    #[test]
+    fn elite_modifiers_apply_expected_stat_effects() {
+        let armored = elite_skeleton_with_modifier(1, 1, EliteModifier::Armored);
+        assert_eq!(effective_enemy_armor(&armored), armored.armor + 2);
+
+        let swift = elite_skeleton_with_modifier(1, 1, EliteModifier::Swift);
+        assert_eq!(swift.speed, 12);
+
+        let burning = elite_skeleton_with_modifier(1, 1, EliteModifier::Burning);
+        assert_eq!(elite_damage_bonus(&burning), 1);
+    }
+
+    #[test]
+    fn vampiric_elite_heals_after_dealing_damage() {
+        let mut d = open_test_dungeon(
+            2,
+            2,
+            vec![elite_skeleton_with_modifier(3, 2, EliteModifier::Vampiric)],
+        );
+        d.enemies[0].hp = d.enemies[0].max_hp - 5;
+
+        apply_vampiric_heal(&mut d, 0);
+
+        assert_eq!(d.enemies[0].hp, d.enemies[0].max_hp - 3);
+        assert!(d.log.iter().any(|line| line.contains("drains life")));
     }
 
     #[test]

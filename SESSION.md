@@ -150,6 +150,7 @@ XP requirement starts at 10 and doubles each level
 - Armor reduces incoming damage
 - Cultists use ranged shadow bolts from 2-5 tiles away when the player is in a clear cardinal line of sight
 - Boneguards raise shields at 2-4 tiles from the player, gaining +2 armor until their next turn
+- Elite enemies always have one modifier: Armored (+2 armor), Swift (+2 speed), Vampiric (heals 2 HP after damaging player), or Burning (+1 damage)
 
 ### Skills
 
@@ -300,7 +301,7 @@ cargo test
 cargo check
 ```
 
-Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, and potion use.
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, and potion use.
 
 Rust dependencies:
 
@@ -327,18 +328,16 @@ cargo run -- reset-save
 ## Recommended Next Tasks
 
 1. Test full MVP run from fresh save through Bellkeeper and Act I turn-in.
-2. Improve enemy variety:
-   - Elite modifiers
-3. Polish Bellkeeper boss mechanics:
+2. Polish Bellkeeper boss mechanics:
    - phase behavior
    - skeleton summons
    - bell-wave attack / cover pillars
-4. Expand skill tree:
+3. Expand skill tree:
    - upgrade Deep Cut
    - upgrade Iron Guard
    - upgrade Second Wind
    - add prerequisites
-5. Balance and polish:
+4. Balance and polish:
    - enemy stats, XP, gold, loot rates
    - combat log clarity
    - dungeon generation edge cases
