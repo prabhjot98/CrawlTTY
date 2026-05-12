@@ -16,3 +16,7 @@ Do not commit local/generated files such as:
 - `target/`
 - `saves/`
 - `.pi-lens/`
+
+## UI interaction rule
+
+Menu actions should execute immediately on a single keypress whenever possible. Do not add `pause` / "press any key to continue" prompts after routine actions such as healing, buying, selling, stashing, salvaging, upgrading, equipping, using items, or accepting simple menu commands. Reserve confirmation prompts only for destructive, irreversible, or ambiguous actions.

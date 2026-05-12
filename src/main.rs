@@ -694,7 +694,6 @@ fn quest_giver(c: &mut Character) {
 fn healer(c: &mut Character) {
     c.hp = c.max_hp();
     c.mana = c.max_mana();
-    pause("The healer restores your health and mana.");
 }
 
 fn merchant(c: &mut Character) {
