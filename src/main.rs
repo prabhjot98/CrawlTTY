@@ -519,23 +519,51 @@ fn healer(c: &mut Character) {
 }
 
 fn merchant(c: &mut Character) {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    let options = [
+        "Buy Health Potion - 15 gold",
+        "Buy Mana Potion - 15 gold",
+        "Sell items",
+    ];
     loop {
+        clamp_selection(&mut selected, options.len());
         clear_screen();
         println!("{BOLD}{YELLOW}Merchant{RESET} - Gold {}", c.gold);
-        println!("Health Potion: 15 gold");
-        println!("Mana Potion: 15 gold");
         println!("Selling gives 25% of item value.");
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         println!();
-        print_inventory_preview(c, inventory_visible_rows(9));
+        println!("{BOLD}Services{RESET}");
+        for (i, option) in options.iter().enumerate() {
+            let marker = if i == selected {
+                format!("{GREEN}>{RESET}")
+            } else {
+                " ".to_string()
+            };
+            println!("{marker} {option}");
+        }
+        println!();
+        print_inventory_preview(c, inventory_visible_rows(12));
         print_footer(&[&format!(
-            "{BOLD}Merchant:{RESET} {GREEN}1{RESET}=buy health potion  {GREEN}2{RESET}=buy mana potion  {YELLOW}3{RESET}=sell selected item  {RED}Esc{RESET}=back"
+            "{BOLD}Merchant:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char() {
-            '1' => buy_item(c, health_potion()),
-            '2' => buy_item(c, mana_potion()),
-            '3' => sell_item_screen(c),
+        match read_key_char_nav() {
             '\u{1b}' => break,
-            _ => pause("Unknown action."),
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < options.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => match selected {
+                0 => message = buy_item_message(c, health_potion()),
+                1 => message = buy_item_message(c, mana_potion()),
+                2 => sell_item_screen(c),
+                _ => {}
+            },
+            _ => message = "Unknown merchant command.".to_string(),
         }
     }
 }
@@ -568,14 +596,18 @@ fn blacksmith(c: &mut Character) {
 }
 
 fn buy_item(c: &mut Character, item: Item) {
+    let message = buy_item_message(c, item);
+    pause(&message);
+}
+
+fn buy_item_message(c: &mut Character, item: Item) -> String {
     if c.gold < item.value {
-        pause("Not enough gold.");
-        return;
+        return "Not enough gold.".to_string();
     }
     c.gold -= item.value;
     let message = format!("Bought {}.", item.name);
     c.inventory.push(item);
-    pause(&message);
+    message
 }
 
 fn sell_item_screen(c: &mut Character) {
@@ -2306,10 +2338,11 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(c
-            .inventory
-            .iter()
-            .any(|item| item.name.starts_with("Rusted Sword")));
+        assert!(
+            c.inventory
+                .iter()
+                .any(|item| item.name.starts_with("Rusted Sword"))
+        );
     }
 
     #[test]
@@ -2322,20 +2355,23 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(d
-                .chests
-                .iter()
-                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
+            assert!(
+                d.chests
+                    .iter()
+                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
+            );
         }
 
         let floor2 = generate_dungeon(2);
         assert!(floor2.enemies.iter().any(|e| e.glyph == 'E'));
 
         let floor3 = generate_dungeon(3);
-        assert!(floor3
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Bellkeeper"));
+        assert!(
+            floor3
+                .enemies
+                .iter()
+                .any(|e| e.is_boss && e.name == "Bellkeeper")
+        );
     }
 
     #[test]

@@ -77,7 +77,9 @@ q = save + quit
 ### Menus
 
 ```text
-Esc = back
+↑/↓ or w/s = select in cursor menus
+Enter      = choose selected option
+Esc        = back
 ```
 
 ### Dungeon
@@ -207,6 +209,8 @@ x          = drop selected item
 Esc        = back
 ```
 
+Merchant main menu is cursor-based, shows current inventory, and buys without a continue prompt.
+
 Merchant selling uses the same pageless cursor pattern and sells immediately without a continue prompt:
 
 ```text
@@ -286,6 +290,15 @@ B = Bellkeeper boss
 ```
 
 ## Current Technical Notes
+
+Regression tests are available and should pass before commits:
+
+```bash
+cargo test
+cargo check
+```
+
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, dungeon generation, stairs behavior, and potion use.
 
 Rust dependencies:
 
