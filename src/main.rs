@@ -2878,10 +2878,11 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(c
-            .inventory
-            .iter()
-            .any(|item| item.name.starts_with("Rusted Sword")));
+        assert!(
+            c.inventory
+                .iter()
+                .any(|item| item.name.starts_with("Rusted Sword"))
+        );
     }
 
     #[test]
@@ -2894,10 +2895,11 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(d
-                .chests
-                .iter()
-                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
+            assert!(
+                d.chests
+                    .iter()
+                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
+            );
         }
 
         let floor2 = generate_dungeon(2);
@@ -2905,10 +2907,12 @@ mod tests {
         assert!(elite.elite_modifier.is_some());
 
         let floor3 = generate_dungeon(3);
-        assert!(floor3
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Bellkeeper"));
+        assert!(
+            floor3
+                .enemies
+                .iter()
+                .any(|e| e.is_boss && e.name == "Bellkeeper")
+        );
     }
 
     #[test]
@@ -3017,10 +3021,11 @@ mod tests {
 
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!((d.enemies[0].x, d.enemies[0].y), (5, 2));
-        assert!(d
-            .log
-            .iter()
-            .any(|line| line.contains("hurls a shadow bolt")));
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("hurls a shadow bolt"))
+        );
     }
 
     #[test]
@@ -3062,10 +3067,11 @@ mod tests {
             .filter(|e| e.name == "Summoned Skeleton")
             .count();
         assert_eq!(summons, 3);
-        assert!(d
-            .log
-            .iter()
-            .any(|line| line.contains("skeleton claws free")));
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("skeleton claws free"))
+        );
     }
 
     #[test]
