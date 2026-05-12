@@ -1547,14 +1547,14 @@ fn generate_dungeon(floor: u32) -> Dungeon {
                 }
             }
         };
-        enemies.push(e);
+        enemies.push(scale_enemy_for_floor(e, floor));
     }
     if (2..ACT1_FLOORS).contains(&floor) && floor % 2 == 0 {
         let (x, y) = farthest_room_center(&rooms, start);
-        enemies.push(elite_skeleton(x, y));
+        enemies.push(scale_enemy_for_floor(elite_skeleton(x, y), floor));
     }
     if floor == ACT1_FLOORS {
-        enemies.push(bellkeeper(stairs.0, stairs.1));
+        enemies.push(scale_enemy_for_floor(bellkeeper(stairs.0, stairs.1), floor));
     }
 
     let chest_count = rng.gen_range(1..=3);
@@ -1581,6 +1581,35 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         bell_wave_tiles: Vec::new(),
         boss_turn_counter: 0,
         log_turn: 0,
+    }
+}
+
+fn floor_difficulty_multiplier(floor: u32) -> f32 {
+    1.0 + floor.saturating_sub(1) as f32 / ACT1_FLOORS.saturating_sub(1).max(1) as f32
+}
+
+fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
+    let multiplier = floor_difficulty_multiplier(floor);
+    enemy.max_hp = scale_i32(enemy.max_hp, multiplier);
+    enemy.hp = enemy.max_hp;
+    enemy.damage_min = scale_i32(enemy.damage_min, multiplier);
+    enemy.damage_max = scale_i32(enemy.damage_max, multiplier).max(enemy.damage_min);
+    enemy.armor += (floor.saturating_sub(1) / 4) as i32;
+    enemy.xp = scale_u32(enemy.xp, multiplier);
+    enemy.gold_min = scale_u32(enemy.gold_min, multiplier);
+    enemy.gold_max = scale_u32(enemy.gold_max, multiplier).max(enemy.gold_min);
+    enemy
+}
+
+fn scale_i32(value: i32, multiplier: f32) -> i32 {
+    ((value as f32) * multiplier).round().max(1.0) as i32
+}
+
+fn scale_u32(value: u32, multiplier: f32) -> u32 {
+    if value == 0 {
+        0
+    } else {
+        ((value as f32) * multiplier).round().max(1.0) as u32
     }
 }
 
@@ -3538,6 +3567,21 @@ mod tests {
         assert!(high.damage_max > low.damage_max);
         assert!(high.required_strength > low.required_strength);
         assert!(item_summary(&high).contains("ilvl 5"));
+    }
+
+    #[test]
+    fn floor_difficulty_scales_to_roughly_double_by_final_floor() {
+        assert_eq!(floor_difficulty_multiplier(1), 1.0);
+        assert_eq!(floor_difficulty_multiplier(ACT1_FLOORS), 2.0);
+
+        let early = scale_enemy_for_floor(skeleton(1, 1), 1);
+        let late = scale_enemy_for_floor(skeleton(1, 1), ACT1_FLOORS);
+
+        assert_eq!(late.max_hp, early.max_hp * 2);
+        assert_eq!(late.damage_min, early.damage_min * 2);
+        assert_eq!(late.damage_max, early.damage_max * 2);
+        assert!(late.armor > early.armor);
+        assert_eq!(late.xp, early.xp * 2);
     }
 
     #[test]

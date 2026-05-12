@@ -283,6 +283,7 @@ Implemented:
 - Player starts in first room
 - Stairs are in the farthest room
 - Floor 10 farthest room contains Bellkeeper
+- Enemy health, damage, XP, and gold rewards scale up by floor, reaching roughly 2x on floor 10
 - Enemies and chests spawn inside rooms
 - 1-3 chests per floor
 
