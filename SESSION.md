@@ -31,7 +31,7 @@ The game has a playable prototype with:
 - ASCII display with color
 - Single-key input with no Enter required, except text entry
 - Crypt-style dungeon generation
-- Three dungeon floors
+- Ten dungeon floors
 - Bellkeeper boss
 - Combat, loot, inventory, equipment, skill upgrades
 
@@ -106,7 +106,7 @@ $ = chest, opens when stepped on
 ### Quest Flow
 
 - Warden Mara in town gives the Act I objective with `t`.
-- Defeating the Bellkeeper returns the player to town and blocks further crypt entry.
+- Defeating the Bellkeeper on floor 10 returns the player to town and blocks further crypt entry.
 - Talk to Warden Mara after the Bellkeeper dies to complete Act I.
 - Act I completion rewards 100 gold, +1 skill point, full heal, and unlocks the Act II placeholder.
 - After Act I completion, the dungeon entrance shows the Glass Wastes placeholder instead of starting another crypt run.
@@ -282,7 +282,7 @@ Implemented:
 - Walls fill unused areas
 - Player starts in first room
 - Stairs are in the farthest room
-- Floor 3 farthest room contains Bellkeeper
+- Floor 10 farthest room contains Bellkeeper
 - Enemies and chests spawn inside rooms
 - 1-3 chests per floor
 

@@ -14,6 +14,7 @@ use std::{
 const SAVE_PATH: &str = "saves/save.json";
 const MAP_W: i32 = 40;
 const MAP_H: i32 = 16;
+const ACT1_FLOORS: u32 = 10;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -685,7 +686,7 @@ fn quest_giver(c: &mut Character) {
         println!(
             "\"A cursed bell tolls beneath the crypt. Each ring wakes more dead. Descend, find the Bellkeeper, and end it.\""
         );
-        println!("Objective: defeat the Bellkeeper on floor 3 of the Hollow Crypts.");
+        println!("Objective: defeat the Bellkeeper on floor {ACT1_FLOORS} of the Hollow Crypts.");
         pause("Quest accepted: Silence the Bellkeeper.");
     }
 }
@@ -1466,7 +1467,8 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     let mut tiles = vec!['#'; (MAP_W * MAP_H) as usize];
     let target_rooms = match floor {
         1 => rng.gen_range(6..=8),
-        2 => rng.gen_range(8..=10),
+        2..=4 => rng.gen_range(7..=9),
+        5..=9 => rng.gen_range(8..=10),
         _ => rng.gen_range(5..=7),
     };
     let mut rooms: Vec<Room> = Vec::new();
@@ -1507,8 +1509,9 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     let mut enemies = Vec::new();
     let enemy_count = match floor {
         1 => 5,
-        2 => 7,
-        _ => 4,
+        2..=4 => 7,
+        5..=9 => 8,
+        _ => 5,
     };
     for _ in 0..enemy_count {
         let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
@@ -1520,11 +1523,20 @@ fn generate_dungeon(floor: u32) -> Dungeon {
                     skeleton(x, y)
                 }
             }
-            2 => {
+            2..=4 => {
                 if rng.gen_bool(0.45) {
                     skeleton(x, y)
                 } else {
                     cultist(x, y)
+                }
+            }
+            5..=9 => {
+                if rng.gen_bool(0.35) {
+                    skeleton(x, y)
+                } else if rng.gen_bool(0.50) {
+                    cultist(x, y)
+                } else {
+                    boneguard(x, y)
                 }
             }
             _ => {
@@ -1537,11 +1549,11 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         };
         enemies.push(e);
     }
-    if floor == 2 {
+    if (2..ACT1_FLOORS).contains(&floor) && floor % 2 == 0 {
         let (x, y) = farthest_room_center(&rooms, start);
         enemies.push(elite_skeleton(x, y));
     }
-    if floor == 3 {
+    if floor == ACT1_FLOORS {
         enemies.push(bellkeeper(stairs.0, stairs.1));
     }
 
@@ -2727,7 +2739,7 @@ fn open_chest_on_player(c: &mut Character) {
         let mut rng = rand::thread_rng();
         let gold = rng.gen_range(10..=25);
         c.gold += gold;
-        let loot = random_loot(1, rng.gen_bool(0.35));
+        let loot = random_loot(d.floor, rng.gen_bool(0.35));
         let name = colored_item_name(&loot);
         d.log.push(format!(
             "Opened chest: found {} and {name}.",
@@ -2748,7 +2760,7 @@ fn use_stairs(c: &mut Character) {
         }
         floor = d.floor;
     }
-    if floor >= 3 {
+    if floor >= ACT1_FLOORS {
         let d = c.active_dungeon.as_mut().unwrap();
         d.log
             .push("The Bellkeeper blocks your escape. Defeat it!".to_string());
@@ -3530,7 +3542,7 @@ mod tests {
 
     #[test]
     fn dungeon_generation_obeys_floor_content_rules() {
-        for floor in 1..=3 {
+        for floor in 1..=ACT1_FLOORS {
             let d = generate_dungeon(floor);
             assert_eq!(d.floor, floor);
             assert_eq!(d.tiles.len(), (MAP_W * MAP_H) as usize);
@@ -3549,9 +3561,12 @@ mod tests {
         let elite = floor2.enemies.iter().find(|e| e.glyph == 'E').unwrap();
         assert!(elite.elite_modifier.is_some());
 
-        let floor3 = generate_dungeon(3);
+        let floor9 = generate_dungeon(ACT1_FLOORS - 1);
+        assert!(!floor9.enemies.iter().any(|e| e.is_boss));
+
+        let boss_floor = generate_dungeon(ACT1_FLOORS);
         assert!(
-            floor3
+            boss_floor
                 .enemies
                 .iter()
                 .any(|e| e.is_boss && e.name == "Bellkeeper")
@@ -3559,7 +3574,7 @@ mod tests {
     }
 
     #[test]
-    fn stairs_advance_floors_but_floor_three_requires_boss() {
+    fn stairs_advance_floors_but_final_floor_requires_boss() {
         let mut c = test_character();
         c.active_dungeon = Some(generate_dungeon(1));
         {
@@ -3570,7 +3585,7 @@ mod tests {
         use_stairs(&mut c);
         assert_eq!(c.active_dungeon.as_ref().unwrap().floor, 2);
 
-        c.active_dungeon = Some(generate_dungeon(3));
+        c.active_dungeon = Some(generate_dungeon(ACT1_FLOORS));
         {
             let d = c.active_dungeon.as_mut().unwrap();
             d.player_x = d.stairs_x;
@@ -3578,7 +3593,7 @@ mod tests {
         }
         use_stairs(&mut c);
         let d = c.active_dungeon.as_ref().unwrap();
-        assert_eq!(d.floor, 3);
+        assert_eq!(d.floor, ACT1_FLOORS);
         assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
     }
 

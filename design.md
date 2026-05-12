@@ -525,13 +525,14 @@ Rules:
 
 - Map size currently implemented as 40x16 for terminal readability.
 - Floor 1: 6-8 rooms.
-- Floor 2: 8-10 rooms.
-- Floor 3: 5-7 rooms, ending in a boss room.
+- Floors 2-4: 7-9 rooms.
+- Floors 5-9: 8-10 rooms.
+- Floor 10: 5-7 rooms, ending in a boss room.
 - Rooms are rectangular crypt chambers.
 - Corridors are narrow, creating tactical chokepoints.
 - Place player in the first room.
 - Place stairs in the farthest room.
-- On floor 3, the farthest room is the Bellkeeper boss room.
+- On floor 10, the farthest room is the Bellkeeper boss room.
 - Place enemies and chests inside rooms instead of randomly in open space.
 - Add 1-3 chests per floor.
 - Chests open automatically when the player steps onto them.
@@ -822,7 +823,7 @@ Build the smallest fun version first.
 - Terminal map display
 - Player movement
 - One dungeon generator
-- First dungeon has 3 floors
+- First dungeon has 10 floors
 - First dungeon persists while the player remains in it
 - Leaving or abandoning the dungeon resets it
 - Three enemy types
@@ -888,7 +889,14 @@ Floor 2:
 - Cultists
 - First elite enemy
 
-Floor 3:
+Floor 3-9:
+
+- Skeletons
+- Cultists
+- Boneguards
+- Elite enemies on some floors
+
+Floor 10:
 
 - Cultists
 - Boneguards
@@ -1009,11 +1017,11 @@ design.md
 - Add walls, floors, stairs, chests, gold, items, and collision.
 - Add enemies, speed/energy turn order, basic AI, attacks, hit chance, damage, armor, XP, and leveling.
 - Add inventory/equipment changes during a dungeon run.
-- Add three floors and dungeon reset when leaving.
+- Add ten floors and dungeon reset when leaving.
 
 ### Milestone 3: Boss
 
-- Add floor 3 boss room.
+- Add floor 10 boss room.
 - Implement the Bellkeeper phases and skeleton summons.
 - Add boss rewards: large XP, 100-150 gold, guaranteed magic weapon or armor.
 - Complete main objective when the Bellkeeper dies.
@@ -1042,7 +1050,7 @@ design.md
 - Inventory is list-based.
 - Skills use both mana costs and cooldowns.
 - The game starts in a safe town hub.
-- The first dungeon has 3 floors and ends with the Bellkeeper boss.
+- The first dungeon has 10 floors and ends with the Bellkeeper boss.
 - Character creation includes a Softcore or Hardcore permadeath choice.
 - Programming language is Rust.
 - The first skill tree should be moderately complex, with enough branching to support different builds.
@@ -1053,7 +1061,7 @@ design.md
 - First Ironbound skills are Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, and Second Wind.
 - Floor 1 enemies are rats and skeletons.
 - Floor 2 enemies are skeletons, cultists, and the first elite enemy.
-- Floor 3 enemies are cultists, boneguards, and the Bellkeeper boss.
+- Floor 10 enemies are cultists, boneguards, and the Bellkeeper boss.
 - MVP item rarities are Common, Magic, Rare, and Unique.
 - Unidentified items are not included in the MVP.
 - The first dungeon persists only while the player remains in the dungeon.
