@@ -320,7 +320,7 @@ cargo test
 cargo check
 ```
 
-Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, blacksmith salvage/upgrades, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, Bellkeeper phases/summons/waves, and potion use.
+Current test coverage includes starting character state, leveling, skill scaling, cursor helpers, stash movement, equipment swapping, blacksmith salvage/upgrades, dungeon generation, stairs behavior, cultist ranged attacks, boneguard guarding, elite modifiers, Bellkeeper phases/summons/waves, Bellkeeper bleed-death victory handling, and potion use.
 
 Rust dependencies:
 

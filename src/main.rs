@@ -1893,8 +1893,24 @@ fn enemy_turns(c: &mut Character) {
                 d.enemies[i].name, d.enemies[i].bleed_damage
             ));
             if d.enemies[i].hp <= 0 {
-                d.log
-                    .push(format!("{} dies from bleeding.", d.enemies[i].name));
+                let name = d.enemies[i].name.clone();
+                let xp = d.enemies[i].xp;
+                let was_boss = d.enemies[i].is_boss;
+                let mut rng = rand::thread_rng();
+                let gold = rng.gen_range(d.enemies[i].gold_min..=d.enemies[i].gold_max);
+                c.gold += gold;
+                add_xp(c, xp);
+                d.log.push(format!(
+                    "{name} dies from bleeding. Gained {xp} XP and {gold} gold."
+                ));
+                if was_boss {
+                    let loot = random_loot(d.floor, true);
+                    let loot_name = colored_item_name(&loot);
+                    c.inventory.push(loot);
+                    d.log.push(format!("*** LOOT DROPPED: {loot_name} ***"));
+                    c.bellkeeper_defeated = true;
+                    return;
+                }
                 continue;
             }
         }
@@ -3069,6 +3085,21 @@ mod tests {
         assert!(d.bell_wave_tiles.contains(&(7, 5)));
         assert!(c.hp < c.max_hp());
         assert!(d.log.iter().any(|line| line.contains("bell wave hits")));
+    }
+
+    #[test]
+    fn bellkeeper_bleed_death_completes_boss_fight_even_with_mobs_left() {
+        let mut boss = bellkeeper(5, 5);
+        boss.hp = 1;
+        boss.bleed_turns = 1;
+        boss.bleed_damage = 2;
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]));
+
+        enemy_turns(&mut c);
+
+        assert!(c.bellkeeper_defeated);
+        assert!(c.active_dungeon.is_none());
     }
 
     #[test]
