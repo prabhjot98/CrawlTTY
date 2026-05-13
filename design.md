@@ -653,8 +653,8 @@ Example side quests:
 
 Town prices should be low and readable:
 
-- Health potion: 15 gold
-- Mana potion: 15 gold
+- Health potion: 50 gold
+- Mana potion: 100 gold
 - Basic weapon: 40-80 gold
 - Basic armor: 35-75 gold
 - Basic shield: 40 gold

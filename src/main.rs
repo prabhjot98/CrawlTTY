@@ -15,6 +15,8 @@ const SAVE_PATH: &str = "saves/save.json";
 const MAP_W: i32 = 40;
 const MAP_H: i32 = 16;
 const ACT1_FLOORS: u32 = 10;
+const HEALTH_POTION_COST: u32 = 50;
+const MANA_POTION_COST: u32 = 100;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -356,7 +358,7 @@ fn health_potion() -> Item {
     item(
         "Health Potion (restores 25% HP)",
         ItemKind::HealthPotion,
-        15,
+        HEALTH_POTION_COST,
         0,
         0,
         0,
@@ -368,7 +370,7 @@ fn mana_potion() -> Item {
     item(
         "Mana Potion (restores 25% mana)",
         ItemKind::ManaPotion,
-        15,
+        MANA_POTION_COST,
         0,
         0,
         0,
@@ -745,9 +747,9 @@ fn merchant(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
-        "Buy Health Potion - 15 gold",
-        "Buy Mana Potion - 15 gold",
-        "Sell items",
+        format!("Buy Health Potion - {HEALTH_POTION_COST} gold"),
+        format!("Buy Mana Potion - {MANA_POTION_COST} gold"),
+        "Sell items".to_string(),
     ];
     loop {
         clamp_selection(&mut selected, options.len());
