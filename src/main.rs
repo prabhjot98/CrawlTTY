@@ -556,7 +556,7 @@ fn load_or_create_character() -> Result<Character> {
         let data = fs::read_to_string(SAVE_PATH).context("failed to read save file")?;
         return serde_json::from_str(&data).context("failed to parse save file");
     }
-    println!("ASHEN DEPTHS");
+    println!("CrawlTTY");
     println!("ASCII terminal action RPG prototype");
     let name = prompt("Character name: ");
     println!("{BOLD}Choose death mode:{RESET}");

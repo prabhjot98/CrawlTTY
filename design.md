@@ -1,8 +1,8 @@
 # Terminal Action RPG Design
 
-## Working Title
+## Title
 
-**Ashen Depths**
+**CrawlTTY**
 
 A terminal-based action RPG inspired by classic loot-driven dungeon crawlers. The goal is to capture the feeling of fast combat, character builds, dangerous dungeons, randomized loot, and long-term progression while using original lore, names, enemies, classes, and mechanics.
 
