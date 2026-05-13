@@ -4,10 +4,12 @@
 
 After every completed code or documentation change in this repository:
 
-1. Run relevant validation:
-   - Rust: `cargo fmt`, `cargo test`, `cargo check`
-2. Commit the change before starting the next task.
-3. Use a concise, descriptive commit message.
+1. Run the relevant formatter first:
+   - Rust: `cargo fmt`
+2. Run relevant validation:
+   - Rust: `cargo test`, `cargo check`
+3. Commit the change before starting the next task.
+4. Use a concise, descriptive commit message.
 
 Do not leave intentional source changes uncommitted unless the user explicitly says not to commit.
 
