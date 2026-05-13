@@ -1535,60 +1535,111 @@ fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) 
     }
 }
 
-fn mastery_options(skill: &str) -> [(SkillMastery, &'static str); 3] {
+fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, String); 3] {
     match skill {
         "Cleave" => [
-            (SkillMastery::ReapingCleave, "hit every adjacent enemy"),
+            (
+                SkillMastery::ReapingCleave,
+                "Cleave target cap is removed: hit every cardinally adjacent enemy instead of max 3. Still costs 5 mana and spends 1 Battle Cry charge for the whole Cleave.".to_string(),
+            ),
             (
                 SkillMastery::SunderingCleave,
-                "hits shred armor for 3 turns",
+                "Each Cleave hit applies -2 enemy armor for 3 enemy turns. Stacks with normal damage and can reduce effective armor to 0, but not below 0.".to_string(),
             ),
-            (SkillMastery::BloodArc, "Cleave hits force bleeding"),
+            (
+                SkillMastery::BloodArc,
+                format!(
+                    "Each Cleave hit forces Bleeding for 3 turns. Bleed damage uses your current Deep Cut value: {} damage/turn.",
+                    deep_cut_damage_for_rank(c.deep_cut_rank)
+                ),
+            ),
         ],
         "Shield Bash" => [
-            (SkillMastery::CrushingBash, "bonus damage from shield armor"),
-            (SkillMastery::LongBash, "target enemies up to 2 tiles away"),
-            (SkillMastery::DazingBash, "stun lasts 2 turns"),
+            (
+                SkillMastery::CrushingBash,
+                format!(
+                    "Shield Bash gains +10 percentage points of weapon damage per shield armor. Current shield armor {} = +{}% weapon damage.",
+                    c.equipped_shield.armor.max(0),
+                    c.equipped_shield.armor.max(0) * 10
+                ),
+            ),
+            (
+                SkillMastery::LongBash,
+                "Shield Bash range increases from adjacent only to 2 tiles in a cardinal line. Still costs 6 mana, stuns, and spends 1 Battle Cry charge.".to_string(),
+            ),
+            (
+                SkillMastery::DazingBash,
+                "Shield Bash stun increases from 1 turn to 2 turns. Damage, mana cost, and cooldown are unchanged.".to_string(),
+            ),
         ],
         "Battle Cry" => [
-            (SkillMastery::WarpathCry, "+2 Battle Cry charges"),
+            (
+                SkillMastery::WarpathCry,
+                "Battle Cry grants +2 attack charges: 7 total instead of 5. Movement still does not consume charges.".to_string(),
+            ),
             (
                 SkillMastery::TerrifyingCry,
-                "activation weakens nearby enemies",
+                "On activation, enemies within 3 tiles are staggered and skip 1 turn. Battle Cry still grants attack charges and damage reduction.".to_string(),
             ),
-            (SkillMastery::RallyingCry, "activation restores HP and mana"),
+            (
+                SkillMastery::RallyingCry,
+                format!(
+                    "On activation, restore 20% max HP and 20% max mana. Current values: {} HP and {} mana.",
+                    (c.max_hp() / 5).max(1),
+                    (c.max_mana() / 5).max(1)
+                ),
+            ),
         ],
         "Deep Cut" => [
             (
                 SkillMastery::Hemorrhage,
-                "bleed hurts low-health enemies more",
+                format!(
+                    "Bleeding enemies below 50% HP take +2 bleed damage per tick. Current bleed becomes {} damage/turn while they are low HP.",
+                    deep_cut_damage_for_rank(c.deep_cut_rank) + 2
+                ),
             ),
             (
                 SkillMastery::OpenWound,
-                "bleed also causes physical vulnerability",
+                "When Deep Cut applies Bleeding, it also applies Vulnerable for 3 turns. Your physical hits deal +2 raw damage to Vulnerable enemies.".to_string(),
             ),
-            (SkillMastery::Bloodletting, "bleed kills heal you"),
+            (
+                SkillMastery::Bloodletting,
+                format!(
+                    "Enemies killed by bleed restore 10% max HP. Current heal: {} HP.",
+                    (c.max_hp() / 10).max(1)
+                ),
+            ),
         ],
         "Iron Guard" => [
-            (SkillMastery::Bulwark, "more armor below half health"),
+            (
+                SkillMastery::Bulwark,
+                "Gain +4 armor while at or below 50% HP. This is added on top of Iron Guard's normal shield armor bonus.".to_string(),
+            ),
             (
                 SkillMastery::ShieldDiscipline,
-                "shield discipline grants dodge",
+                "Gain +3 dodge while using Iron Guard. This is a flat bonus to your dodge rating.".to_string(),
             ),
-            (SkillMastery::SpikedGuard, "attackers take thorn damage"),
+            (
+                SkillMastery::SpikedGuard,
+                "When an adjacent melee enemy hits you, Spiked Guard deals 2 physical damage back to that attacker.".to_string(),
+            ),
         ],
         _ => [
             (
                 SkillMastery::FreshKill,
-                "Second Wind works without Battle Cry for less healing",
+                format!(
+                    "Second Wind can trigger without Battle Cry, but heals for 50% of normal. Current no-Cry heal: {} HP; Battle Cry heal remains {} HP.",
+                    (second_wind_heal_amount(c) / 2).max(1),
+                    second_wind_heal_amount(c)
+                ),
             ),
             (
                 SkillMastery::AdrenalSurge,
-                "Second Wind restores a Battle Cry charge",
+                "When Second Wind triggers while Battle Cry has charges, restore +1 Battle Cry charge after the kill.".to_string(),
             ),
             (
                 SkillMastery::GrimRecovery,
-                "Second Wind overheal becomes a shield",
+                "Second Wind overhealing becomes a temporary damage shield. The shield absorbs incoming damage before HP until depleted.".to_string(),
             ),
         ],
     }
@@ -1599,9 +1650,10 @@ fn mastery_menu(c: &mut Character, skill: &str) -> String {
         clear_screen();
         println!("{BOLD}{MAGENTA}{skill} Mastery{RESET}");
         println!("Choose one free path. The other two will be locked out permanently.");
-        let options = mastery_options(skill);
+        let options = mastery_options(c, skill);
         for (i, (mastery, details)) in options.iter().enumerate() {
-            println!("{GREEN}{}){RESET} {} - {}", i + 1, mastery.name(), details);
+            println!("{GREEN}{}){RESET} {BOLD}{}{RESET}", i + 1, mastery.name());
+            println!("   {details}");
         }
         print_footer(&[&format!(
             "{BOLD}Mastery:{RESET} {GREEN}1-3{RESET}=choose  {RED}Esc{RESET}=back"
