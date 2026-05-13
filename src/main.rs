@@ -17,6 +17,7 @@ const MAP_H: i32 = 16;
 const ACT1_FLOORS: u32 = 10;
 const HEALTH_POTION_COST: u32 = 50;
 const MANA_POTION_COST: u32 = 100;
+const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -421,7 +422,7 @@ fn item_with_rarity(
 }
 fn health_potion() -> Item {
     item(
-        "Health Potion (restores 25% HP)",
+        "Lesser Health Potion (restores 15% HP)",
         ItemKind::HealthPotion,
         HEALTH_POTION_COST,
         0,
@@ -433,7 +434,7 @@ fn health_potion() -> Item {
 }
 fn mana_potion() -> Item {
     item(
-        "Mana Potion (restores 25% mana)",
+        "Lesser Mana Potion (restores 15% mana)",
         ItemKind::ManaPotion,
         MANA_POTION_COST,
         0,
@@ -717,6 +718,10 @@ fn heal_amount_text(value: u32) -> String {
     format!("{GREEN}{value} HP{RESET}")
 }
 
+fn lesser_potion_restore(max_resource: u32) -> u32 {
+    ((max_resource * LESSER_POTION_RESTORE_PERCENT) / 100).max(1)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LogKind {
     Hit,
@@ -812,8 +817,8 @@ fn merchant(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
-        format!("Buy Health Potion - {HEALTH_POTION_COST} gold"),
-        format!("Buy Mana Potion - {MANA_POTION_COST} gold"),
+        format!("Buy Lesser Health Potion - {HEALTH_POTION_COST} gold"),
+        format!("Buy Lesser Mana Potion - {MANA_POTION_COST} gold"),
         "Sell items".to_string(),
     ];
     loop {
@@ -3429,13 +3434,13 @@ fn use_potion(c: &mut Character) {
         .position(|i| matches!(i.kind, ItemKind::HealthPotion))
     {
         c.inventory.remove(index);
-        let heal = (c.max_hp() / 4).max(1);
+        let heal = lesser_potion_restore(c.max_hp());
         c.hp = (c.hp + heal).min(c.max_hp());
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Heal,
             format!(
-                "You drink a health potion and restore {}.",
+                "You drink a lesser health potion and restore {}.",
                 heal_amount_text(heal)
             ),
         );
@@ -3443,7 +3448,7 @@ fn use_potion(c: &mut Character) {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
-            "No health potion available.",
+            "No lesser health potion available.",
         );
     }
 }
@@ -3822,14 +3827,14 @@ fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
             format!("Equipped {name}.")
         }
         ItemKind::HealthPotion => {
-            let heal = (c.max_hp() / 4).max(1);
+            let heal = lesser_potion_restore(c.max_hp());
             c.hp = (c.hp + heal).min(c.max_hp());
-            format!("Used a health potion and restored {heal} HP.")
+            format!("Used a lesser health potion and restored {heal} HP.")
         }
         ItemKind::ManaPotion => {
-            let restore = (c.max_mana() / 4).max(1);
+            let restore = lesser_potion_restore(c.max_mana());
             c.mana = (c.mana + restore).min(c.max_mana());
-            format!("Used a mana potion and restored {restore} mana.")
+            format!("Used a lesser mana potion and restored {restore} mana.")
         }
     }
 }
@@ -4093,7 +4098,7 @@ mod tests {
 
         let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
 
-        assert!(message.starts_with("Stored Mana Potion"));
+        assert!(message.starts_with("Stored Lesser Mana Potion"));
         assert_eq!(inventory.len(), 2);
         assert_eq!(stash.len(), 1);
         assert!(matches!(stash[0].kind, ItemKind::ManaPotion));
@@ -4491,7 +4496,7 @@ mod tests {
             .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
             .count();
         assert_eq!(ending_potions, starting_potions - 1);
-        assert_eq!(c.hp, 1 + c.max_hp() / 4);
+        assert_eq!(c.hp, 1 + lesser_potion_restore(c.max_hp()));
 
         c.hp = c.max_hp() - 1;
         use_potion(&mut c);

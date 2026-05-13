@@ -53,7 +53,7 @@ B  Boss
 
 ## Game Loop
 
-1. Player starts in a safe town hub with 2 health potions and class-appropriate starting gear.
+1. Player starts in a safe town hub with 2 lesser health potions and class-appropriate starting gear.
 2. Player selects class, manages inventory, buys supplies, and accepts quests.
 3. Player enters a procedurally generated zone.
 4. Player explores, fights monsters, collects loot, and gains experience.
@@ -865,10 +865,10 @@ The Ironbound starts with:
 - Rusted sword
 - Worn shield
 - Cloth tunic or battered mail
-- 2 health potions
-- 1 mana potion
+- 2 lesser health potions
+- 1 lesser mana potion
 
-Mana does not regenerate during dungeon exploration. Mana is restored by drinking mana potions or resting/healing in town.
+Mana does not regenerate during dungeon exploration. Mana is restored by drinking mana potions, such as lesser mana potions, or resting/healing in town.
 
 Starting equipment is picked automatically based on class. The player does not choose a starting weapon in the MVP.
 
@@ -937,8 +937,8 @@ Example starter/early items:
 
 Other MVP items:
 
-- Health potions: restore 25% of maximum health.
-- Mana potions: restore 25% of maximum mana.
+- Lesser health potions: restore 15% of maximum health.
+- Lesser mana potions: restore 15% of maximum mana.
 - Gold
 
 ### MVP Equipment Interaction
@@ -1028,7 +1028,7 @@ design.md
 - Support Softcore/Hardcore choice.
 - Show player stats, gold, inventory, and equipment.
 - Add healer, merchant, blacksmith, stash, and dungeon entrance menus.
-- Add health potions, mana potions, starter gear, buying, selling, and stash storage.
+- Add lesser health potions, lesser mana potions, starter gear, buying, selling, and stash storage.
 - Auto-save after every action and load on startup.
 
 ### Milestone 2: Dungeon
@@ -1099,9 +1099,9 @@ design.md
 - Item damage scales from item base damage plus attribute scaling grades: F, D, C, B, A, S.
 - XP required to level starts at 40 and doubles each level.
 - Each level gives 3 attribute points and 1 skill point.
-- The player starts with 2 health potions and 1 mana potion.
-- MVP includes both health potions and mana potions.
-- Potions restore 25% of maximum health or mana.
+- The player starts with 2 lesser health potions and 1 lesser mana potion.
+- MVP includes both lesser health potions and lesser mana potions.
+- Lesser potions restore 15% of maximum health or mana.
 - Mana only restores from mana potions or in town.
 - Starting weapon and gear are automatically picked based on class.
 - The MVP main objective is to kill the Bellkeeper.
