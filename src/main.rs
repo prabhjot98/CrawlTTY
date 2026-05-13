@@ -90,6 +90,28 @@ enum EliteModifier {
     Burning,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+enum SkillMastery {
+    ReapingCleave,
+    SunderingCleave,
+    BloodArc,
+    CrushingBash,
+    LongBash,
+    DazingBash,
+    WarpathCry,
+    TerrifyingCry,
+    RallyingCry,
+    Hemorrhage,
+    OpenWound,
+    Bloodletting,
+    Bulwark,
+    ShieldDiscipline,
+    SpikedGuard,
+    FreshKill,
+    AdrenalSurge,
+    GrimRecovery,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Enemy {
     name: String,
@@ -112,6 +134,10 @@ struct Enemy {
     bleed_turns: u32,
     #[serde(default)]
     bleed_damage: i32,
+    #[serde(default)]
+    armor_shred_turns: u32,
+    #[serde(default)]
+    vulnerable_turns: u32,
     #[serde(default)]
     guarding: bool,
     #[serde(default)]
@@ -198,6 +224,20 @@ struct Character {
     armor_shards: u32,
     #[serde(default)]
     shield_shards: u32,
+    #[serde(default)]
+    cleave_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    shield_bash_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    battle_cry_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    deep_cut_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    iron_guard_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    second_wind_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    second_wind_shield: u32,
 }
 
 fn default_skill_rank() -> u32 {
@@ -250,6 +290,13 @@ impl Character {
             weapon_shards: 0,
             armor_shards: 0,
             shield_shards: 0,
+            cleave_mastery: None,
+            shield_bash_mastery: None,
+            battle_cry_mastery: None,
+            deep_cut_mastery: None,
+            iron_guard_mastery: None,
+            second_wind_mastery: None,
+            second_wind_shield: 0,
         }
     }
 
@@ -263,7 +310,15 @@ impl Character {
         10 + self.dexterity * 5
     }
     fn dodge_rating(&self) -> u32 {
-        (10 + self.dexterity as i32 * 3 + self.equipped_shield.dodge + self.equipped_armor.dodge)
+        let mastery_bonus = if self.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
+            3
+        } else {
+            0
+        };
+        (10 + self.dexterity as i32 * 3
+            + self.equipped_shield.dodge
+            + self.equipped_armor.dodge
+            + mastery_bonus)
             .max(0) as u32
     }
     fn speed(&self) -> u32 {
@@ -274,7 +329,17 @@ impl Character {
             .max(1) as u32
     }
     fn armor(&self) -> i32 {
-        self.equipped_armor.armor + self.equipped_shield.armor + iron_guard_armor_bonus(self)
+        let bulwark_bonus = if self.iron_guard_mastery == Some(SkillMastery::Bulwark)
+            && self.hp * 2 <= self.max_hp()
+        {
+            4
+        } else {
+            0
+        };
+        self.equipped_armor.armor
+            + self.equipped_shield.armor
+            + iron_guard_armor_bonus(self)
+            + bulwark_bonus
     }
     fn weapon_damage(&self) -> (i32, i32) {
         (
@@ -1335,12 +1400,12 @@ fn skill_tree_menu(c: &mut Character) {
             "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
-            '1' => message = upgrade_skill(c, "Cleave"),
-            '2' => message = upgrade_skill(c, "Shield Bash"),
-            '3' => message = upgrade_skill(c, "Battle Cry"),
-            '4' => message = upgrade_skill(c, "Deep Cut"),
-            '5' => message = upgrade_skill(c, "Iron Guard"),
-            '6' => message = upgrade_skill(c, "Second Wind"),
+            '1' => message = choose_skill_or_mastery(c, "Cleave"),
+            '2' => message = choose_skill_or_mastery(c, "Shield Bash"),
+            '3' => message = choose_skill_or_mastery(c, "Battle Cry"),
+            '4' => message = choose_skill_or_mastery(c, "Deep Cut"),
+            '5' => message = choose_skill_or_mastery(c, "Iron Guard"),
+            '6' => message = choose_skill_or_mastery(c, "Second Wind"),
             '\u{1b}' => break,
             _ => message = "Unknown skill command.".to_string(),
         }
@@ -1368,6 +1433,19 @@ fn print_skill_upgrade_preview(
     }
 }
 
+fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
+    if skill_rank(c, skill) >= 5 {
+        if mastery_for_skill(c, skill).is_some() {
+            return format!(
+                "{skill} already has a mastery: {}.",
+                mastery_for_skill(c, skill).unwrap().name()
+            );
+        }
+        return mastery_menu(c, skill);
+    }
+    upgrade_skill(c, skill)
+}
+
 fn upgrade_skill(c: &mut Character, skill: &str) -> String {
     if c.unspent_skills == 0 {
         return "No unspent skill points.".to_string();
@@ -1389,6 +1467,143 @@ fn upgrade_skill(c: &mut Character, skill: &str) -> String {
     }
     c.unspent_skills -= 1;
     format!("Upgraded {skill} to rank {}.", skill_rank(c, skill))
+}
+
+impl SkillMastery {
+    fn name(self) -> &'static str {
+        match self {
+            SkillMastery::ReapingCleave => "Reaping Cleave",
+            SkillMastery::SunderingCleave => "Sundering Cleave",
+            SkillMastery::BloodArc => "Blood Arc",
+            SkillMastery::CrushingBash => "Crushing Bash",
+            SkillMastery::LongBash => "Long Bash",
+            SkillMastery::DazingBash => "Dazing Bash",
+            SkillMastery::WarpathCry => "Warpath Cry",
+            SkillMastery::TerrifyingCry => "Terrifying Cry",
+            SkillMastery::RallyingCry => "Rallying Cry",
+            SkillMastery::Hemorrhage => "Hemorrhage",
+            SkillMastery::OpenWound => "Open Wound",
+            SkillMastery::Bloodletting => "Bloodletting",
+            SkillMastery::Bulwark => "Bulwark",
+            SkillMastery::ShieldDiscipline => "Shield Discipline",
+            SkillMastery::SpikedGuard => "Spiked Guard",
+            SkillMastery::FreshKill => "Fresh Kill",
+            SkillMastery::AdrenalSurge => "Adrenal Surge",
+            SkillMastery::GrimRecovery => "Grim Recovery",
+        }
+    }
+}
+
+fn mastery_for_skill(c: &Character, skill: &str) -> Option<SkillMastery> {
+    match skill {
+        "Cleave" => c.cleave_mastery,
+        "Shield Bash" => c.shield_bash_mastery,
+        "Battle Cry" => c.battle_cry_mastery,
+        "Deep Cut" => c.deep_cut_mastery,
+        "Iron Guard" => c.iron_guard_mastery,
+        "Second Wind" => c.second_wind_mastery,
+        _ => None,
+    }
+}
+
+fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) {
+    match skill {
+        "Cleave" => c.cleave_mastery = Some(mastery),
+        "Shield Bash" => c.shield_bash_mastery = Some(mastery),
+        "Battle Cry" => c.battle_cry_mastery = Some(mastery),
+        "Deep Cut" => c.deep_cut_mastery = Some(mastery),
+        "Iron Guard" => c.iron_guard_mastery = Some(mastery),
+        "Second Wind" => c.second_wind_mastery = Some(mastery),
+        _ => {}
+    }
+}
+
+fn mastery_options(skill: &str) -> [(SkillMastery, &'static str); 3] {
+    match skill {
+        "Cleave" => [
+            (SkillMastery::ReapingCleave, "hit every adjacent enemy"),
+            (
+                SkillMastery::SunderingCleave,
+                "hits shred armor for 3 turns",
+            ),
+            (SkillMastery::BloodArc, "Cleave hits force bleeding"),
+        ],
+        "Shield Bash" => [
+            (SkillMastery::CrushingBash, "bonus damage from shield armor"),
+            (SkillMastery::LongBash, "target enemies up to 2 tiles away"),
+            (SkillMastery::DazingBash, "stun lasts 2 turns"),
+        ],
+        "Battle Cry" => [
+            (SkillMastery::WarpathCry, "+2 Battle Cry charges"),
+            (
+                SkillMastery::TerrifyingCry,
+                "activation weakens nearby enemies",
+            ),
+            (SkillMastery::RallyingCry, "activation restores HP and mana"),
+        ],
+        "Deep Cut" => [
+            (
+                SkillMastery::Hemorrhage,
+                "bleed hurts low-health enemies more",
+            ),
+            (
+                SkillMastery::OpenWound,
+                "bleed also causes physical vulnerability",
+            ),
+            (SkillMastery::Bloodletting, "bleed kills heal you"),
+        ],
+        "Iron Guard" => [
+            (SkillMastery::Bulwark, "more armor below half health"),
+            (
+                SkillMastery::ShieldDiscipline,
+                "shield discipline grants dodge",
+            ),
+            (SkillMastery::SpikedGuard, "attackers take thorn damage"),
+        ],
+        _ => [
+            (
+                SkillMastery::FreshKill,
+                "Second Wind works without Battle Cry for less healing",
+            ),
+            (
+                SkillMastery::AdrenalSurge,
+                "Second Wind restores a Battle Cry charge",
+            ),
+            (
+                SkillMastery::GrimRecovery,
+                "Second Wind overheal becomes a shield",
+            ),
+        ],
+    }
+}
+
+fn mastery_menu(c: &mut Character, skill: &str) -> String {
+    if c.unspent_skills == 0 {
+        return "Need 1 skill point to choose a mastery.".to_string();
+    }
+    loop {
+        clear_screen();
+        println!("{BOLD}{MAGENTA}{skill} Mastery{RESET}");
+        println!("Choose one path. The other two will be locked out permanently.");
+        let options = mastery_options(skill);
+        for (i, (mastery, details)) in options.iter().enumerate() {
+            println!("{GREEN}{}){RESET} {} - {}", i + 1, mastery.name(), details);
+        }
+        print_footer(&[&format!(
+            "{BOLD}Mastery:{RESET} {GREEN}1-3{RESET}=choose  {RED}Esc{RESET}=back"
+        )]);
+        match read_key_char() {
+            key @ ('1' | '2' | '3') => {
+                let index = key.to_digit(10).unwrap() as usize - 1;
+                let mastery = options[index].0;
+                set_mastery_for_skill(c, skill, mastery);
+                c.unspent_skills -= 1;
+                return format!("Unlocked {} for {skill}.", mastery.name());
+            }
+            '\u{1b}' => return "Mastery selection cancelled.".to_string(),
+            _ => {}
+        }
+    }
 }
 
 fn skill_rank(c: &Character, skill: &str) -> u32 {
@@ -1764,6 +1979,8 @@ fn enemy(
         stunned_turns: 0,
         bleed_turns: 0,
         bleed_damage: 0,
+        armor_shred_turns: 0,
+        vulnerable_turns: 0,
         guarding: false,
         elite_modifier: None,
     }
@@ -2200,9 +2417,29 @@ fn use_cleave(c: &mut Character) -> bool {
         LogKind::Hit,
         "You swing a wide Cleave.",
     );
-    for index in targets.into_iter().take(3).rev() {
+    let target_limit = if c.cleave_mastery == Some(SkillMastery::ReapingCleave) {
+        usize::MAX
+    } else {
+        3
+    };
+    let blood_arc = c.cleave_mastery == Some(SkillMastery::BloodArc);
+    let sundering = c.cleave_mastery == Some(SkillMastery::SunderingCleave);
+    for index in targets.into_iter().take(target_limit).rev() {
         if c.active_dungeon.is_some() {
             damage_enemy(c, index, cleave_multiplier(c), "cleave");
+            if let Some(d) = c.active_dungeon.as_mut() {
+                if let Some(enemy) = d.enemies.get_mut(index) {
+                    if blood_arc && enemy.hp > 0 {
+                        enemy.bleed_turns = 3;
+                        enemy.bleed_damage = enemy
+                            .bleed_damage
+                            .max(deep_cut_damage_for_rank(c.deep_cut_rank));
+                    }
+                    if sundering && enemy.hp > 0 {
+                        enemy.armor_shred_turns = 3;
+                    }
+                }
+            }
         }
     }
     consume_battle_cry_charge(c);
@@ -2229,27 +2466,38 @@ fn use_shield_bash(c: &mut Character) -> bool {
         );
         return false;
     }
-    let Some(index) = adjacent_enemy_indices(c).first().copied() else {
+    let target = if c.shield_bash_mastery == Some(SkillMastery::LongBash) {
+        shield_bash_target_index(c, 2)
+    } else {
+        adjacent_enemy_indices(c).first().copied()
+    };
+    let Some(index) = target else {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
-            "No adjacent enemy for Shield Bash.",
+            "No enemy in Shield Bash range.",
         );
         return false;
     };
     c.mana -= 6;
     c.shield_bash_cooldown = 3;
-    damage_enemy(c, index, shield_bash_multiplier(c), "shield bash");
+    let multiplier = if c.shield_bash_mastery == Some(SkillMastery::CrushingBash) {
+        shield_bash_multiplier(c) + c.equipped_shield.armor.max(0) as f32 * 0.10
+    } else {
+        shield_bash_multiplier(c)
+    };
+    damage_enemy(c, index, multiplier, "shield bash");
     consume_battle_cry_charge(c);
     if let Some(d) = c.active_dungeon.as_mut() {
         if let Some(enemy) = d.enemies.get_mut(index) {
-            enemy.stunned_turns = enemy.stunned_turns.max(1);
+            let stun_turns = if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
+                2
+            } else {
+                1
+            };
+            enemy.stunned_turns = enemy.stunned_turns.max(stun_turns);
         }
-        log_event(
-            &mut d.log,
-            LogKind::Status,
-            "Shield Bash stuns the enemy for 1 turn.",
-        );
+        log_event(&mut d.log, LogKind::Status, "Shield Bash stuns the enemy.");
     }
     true
 }
@@ -2275,12 +2523,28 @@ fn use_battle_cry(c: &mut Character) -> bool {
         return false;
     }
     c.mana -= 8;
-    c.battle_cry_charges = 5;
+    c.battle_cry_charges = if c.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
+        7
+    } else {
+        5
+    };
     c.battle_cry_cooldown = 6;
+    if c.battle_cry_mastery == Some(SkillMastery::RallyingCry) {
+        let heal = (c.max_hp() / 5).max(1);
+        let mana = (c.max_mana() / 5).max(1);
+        c.hp = (c.hp + heal).min(c.max_hp());
+        c.mana = (c.mana + mana).min(c.max_mana());
+    }
+    if c.battle_cry_mastery == Some(SkillMastery::TerrifyingCry) {
+        weaken_nearby_enemies(c, 3);
+    }
     log_event(
         &mut c.active_dungeon.as_mut().unwrap().log,
         LogKind::Status,
-        "You roar a Battle Cry. Your next 5 attacks hit harder and enemies falter.",
+        format!(
+            "You roar a Battle Cry. Your next {} attacks hit harder and enemies falter.",
+            c.battle_cry_charges
+        ),
     );
     true
 }
@@ -2298,6 +2562,36 @@ fn consume_battle_cry_charge(c: &mut Character) {
                 "Battle Cry charge spent. {} remaining.",
                 c.battle_cry_charges
             ),
+        );
+    }
+}
+
+fn shield_bash_target_index(c: &Character, range: i32) -> Option<usize> {
+    let d = c.active_dungeon.as_ref().unwrap();
+    d.enemies
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| {
+            e.hp > 0
+                && (e.x == d.player_x || e.y == d.player_y)
+                && (e.x - d.player_x).abs() + (e.y - d.player_y).abs() <= range
+        })
+        .min_by_key(|(_, e)| (e.x - d.player_x).abs() + (e.y - d.player_y).abs())
+        .map(|(i, _)| i)
+}
+
+fn weaken_nearby_enemies(c: &mut Character, range: i32) {
+    if let Some(d) = c.active_dungeon.as_mut() {
+        for enemy in &mut d.enemies {
+            let dist = (enemy.x - d.player_x).abs() + (enemy.y - d.player_y).abs();
+            if enemy.hp > 0 && dist <= range {
+                enemy.stunned_turns = enemy.stunned_turns.max(1);
+            }
+        }
+        log_event(
+            &mut d.log,
+            LogKind::Status,
+            "Terrifying Cry staggers nearby enemies.",
         );
     }
 }
@@ -2331,7 +2625,10 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         return;
     }
 
-    let raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
+    let mut raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
+    if d.enemies[enemy_index].vulnerable_turns > 0 {
+        raw += 2;
+    }
     let mut guard_message = None;
     let mut bleed_message = None;
     let (name, damage, hp_text, killed, xp, gold, was_boss) = {
@@ -2346,6 +2643,9 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
             enemy.bleed_turns = 3;
             enemy.bleed_damage = deep_cut_damage_for_rank(c.deep_cut_rank);
+            if c.deep_cut_mastery == Some(SkillMastery::OpenWound) {
+                enemy.vulnerable_turns = 3;
+            }
             bleed_message = Some(format!("{} starts bleeding.", enemy.name));
         }
         let killed = enemy.hp <= 0;
@@ -2383,16 +2683,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
             log_event(&mut d.log, LogKind::Status, message);
         }
         push_level_up_logs(&mut d.log, &levels_gained);
-        if c.battle_cry_charges > 0 {
-            let heal = second_wind_heal_amount(c);
-            c.hp = (c.hp + heal).min(c.max_hp());
-            let d = c.active_dungeon.as_mut().unwrap();
-            log_event(
-                &mut d.log,
-                LogKind::Heal,
-                format!("Second Wind restores {}.", heal_amount_text(heal)),
-            );
-        }
+        trigger_second_wind(c, c.battle_cry_charges > 0);
         maybe_drop_loot(c, was_boss);
         if was_boss {
             c.bellkeeper_defeated = true;
@@ -2409,6 +2700,41 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         }
         if let Some(message) = bleed_message {
             log_event(&mut d.log, LogKind::Status, message);
+        }
+    }
+}
+
+fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
+    let mut heal = 0;
+    if battle_cry_active {
+        heal = second_wind_heal_amount(c);
+    } else if c.second_wind_mastery == Some(SkillMastery::FreshKill) {
+        heal = (second_wind_heal_amount(c) / 2).max(1);
+    }
+    if heal == 0 {
+        return;
+    }
+    let before = c.hp;
+    c.hp = (c.hp + heal).min(c.max_hp());
+    let actual_heal = c.hp - before;
+    if c.second_wind_mastery == Some(SkillMastery::GrimRecovery) {
+        c.second_wind_shield += heal.saturating_sub(actual_heal);
+    }
+    if c.second_wind_mastery == Some(SkillMastery::AdrenalSurge) && battle_cry_active {
+        c.battle_cry_charges += 1;
+    }
+    if let Some(d) = c.active_dungeon.as_mut() {
+        log_event(
+            &mut d.log,
+            LogKind::Heal,
+            format!("Second Wind restores {}.", heal_amount_text(actual_heal)),
+        );
+        if c.second_wind_shield > 0 {
+            log_event(
+                &mut d.log,
+                LogKind::Status,
+                format!("Grim Recovery shield: {}.", c.second_wind_shield),
+            );
         }
     }
 }
@@ -2435,8 +2761,17 @@ fn enemy_turns(c: &mut Character) {
         if d.enemies[i].hp <= 0 {
             continue;
         }
+        d.enemies[i].armor_shred_turns = d.enemies[i].armor_shred_turns.saturating_sub(1);
+        d.enemies[i].vulnerable_turns = d.enemies[i].vulnerable_turns.saturating_sub(1);
         if d.enemies[i].bleed_turns > 0 {
-            d.enemies[i].hp -= d.enemies[i].bleed_damage;
+            let bleed_damage = if c.deep_cut_mastery == Some(SkillMastery::Hemorrhage)
+                && d.enemies[i].hp * 2 <= d.enemies[i].max_hp
+            {
+                d.enemies[i].bleed_damage + 2
+            } else {
+                d.enemies[i].bleed_damage
+            };
+            d.enemies[i].hp -= bleed_damage;
             d.enemies[i].bleed_turns -= 1;
             log_event(
                 &mut d.log,
@@ -2444,7 +2779,7 @@ fn enemy_turns(c: &mut Character) {
                 format!(
                     "{} bleeds for {}. {}.",
                     d.enemies[i].name,
-                    damage_text(d.enemies[i].bleed_damage),
+                    damage_text(bleed_damage),
                     enemy_hp_text(&d.enemies[i])
                 ),
             );
@@ -2466,6 +2801,15 @@ fn enemy_turns(c: &mut Character) {
                     ),
                 );
                 push_level_up_logs(&mut d.log, &levels_gained);
+                if c.deep_cut_mastery == Some(SkillMastery::Bloodletting) {
+                    let heal = (c.max_hp() / 10).max(1);
+                    c.hp = (c.hp + heal).min(c.max_hp());
+                    log_event(
+                        &mut d.log,
+                        LogKind::Heal,
+                        format!("Bloodletting restores {}.", heal_amount_text(heal)),
+                    );
+                }
                 if was_boss {
                     let loot = random_loot(d.floor, true);
                     let loot_name = colored_item_name(&loot);
@@ -2616,7 +2960,7 @@ fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
     );
     if d.bell_wave_tiles.contains(&(d.player_x, d.player_y)) {
         let damage = enemy_damage_after_mitigation(6, c);
-        c.hp = c.hp.saturating_sub(damage);
+        apply_player_damage(c, damage);
         log_event(
             &mut d.log,
             LogKind::Enemy,
@@ -2626,13 +2970,15 @@ fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
 }
 
 fn effective_enemy_armor(enemy: &Enemy) -> i32 {
-    enemy.armor
+    (enemy.armor
         + if enemy.guarding { 2 } else { 0 }
         + if matches!(enemy.elite_modifier, Some(EliteModifier::Armored)) {
             2
         } else {
             0
         }
+        - if enemy.armor_shred_turns > 0 { 2 } else { 0 })
+    .max(0)
 }
 
 fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
@@ -2652,12 +2998,26 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
             + elite_damage_bonus(enemy)
             + bellkeeper_enrage_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
-        c.hp = c.hp.saturating_sub(damage);
+        apply_player_damage(c, damage);
+        let enemy_name = enemy.name.clone();
         log_event(
             &mut d.log,
             LogKind::Enemy,
-            format!("{} hits you for {}.", enemy.name, damage_text(damage)),
+            format!("{} hits you for {}.", enemy_name, damage_text(damage)),
         );
+        if c.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
+            let thorn_damage = 2;
+            d.enemies[enemy_index].hp -= thorn_damage;
+            log_event(
+                &mut d.log,
+                LogKind::Hit,
+                format!(
+                    "Spiked Guard deals {} to {}.",
+                    damage_text(thorn_damage),
+                    enemy_name
+                ),
+            );
+        }
         apply_vampiric_heal(d, enemy_index);
     } else {
         log_event(
@@ -2706,7 +3066,7 @@ fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
         let raw =
             rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
-        c.hp = c.hp.saturating_sub(damage);
+        apply_player_damage(c, damage);
         log_event(
             &mut d.log,
             LogKind::Enemy,
@@ -2764,6 +3124,12 @@ fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
             ),
         );
     }
+}
+
+fn apply_player_damage(c: &mut Character, damage: u32) {
+    let absorbed = c.second_wind_shield.min(damage);
+    c.second_wind_shield -= absorbed;
+    c.hp = c.hp.saturating_sub(damage - absorbed);
 }
 
 fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {

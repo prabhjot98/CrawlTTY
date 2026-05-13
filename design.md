@@ -342,6 +342,22 @@ Tree rules:
 - The player should be able to specialize in one branch or mix branches.
 - The MVP should include enough skills to make leveling choices interesting, even if not every skill has advanced animations or effects at first.
 
+Mastery rules:
+
+- When a skill reaches rank 5, selecting it in the skill tree opens a mastery choice.
+- A mastery costs 1 skill point.
+- Each rank 5 skill has 3 mutually exclusive mastery paths.
+- Picking one mastery permanently locks the other two choices for that skill.
+
+Ironbound mastery paths:
+
+- Cleave: Reaping Cleave hits every adjacent enemy; Sundering Cleave shreds enemy armor; Blood Arc forces bleeding on Cleave hits.
+- Shield Bash: Crushing Bash gains damage from shield armor; Long Bash can target enemies up to 2 tiles away; Dazing Bash increases stun duration.
+- Battle Cry: Warpath Cry grants +2 charges; Terrifying Cry staggers nearby enemies; Rallying Cry restores health and mana on activation.
+- Deep Cut: Hemorrhage increases bleed damage against low-health enemies; Open Wound makes bleeding enemies vulnerable to physical damage; Bloodletting heals the player on bleed kills.
+- Iron Guard: Bulwark grants extra armor at low health; Shield Discipline grants dodge; Spiked Guard damages adjacent melee attackers.
+- Second Wind: Fresh Kill lets Second Wind work without Battle Cry at reduced strength; Adrenal Surge restores a Battle Cry charge; Grim Recovery turns overhealing into a temporary shield.
+
 ## Loot System
 
 ### Item Slots
