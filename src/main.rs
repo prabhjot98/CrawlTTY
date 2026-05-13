@@ -650,14 +650,59 @@ fn heal_amount_text(value: u32) -> String {
     format!("{GREEN}{value} HP{RESET}")
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LogKind {
+    Hit,
+    Enemy,
+    Miss,
+    Kill,
+    Loot,
+    Boss,
+    Heal,
+    Warn,
+    Status,
+    Info,
+}
+
+impl LogKind {
+    fn label(self) -> &'static str {
+        match self {
+            LogKind::Hit => "HIT",
+            LogKind::Enemy => "ENEMY",
+            LogKind::Miss => "MISS",
+            LogKind::Kill => "KILL",
+            LogKind::Loot => "LOOT",
+            LogKind::Boss => "BOSS",
+            LogKind::Heal => "HEAL",
+            LogKind::Warn => "WARN",
+            LogKind::Status => "STATUS",
+            LogKind::Info => "INFO",
+        }
+    }
+}
+
+fn log_event(log: &mut Vec<String>, kind: LogKind, message: impl Into<String>) {
+    log.push(format!("[{}] {}", kind.label(), message.into()));
+}
+
+fn enemy_hp_text(enemy: &Enemy) -> String {
+    format!("HP {}/{}", enemy.hp.max(0), enemy.max_hp)
+}
+
 fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
     for level in levels_gained {
-        log.push(format!(
-            "{BOLD}{MAGENTA}*** LEVEL UP! Reached level {level}. +3 attributes, +1 skill point. ***{RESET}"
-        ));
-        log.push(format!(
-            "{CYAN}Town reminder:{RESET} press {GREEN}a{RESET} for attributes and {GREEN}k{RESET} for skills."
-        ));
+        log_event(
+            log,
+            LogKind::Status,
+            format!("LEVEL UP! Reached level {level}. +3 attributes, +1 skill point."),
+        );
+        log_event(
+            log,
+            LogKind::Info,
+            format!(
+                "Town reminder: press {GREEN}a{RESET} for attributes and {GREEN}k{RESET} for skills."
+            ),
+        );
     }
 }
 
@@ -1575,7 +1620,7 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         stairs_y: stairs.1,
         enemies,
         chests,
-        log: vec![format!("Entered Hollow Crypts floor {}.", floor)],
+        log: vec![format!("[INFO] Entered Hollow Crypts floor {}.", floor)],
         tiles,
         bell_wave_tiles: Vec::new(),
         boss_turn_counter: 0,
@@ -1922,7 +1967,7 @@ fn trim_dungeon_log(log: &mut Vec<String>) {
 
 fn print_combat_log(d: &Dungeon) {
     const MAX_LOG_LINES_ON_SCREEN: usize = 8;
-    println!("{BOLD}--- Combat Log: latest command ---{RESET}");
+    println!("{BOLD}{CYAN}+== Combat Log: latest command ==+{RESET}");
 
     let Some(latest_header) = d.log.iter().rposition(|line| is_log_header(line)) else {
         for msg in d.log.iter().rev().take(MAX_LOG_LINES_ON_SCREEN).rev() {
@@ -1950,7 +1995,8 @@ fn print_combat_log(d: &Dungeon) {
 }
 
 fn is_log_header(line: &str) -> bool {
-    line.starts_with("== ") && line.ends_with(" ==")
+    (line.starts_with("== ") && line.ends_with(" =="))
+        || (line.starts_with("=== ") && line.ends_with(" ==="))
 }
 
 fn print_log_line(line: &str, current_group: bool) {
@@ -1961,10 +2007,34 @@ fn print_log_line(line: &str, current_group: bool) {
             CYAN
         };
         println!("{BOLD}{color}{line}{RESET}");
-    } else if current_group {
-        println!("  {line}");
+        return;
+    }
+
+    let color = log_line_color(line);
+    if current_group {
+        println!("  {color}{line}{RESET}");
     } else {
         println!("{DIM}  {line}{RESET}");
+    }
+}
+
+fn log_line_color(line: &str) -> &'static str {
+    if line.starts_with("[HIT]") || line.starts_with("[HEAL]") {
+        GREEN
+    } else if line.starts_with("[ENEMY]") {
+        RED
+    } else if line.starts_with("[MISS]") {
+        BRIGHT_BLACK
+    } else if line.starts_with("[KILL]") || line.starts_with("[STATUS]") {
+        MAGENTA
+    } else if line.starts_with("[LOOT]") {
+        YELLOW
+    } else if line.starts_with("[BOSS]") {
+        MAGENTA
+    } else if line.starts_with("[WARN]") {
+        YELLOW
+    } else {
+        WHITE
     }
 }
 
@@ -2064,7 +2134,7 @@ fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     let nx = d.player_x + dx;
     let ny = d.player_y + dy;
     if dungeon_tile(d, nx, ny) == '#' {
-        d.log.push("You bump into a crypt wall.".to_string());
+        log_event(&mut d.log, LogKind::Warn, "You bump into a crypt wall.");
         return false;
     }
     if let Some(index) = d
@@ -2088,36 +2158,40 @@ fn player_attack(c: &mut Character, enemy_index: usize) {
 
 fn use_cleave(c: &mut Character) -> bool {
     if c.cleave_cooldown > 0 {
-        c.active_dungeon.as_mut().unwrap().log.push(format!(
-            "Cleave is on cooldown for {} more turns.",
-            c.cleave_cooldown
-        ));
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            format!(
+                "Cleave is on cooldown for {} more turns.",
+                c.cleave_cooldown
+            ),
+        );
         return false;
     }
     if c.mana < 5 {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("Not enough mana for Cleave.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "Not enough mana for Cleave.",
+        );
         return false;
     }
     let targets = adjacent_enemy_indices(c);
     if targets.is_empty() {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("No adjacent enemies for Cleave.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "No adjacent enemies for Cleave.",
+        );
         return false;
     }
     c.mana -= 5;
     c.cleave_cooldown = 1;
-    c.active_dungeon
-        .as_mut()
-        .unwrap()
-        .log
-        .push("You swing a wide Cleave!".to_string());
+    log_event(
+        &mut c.active_dungeon.as_mut().unwrap().log,
+        LogKind::Hit,
+        "You swing a wide Cleave.",
+    );
     for index in targets.into_iter().take(3).rev() {
         if c.active_dungeon.is_some() {
             damage_enemy(c, index, cleave_multiplier(c), "cleave");
@@ -2128,26 +2202,30 @@ fn use_cleave(c: &mut Character) -> bool {
 
 fn use_shield_bash(c: &mut Character) -> bool {
     if c.shield_bash_cooldown > 0 {
-        c.active_dungeon.as_mut().unwrap().log.push(format!(
-            "Shield Bash is on cooldown for {} more turns.",
-            c.shield_bash_cooldown
-        ));
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            format!(
+                "Shield Bash is on cooldown for {} more turns.",
+                c.shield_bash_cooldown
+            ),
+        );
         return false;
     }
     if c.mana < 6 {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("Not enough mana for Shield Bash.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "Not enough mana for Shield Bash.",
+        );
         return false;
     }
     let Some(index) = adjacent_enemy_indices(c).first().copied() else {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("No adjacent enemy for Shield Bash.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "No adjacent enemy for Shield Bash.",
+        );
         return false;
     };
     c.mana -= 6;
@@ -2157,36 +2235,43 @@ fn use_shield_bash(c: &mut Character) -> bool {
         if let Some(enemy) = d.enemies.get_mut(index) {
             enemy.stunned_turns = enemy.stunned_turns.max(1);
         }
-        d.log
-            .push("The bash stuns the enemy for 1 turn.".to_string());
+        log_event(
+            &mut d.log,
+            LogKind::Status,
+            "Shield Bash stuns the enemy for 1 turn.",
+        );
     }
     true
 }
 
 fn use_battle_cry(c: &mut Character) -> bool {
     if c.battle_cry_cooldown > 0 {
-        c.active_dungeon.as_mut().unwrap().log.push(format!(
-            "Battle Cry is on cooldown for {} more turns.",
-            c.battle_cry_cooldown
-        ));
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            format!(
+                "Battle Cry is on cooldown for {} more turns.",
+                c.battle_cry_cooldown
+            ),
+        );
         return false;
     }
     if c.mana < 8 {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("Not enough mana for Battle Cry.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "Not enough mana for Battle Cry.",
+        );
         return false;
     }
     c.mana -= 8;
     c.battle_cry_turns = 5;
     c.battle_cry_cooldown = 6;
-    c.active_dungeon
-        .as_mut()
-        .unwrap()
-        .log
-        .push("You roar a Battle Cry! Your damage rises and enemies falter.".to_string());
+    log_event(
+        &mut c.active_dungeon.as_mut().unwrap().log,
+        LogKind::Status,
+        "You roar a Battle Cry. Your damage rises and enemies falter.",
+    );
     true
 }
 
@@ -2213,55 +2298,90 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
         return;
     }
-    let enemy = &mut d.enemies[enemy_index];
     if !hit {
-        d.log.push(format!("You miss the {}.", enemy.name));
+        let name = d.enemies[enemy_index].name.clone();
+        log_event(&mut d.log, LogKind::Miss, format!("You miss {name}."));
         return;
     }
+
     let raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
-    let armor = effective_enemy_armor(enemy);
-    let damage = (raw - armor).max(1);
-    enemy.hp -= damage;
-    d.log.push(format!(
-        "You {verb} {} for {}.",
-        enemy.name,
-        damage_text(damage)
-    ));
-    if enemy.guarding {
-        d.log
-            .push(format!("{} blocks with its shield.", enemy.name));
-    }
-    let bleed_chance = deep_cut_chance_for_rank(c.deep_cut_rank) as f64 / 100.0;
-    if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
-        enemy.bleed_turns = 3;
-        enemy.bleed_damage = deep_cut_damage_for_rank(c.deep_cut_rank);
-        d.log.push(format!("{} starts bleeding.", enemy.name));
-    }
-    if enemy.hp <= 0 {
-        let gold = rng.gen_range(enemy.gold_min..=enemy.gold_max);
-        let xp = enemy.xp;
-        let name = enemy.name.clone();
-        let was_boss = enemy.is_boss;
+    let mut guard_message = None;
+    let mut bleed_message = None;
+    let (name, damage, hp_text, killed, xp, gold, was_boss) = {
+        let enemy = &mut d.enemies[enemy_index];
+        let armor = effective_enemy_armor(enemy);
+        let damage = (raw - armor).max(1);
+        enemy.hp -= damage;
+        if enemy.guarding {
+            guard_message = Some(format!("{} blocks with its shield.", enemy.name));
+        }
+        let bleed_chance = deep_cut_chance_for_rank(c.deep_cut_rank) as f64 / 100.0;
+        if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
+            enemy.bleed_turns = 3;
+            enemy.bleed_damage = deep_cut_damage_for_rank(c.deep_cut_rank);
+            bleed_message = Some(format!("{} starts bleeding.", enemy.name));
+        }
+        let killed = enemy.hp <= 0;
+        let gold = if killed {
+            rng.gen_range(enemy.gold_min..=enemy.gold_max)
+        } else {
+            0
+        };
+        (
+            enemy.name.clone(),
+            damage,
+            enemy_hp_text(enemy),
+            killed,
+            enemy.xp,
+            gold,
+            enemy.is_boss,
+        )
+    };
+
+    if killed {
         c.gold += gold;
         let levels_gained = add_xp(c, xp);
         let d = c.active_dungeon.as_mut().unwrap();
-        d.log.push(format!(
-            "{BOLD}{name} dies.{RESET} Gained {} and {}.",
-            xp_reward_text(xp),
-            gold_reward_text(gold)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Kill,
+            format!(
+                "You {verb} {name} for {} and kill it. +{}, +{}.",
+                damage_text(damage),
+                xp_reward_text(xp),
+                gold_reward_text(gold)
+            ),
+        );
+        if let Some(message) = guard_message {
+            log_event(&mut d.log, LogKind::Status, message);
+        }
         push_level_up_logs(&mut d.log, &levels_gained);
         if c.battle_cry_turns > 0 {
             let heal = second_wind_heal_amount(c);
             c.hp = (c.hp + heal).min(c.max_hp());
             let d = c.active_dungeon.as_mut().unwrap();
-            d.log
-                .push(format!("Second Wind restores {}.", heal_amount_text(heal)));
+            log_event(
+                &mut d.log,
+                LogKind::Heal,
+                format!("Second Wind restores {}.", heal_amount_text(heal)),
+            );
         }
         maybe_drop_loot(c, was_boss);
         if was_boss {
             c.bellkeeper_defeated = true;
             c.active_dungeon = None;
+        }
+    } else {
+        log_event(
+            &mut d.log,
+            LogKind::Hit,
+            format!("You {verb} {name} for {}. {hp_text}.", damage_text(damage)),
+        );
+        if let Some(message) = guard_message {
+            log_event(&mut d.log, LogKind::Status, message);
+        }
+        if let Some(message) = bleed_message {
+            log_event(&mut d.log, LogKind::Status, message);
         }
     }
 }
@@ -2292,11 +2412,16 @@ fn enemy_turns(c: &mut Character) {
         if d.enemies[i].bleed_turns > 0 {
             d.enemies[i].hp -= d.enemies[i].bleed_damage;
             d.enemies[i].bleed_turns -= 1;
-            d.log.push(format!(
-                "{} bleeds for {}.",
-                d.enemies[i].name,
-                damage_text(d.enemies[i].bleed_damage)
-            ));
+            log_event(
+                &mut d.log,
+                LogKind::Hit,
+                format!(
+                    "{} bleeds for {}. {}.",
+                    d.enemies[i].name,
+                    damage_text(d.enemies[i].bleed_damage),
+                    enemy_hp_text(&d.enemies[i])
+                ),
+            );
             if d.enemies[i].hp <= 0 {
                 let name = d.enemies[i].name.clone();
                 let xp = d.enemies[i].xp;
@@ -2305,19 +2430,25 @@ fn enemy_turns(c: &mut Character) {
                 let gold = rng.gen_range(d.enemies[i].gold_min..=d.enemies[i].gold_max);
                 c.gold += gold;
                 let levels_gained = add_xp(c, xp);
-                d.log.push(format!(
-                    "{BOLD}{name} dies from bleeding.{RESET} Gained {} and {}.",
-                    xp_reward_text(xp),
-                    gold_reward_text(gold)
-                ));
+                log_event(
+                    &mut d.log,
+                    LogKind::Kill,
+                    format!(
+                        "{name} dies from bleeding. +{}, +{}.",
+                        xp_reward_text(xp),
+                        gold_reward_text(gold)
+                    ),
+                );
                 push_level_up_logs(&mut d.log, &levels_gained);
                 if was_boss {
                     let loot = random_loot(d.floor, true);
                     let loot_name = colored_item_name(&loot);
                     c.inventory.push(loot);
-                    d.log.push(format!(
-                        "{BOLD}{YELLOW}*** LOOT DROPPED: {loot_name} ***{RESET}"
-                    ));
+                    log_event(
+                        &mut d.log,
+                        LogKind::Loot,
+                        format!("Boss reward dropped: {loot_name}."),
+                    );
                     c.bellkeeper_defeated = true;
                     return;
                 }
@@ -2326,10 +2457,11 @@ fn enemy_turns(c: &mut Character) {
         }
         if d.enemies[i].stunned_turns > 0 {
             d.enemies[i].stunned_turns -= 1;
-            d.log.push(format!(
-                "{} is stunned and skips its turn.",
-                d.enemies[i].name
-            ));
+            log_event(
+                &mut d.log,
+                LogKind::Status,
+                format!("{} is stunned and skips its turn.", d.enemies[i].name),
+            );
             continue;
         }
         if d.enemies[i].is_boss {
@@ -2340,8 +2472,11 @@ fn enemy_turns(c: &mut Character) {
             enemy_melee_attack(c, &mut d, i);
         } else if should_boneguard_guard(&d, i) {
             d.enemies[i].guarding = true;
-            d.log
-                .push(format!("{} raises its shield.", d.enemies[i].name));
+            log_event(
+                &mut d.log,
+                LogKind::Status,
+                format!("{} raises its shield.", d.enemies[i].name),
+            );
         } else if can_cultist_ranged_attack(&d, i) {
             cultist_shadow_bolt(c, &mut d, i);
         } else if dist < 8 {
@@ -2402,7 +2537,7 @@ fn bellkeeper_specials(
         bellkeeper_wave(c, d, boss_index);
     }
     if phase == BellkeeperPhase::Enraged {
-        d.log.push("The Bellkeeper is enraged!".to_string());
+        log_event(&mut d.log, LogKind::Boss, "The Bellkeeper is enraged.");
     }
 }
 
@@ -2426,8 +2561,11 @@ fn summon_bellkeeper_skeleton(d: &mut Dungeon, boss_index: usize, occupied: &mut
             summon.name = "Summoned Skeleton".to_string();
             d.enemies.push(summon);
             occupied.push(pos);
-            d.log
-                .push("The Bellkeeper tolls, and a skeleton claws free.".to_string());
+            log_event(
+                &mut d.log,
+                LogKind::Boss,
+                "The Bellkeeper tolls, and a skeleton claws free.",
+            );
             return;
         }
     }
@@ -2445,16 +2583,19 @@ fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
             d.bell_wave_tiles.push(pos);
         }
     }
-    d.log.push(format!(
-        "{MAGENTA}The Bellkeeper rings a cursed bell wave!{RESET}"
-    ));
+    log_event(
+        &mut d.log,
+        LogKind::Boss,
+        "The Bellkeeper rings a cursed bell wave!",
+    );
     if d.bell_wave_tiles.contains(&(d.player_x, d.player_y)) {
         let damage = enemy_damage_after_mitigation(6, c);
         c.hp = c.hp.saturating_sub(damage);
-        d.log.push(format!(
-            "The bell wave hits you for {}.",
-            damage_text(damage)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Enemy,
+            format!("bell wave hits you for {}.", damage_text(damage)),
+        );
     }
 }
 
@@ -2486,14 +2627,18 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
             + bellkeeper_enrage_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
-        d.log.push(format!(
-            "{} hits you for {}.",
-            enemy.name,
-            damage_text(damage)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Enemy,
+            format!("{} hits you for {}.", enemy.name, damage_text(damage)),
+        );
         apply_vampiric_heal(d, enemy_index);
     } else {
-        d.log.push(format!("{} misses you.", enemy.name));
+        log_event(
+            &mut d.log,
+            LogKind::Miss,
+            format!("{} misses you.", enemy.name),
+        );
     }
 }
 
@@ -2536,15 +2681,22 @@ fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
             rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
         c.hp = c.hp.saturating_sub(damage);
-        d.log.push(format!(
-            "{}'s shadow bolt hits you for {}.",
-            enemy.name,
-            damage_text(damage)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Enemy,
+            format!(
+                "{}'s shadow bolt hits you for {}.",
+                enemy.name,
+                damage_text(damage)
+            ),
+        );
         apply_vampiric_heal(d, enemy_index);
     } else {
-        d.log
-            .push(format!("{}'s shadow bolt misses you.", enemy.name));
+        log_event(
+            &mut d.log,
+            LogKind::Miss,
+            format!("{}'s shadow bolt misses you.", enemy.name),
+        );
     }
 }
 
@@ -2576,11 +2728,15 @@ fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
     enemy.hp = (enemy.hp + 2).min(enemy.max_hp);
     let healed = enemy.hp - before;
     if healed > 0 {
-        d.log.push(format!(
-            "{} drains life and heals {}.",
-            enemy.name,
-            heal_amount_text(healed as u32)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Heal,
+            format!(
+                "{} drains life and heals {}.",
+                enemy.name,
+                heal_amount_text(healed as u32)
+            ),
+        );
     }
 }
 
@@ -2607,8 +2763,7 @@ fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
     let name = colored_item_name(&loot);
     c.inventory.push(loot);
     if let Some(d) = c.active_dungeon.as_mut() {
-        d.log
-            .push(format!("{BOLD}{YELLOW}*** LOOT DROPPED: {name} ***{RESET}"));
+        log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
     }
 }
 
@@ -2778,10 +2933,11 @@ fn open_chest_on_player(c: &mut Character) {
         c.gold += gold;
         let loot = random_loot(d.floor, rng.gen_bool(0.35));
         let name = colored_item_name(&loot);
-        d.log.push(format!(
-            "Opened chest: found {} and {name}.",
-            gold_reward_text(gold)
-        ));
+        log_event(
+            &mut d.log,
+            LogKind::Loot,
+            format!("Opened chest: found {} and {name}.", gold_reward_text(gold)),
+        );
         c.inventory.push(loot);
     }
 }
@@ -2792,15 +2948,18 @@ fn use_stairs(c: &mut Character) {
         let d = c.active_dungeon.as_ref().unwrap();
         if d.player_x != d.stairs_x || d.player_y != d.stairs_y {
             let d = c.active_dungeon.as_mut().unwrap();
-            d.log.push("You are not standing on stairs.".to_string());
+            log_event(&mut d.log, LogKind::Warn, "You are not standing on stairs.");
             return;
         }
         floor = d.floor;
     }
     if floor >= ACT1_FLOORS {
         let d = c.active_dungeon.as_mut().unwrap();
-        d.log
-            .push("The Bellkeeper blocks your escape. Defeat it!".to_string());
+        log_event(
+            &mut d.log,
+            LogKind::Boss,
+            "The Bellkeeper blocks your escape. Defeat it!",
+        );
     } else {
         c.active_dungeon = Some(generate_dungeon(floor + 1));
     }
@@ -2815,16 +2974,20 @@ fn use_potion(c: &mut Character) {
         c.inventory.remove(index);
         let heal = (c.max_hp() / 4).max(1);
         c.hp = (c.hp + heal).min(c.max_hp());
-        c.active_dungeon.as_mut().unwrap().log.push(format!(
-            "You drink a health potion and restore {}.",
-            heal_amount_text(heal)
-        ));
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Heal,
+            format!(
+                "You drink a health potion and restore {}.",
+                heal_amount_text(heal)
+            ),
+        );
     } else {
-        c.active_dungeon
-            .as_mut()
-            .unwrap()
-            .log
-            .push("No health potion available.".to_string());
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "No health potion available.",
+        );
     }
 }
 
@@ -3326,7 +3489,7 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!(d.log_turn, 0);
         assert_eq!(d.log[0], "== No turn spent: Cleave ==");
-        assert_eq!(d.log[1], "No adjacent enemies for Cleave.");
+        assert_eq!(d.log[1], "[WARN] No adjacent enemies for Cleave.");
     }
 
     #[test]
@@ -3520,10 +3683,11 @@ mod tests {
         equip_or_use_inventory_item(&mut c, index);
 
         assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-        assert!(c
-            .inventory
-            .iter()
-            .any(|item| item.name.starts_with("Rusted Sword")));
+        assert!(
+            c.inventory
+                .iter()
+                .any(|item| item.name.starts_with("Rusted Sword"))
+        );
     }
 
     #[test]
@@ -3546,9 +3710,11 @@ mod tests {
         );
 
         assert!(!can_equip_item(&c, &high_level_axe));
-        assert!(unmet_requirements_message(&c, &high_level_axe)
-            .unwrap()
-            .contains("STR"));
+        assert!(
+            unmet_requirements_message(&c, &high_level_axe)
+                .unwrap()
+                .contains("STR")
+        );
     }
 
     #[test]
@@ -3619,10 +3785,11 @@ mod tests {
             assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
             assert!((1..=3).contains(&d.chests.len()));
             assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-            assert!(d
-                .chests
-                .iter()
-                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
+            assert!(
+                d.chests
+                    .iter()
+                    .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
+            );
         }
 
         let floor2 = generate_dungeon(2);
@@ -3633,10 +3800,12 @@ mod tests {
         assert!(!floor9.enemies.iter().any(|e| e.is_boss));
 
         let boss_floor = generate_dungeon(ACT1_FLOORS);
-        assert!(boss_floor
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Bellkeeper"));
+        assert!(
+            boss_floor
+                .enemies
+                .iter()
+                .any(|e| e.is_boss && e.name == "Bellkeeper")
+        );
     }
 
     #[test]
@@ -3787,10 +3956,11 @@ mod tests {
             .filter(|e| e.name == "Summoned Skeleton")
             .count();
         assert_eq!(summons, 3);
-        assert!(d
-            .log
-            .iter()
-            .any(|line| line.contains("skeleton claws free")));
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("skeleton claws free"))
+        );
     }
 
     #[test]
