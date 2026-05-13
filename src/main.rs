@@ -478,7 +478,7 @@ fn main() -> Result<()> {
                 println!("Saved. Goodbye.");
                 break;
             }
-            _ => pause("Unknown action."),
+            _ => {}
         }
         save_character(&character)?;
     }
@@ -1100,7 +1100,7 @@ fn sell_item_screen(c: &mut Character) {
                 c.gold += sell_value;
                 message = format!("Sold {} for {} gold.", item.name, sell_value);
             }
-            _ => pause("Unknown sell command."),
+            _ => message = "Unknown sell command.".to_string(),
         }
     }
 }
@@ -1172,7 +1172,7 @@ fn stash_menu(c: &mut Character) {
                     }
                 };
             }
-            _ => pause("Unknown stash command."),
+            _ => message = "Unknown stash command.".to_string(),
         }
     }
 }
@@ -1206,6 +1206,7 @@ fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &
 }
 
 fn spend_attributes(c: &mut Character) {
+    let mut message = String::new();
     while c.unspent_attributes > 0 {
         clear_screen();
         println!(
@@ -1227,6 +1228,9 @@ fn spend_attributes(c: &mut Character) {
             c.intelligence,
             c.intelligence + 1
         );
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         print_footer(&[&format!(
             "{BOLD}Attributes:{RESET} {GREEN}1{RESET}={RED}Strength{RESET}  {GREEN}2{RESET}={GREEN}Dexterity{RESET}  {GREEN}3{RESET}={BLUE}Intelligence{RESET}  {RED}Esc{RESET}=back"
         )]);
@@ -1246,19 +1250,20 @@ fn spend_attributes(c: &mut Character) {
                 c.mana += 5;
             }
             '\u{1b}' => break,
-            _ => pause("Unknown action."),
+            _ => message = "Unknown attribute command.".to_string(),
         }
-    }
-    if c.unspent_attributes == 0 {
-        pause("No unspent attribute points.");
     }
 }
 
 fn skill_tree_menu(c: &mut Character) {
+    let mut message = String::new();
     loop {
         clear_screen();
         println!("{BOLD}{CYAN}Ironbound Skill Tree{RESET}");
         println!("{}", unspent_skills_text(c.unspent_skills));
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         println!();
         println!("{BOLD}Weapons Branch{RESET}");
         print_skill_upgrade_preview(
@@ -1330,14 +1335,14 @@ fn skill_tree_menu(c: &mut Character) {
             "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
-            '1' => upgrade_skill(c, "Cleave"),
-            '2' => upgrade_skill(c, "Shield Bash"),
-            '3' => upgrade_skill(c, "Battle Cry"),
-            '4' => upgrade_skill(c, "Deep Cut"),
-            '5' => upgrade_skill(c, "Iron Guard"),
-            '6' => upgrade_skill(c, "Second Wind"),
+            '1' => message = upgrade_skill(c, "Cleave"),
+            '2' => message = upgrade_skill(c, "Shield Bash"),
+            '3' => message = upgrade_skill(c, "Battle Cry"),
+            '4' => message = upgrade_skill(c, "Deep Cut"),
+            '5' => message = upgrade_skill(c, "Iron Guard"),
+            '6' => message = upgrade_skill(c, "Second Wind"),
             '\u{1b}' => break,
-            _ => pause("Unknown action."),
+            _ => message = "Unknown skill command.".to_string(),
         }
     }
 }
@@ -1363,18 +1368,15 @@ fn print_skill_upgrade_preview(
     }
 }
 
-fn upgrade_skill(c: &mut Character, skill: &str) {
+fn upgrade_skill(c: &mut Character, skill: &str) -> String {
     if c.unspent_skills == 0 {
-        pause("No unspent skill points.");
-        return;
+        return "No unspent skill points.".to_string();
     }
     if skill_rank(c, skill) >= 5 {
-        pause("That skill is already at max rank.");
-        return;
+        return "That skill is already at max rank.".to_string();
     }
     if let Some(requirement) = unmet_skill_prerequisite(c, skill) {
-        pause(&requirement);
-        return;
+        return requirement;
     }
     match skill {
         "Cleave" => c.cleave_rank += 1,
@@ -1383,11 +1385,10 @@ fn upgrade_skill(c: &mut Character, skill: &str) {
         "Deep Cut" => c.deep_cut_rank += 1,
         "Iron Guard" => c.iron_guard_rank += 1,
         "Second Wind" => c.second_wind_rank += 1,
-        _ => return,
+        _ => return "Unknown skill.".to_string(),
     }
     c.unspent_skills -= 1;
-    // Do not pause here: immediately return to the skill tree loop so the
-    // upgraded rank and next-rank preview redraw right away.
+    format!("Upgraded {skill} to rank {}.", skill_rank(c, skill))
 }
 
 fn skill_rank(c: &Character, skill: &str) -> u32 {
@@ -1862,7 +1863,11 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
                 save_character(c)?;
                 break;
             }
-            _ => pause("Unknown dungeon command."),
+            _ => {
+                if let Some(d) = c.active_dungeon.as_mut() {
+                    log_event(&mut d.log, LogKind::Warn, "Unknown dungeon command.");
+                }
+            }
         }
         mark_latest_log_group(c, before_log_len, took_turn, action_label);
         if took_turn && c.active_dungeon.is_some() {
@@ -3014,6 +3019,7 @@ fn check_death(c: &mut Character) {
 
 fn inventory_screen(c: &mut Character) {
     let mut selected = 0usize;
+    let mut message = String::new();
     loop {
         clamp_selection(&mut selected, c.inventory.len());
         clear_screen();
@@ -3027,6 +3033,9 @@ fn inventory_screen(c: &mut Character) {
             dodge_text(c.dodge_rating()),
             speed_text(c.speed())
         );
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
         println!();
         println!("{BOLD}Inventory{RESET}");
         if c.inventory.is_empty() {
@@ -3050,9 +3059,9 @@ fn inventory_screen(c: &mut Character) {
                     selected += 1;
                 }
             }
-            'x' | 'X' => drop_selected_inventory_item(c, selected),
-            '\n' => equip_or_use_inventory_item(c, selected),
-            _ => pause("Unknown inventory command."),
+            'x' | 'X' => message = drop_selected_inventory_item(c, selected),
+            '\n' => message = equip_or_use_inventory_item(c, selected),
+            _ => message = "Unknown inventory command.".to_string(),
         }
     }
 }
@@ -3159,14 +3168,14 @@ fn clamp_selection(selected: &mut usize, total: usize) {
     }
 }
 
-fn drop_selected_inventory_item(c: &mut Character, index: usize) {
+fn drop_selected_inventory_item(c: &mut Character, index: usize) -> String {
     if c.inventory.is_empty() {
-        pause("Inventory is empty.");
+        "Inventory is empty.".to_string()
     } else if index >= c.inventory.len() {
-        pause("No item selected.");
+        "No item selected.".to_string()
     } else {
         let item = c.inventory.remove(index);
-        pause(&format!("Dropped {}.", item.name));
+        format!("Dropped {}.", item.name)
     }
 }
 
@@ -3329,10 +3338,9 @@ fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
     Some(format!("Requires {}.", missing.join(", ")))
 }
 
-fn equip_or_use_inventory_item(c: &mut Character, index: usize) {
+fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
     if index >= c.inventory.len() {
-        pause("No item in that slot.");
-        return;
+        return "No item in that slot.".to_string();
     }
     let selected = c.inventory.remove(index);
     if matches!(
@@ -3341,32 +3349,37 @@ fn equip_or_use_inventory_item(c: &mut Character, index: usize) {
     ) {
         if let Some(message) = unmet_requirements_message(c, &selected) {
             c.inventory.insert(index, selected);
-            pause(&message);
-            return;
+            return message;
         }
     }
     match selected.kind {
         ItemKind::Weapon => {
+            let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
             c.inventory.push(old);
+            format!("Equipped {name}.")
         }
         ItemKind::Armor => {
+            let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_armor, selected);
             c.inventory.push(old);
+            format!("Equipped {name}.")
         }
         ItemKind::Shield => {
+            let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_shield, selected);
             c.inventory.push(old);
+            format!("Equipped {name}.")
         }
         ItemKind::HealthPotion => {
             let heal = (c.max_hp() / 4).max(1);
             c.hp = (c.hp + heal).min(c.max_hp());
-            pause(&format!("Used a health potion and restored {heal} HP."));
+            format!("Used a health potion and restored {heal} HP.")
         }
         ItemKind::ManaPotion => {
             let restore = (c.max_mana() / 4).max(1);
             c.mana = (c.mana + restore).min(c.max_mana());
-            pause(&format!("Used a mana potion and restored {restore} mana."));
+            format!("Used a mana potion and restored {restore} mana.")
         }
     }
 }
