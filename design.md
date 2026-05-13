@@ -330,7 +330,7 @@ Defense branch:
 
 Warcry branch:
 
-- Battle Cry: active buff/debuff bound to `3`. Costs 8 mana. Cooldown 6 turns. Lasts 5 turns. Player gains +20% damage at rank 1 and enemies deal -10% damage. Each rank adds +5% player damage, up to rank 5. While Battle Cry is active, Second Wind restores 10% max health on kill.
+- Battle Cry: active buff/debuff bound to `3`. Costs 8 mana. Cooldown 6 turns. Grants 5 empowered attack charges instead of expiring by movement turns. While charges remain, player gains +20% damage at rank 1 and enemies deal -10% damage. Each rank adds +5% player damage, up to rank 5. While Battle Cry has charges, Second Wind restores 10% max health on kill.
 - Threatening Shout: reduce enemy damage in a small radius. This can be added after the MVP.
 - Second Wind: passive. Killing an enemy restores 10% maximum health if Battle Cry is active. Each rank increases the healing amount; later ranks may also restore a small amount of mana.
 

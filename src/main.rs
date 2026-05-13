@@ -188,8 +188,8 @@ struct Character {
     shield_bash_cooldown: u32,
     #[serde(default)]
     battle_cry_cooldown: u32,
-    #[serde(default)]
-    battle_cry_turns: u32,
+    #[serde(default, alias = "battle_cry_turns")]
+    battle_cry_charges: u32,
     #[serde(default)]
     active_dungeon: Option<Dungeon>,
     #[serde(default)]
@@ -245,7 +245,7 @@ impl Character {
             cleave_cooldown: 0,
             shield_bash_cooldown: 0,
             battle_cry_cooldown: 0,
-            battle_cry_turns: 0,
+            battle_cry_charges: 0,
             active_dungeon: None,
             weapon_shards: 0,
             armor_shards: 0,
@@ -2072,13 +2072,13 @@ fn print_skill_help(c: &Character) {
                 c.shield_bash_cooldown
             ),
             &format!(
-                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. +{}% damage, -10% enemy damage, Second Wind r{} heals {}%. Ready in {}, active {}.",
+                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. Next 5 attacks gain +{}% damage and enemies deal -10%, Second Wind r{} heals {}%. Ready in {}, charges {}.",
                 c.battle_cry_rank,
                 battle_cry_bonus_percent(c),
                 c.second_wind_rank,
                 second_wind_heal_percent_for_rank(c.second_wind_rank),
                 c.battle_cry_cooldown,
-                c.battle_cry_turns
+                c.battle_cry_charges
             ),
             &format!(
                 "{GREEN}Passives:{RESET} Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
@@ -2161,6 +2161,7 @@ fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
 
 fn player_attack(c: &mut Character, enemy_index: usize) {
     damage_enemy(c, enemy_index, 1.0, "hit");
+    consume_battle_cry_charge(c);
 }
 
 fn use_cleave(c: &mut Character) -> bool {
@@ -2204,6 +2205,7 @@ fn use_cleave(c: &mut Character) -> bool {
             damage_enemy(c, index, cleave_multiplier(c), "cleave");
         }
     }
+    consume_battle_cry_charge(c);
     true
 }
 
@@ -2238,6 +2240,7 @@ fn use_shield_bash(c: &mut Character) -> bool {
     c.mana -= 6;
     c.shield_bash_cooldown = 3;
     damage_enemy(c, index, shield_bash_multiplier(c), "shield bash");
+    consume_battle_cry_charge(c);
     if let Some(d) = c.active_dungeon.as_mut() {
         if let Some(enemy) = d.enemies.get_mut(index) {
             enemy.stunned_turns = enemy.stunned_turns.max(1);
@@ -2272,14 +2275,31 @@ fn use_battle_cry(c: &mut Character) -> bool {
         return false;
     }
     c.mana -= 8;
-    c.battle_cry_turns = 5;
+    c.battle_cry_charges = 5;
     c.battle_cry_cooldown = 6;
     log_event(
         &mut c.active_dungeon.as_mut().unwrap().log,
         LogKind::Status,
-        "You roar a Battle Cry. Your damage rises and enemies falter.",
+        "You roar a Battle Cry. Your next 5 attacks hit harder and enemies falter.",
     );
     true
+}
+
+fn consume_battle_cry_charge(c: &mut Character) {
+    if c.battle_cry_charges == 0 {
+        return;
+    }
+    c.battle_cry_charges -= 1;
+    if let Some(d) = c.active_dungeon.as_mut() {
+        log_event(
+            &mut d.log,
+            LogKind::Status,
+            format!(
+                "Battle Cry charge spent. {} remaining.",
+                c.battle_cry_charges
+            ),
+        );
+    }
 }
 
 fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
@@ -2295,7 +2315,7 @@ fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
 fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &str) {
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
-    let damage_bonus = if c.battle_cry_turns > 0 {
+    let damage_bonus = if c.battle_cry_charges > 0 {
         battle_cry_multiplier(c)
     } else {
         1.0
@@ -2363,7 +2383,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
             log_event(&mut d.log, LogKind::Status, message);
         }
         push_level_up_logs(&mut d.log, &levels_gained);
-        if c.battle_cry_turns > 0 {
+        if c.battle_cry_charges > 0 {
             let heal = second_wind_heal_amount(c);
             c.hp = (c.hp + heal).min(c.max_hp());
             let d = c.active_dungeon.as_mut().unwrap();
@@ -2397,7 +2417,6 @@ fn tick_player_effects(c: &mut Character) {
     c.cleave_cooldown = c.cleave_cooldown.saturating_sub(1);
     c.shield_bash_cooldown = c.shield_bash_cooldown.saturating_sub(1);
     c.battle_cry_cooldown = c.battle_cry_cooldown.saturating_sub(1);
-    c.battle_cry_turns = c.battle_cry_turns.saturating_sub(1);
 }
 
 fn enemy_turns(c: &mut Character) {
@@ -2748,7 +2767,7 @@ fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
 }
 
 fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
-    let cry_penalty = if c.battle_cry_turns > 0 { 0.90 } else { 1.0 };
+    let cry_penalty = if c.battle_cry_charges > 0 { 0.90 } else { 1.0 };
     (((raw - c.armor()).max(1) as f32) * cry_penalty)
         .round()
         .max(1.0) as u32
@@ -3583,6 +3602,22 @@ mod tests {
         assert_eq!(second_wind_heal_percent_for_rank(1), 10);
         assert_eq!(second_wind_heal_percent_for_rank(5), 30);
         assert_eq!(next_skill_rank(5), 5);
+    }
+
+    #[test]
+    fn battle_cry_charges_survive_movement_and_spend_on_attacks() {
+        let mut c = test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![rat(4, 2)]));
+
+        assert!(use_battle_cry(&mut c));
+        assert_eq!(c.battle_cry_charges, 5);
+
+        assert!(try_move(&mut c, 1, 0));
+        tick_player_effects(&mut c);
+        assert_eq!(c.battle_cry_charges, 5);
+
+        assert!(try_move(&mut c, 1, 0));
+        assert_eq!(c.battle_cry_charges, 4);
     }
 
     #[test]
