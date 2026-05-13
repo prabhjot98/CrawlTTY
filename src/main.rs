@@ -1340,6 +1340,7 @@ fn skill_tree_menu(c: &mut Character) {
             cleave_percent_for_rank(next_skill_rank(c.cleave_rank)),
             "% weapon damage",
         );
+        print_mastery_status(c, "Cleave");
         print_skill_upgrade_preview(
             '4',
             "Deep Cut",
@@ -1349,6 +1350,7 @@ fn skill_tree_menu(c: &mut Character) {
             deep_cut_chance_for_rank(next_skill_rank(c.deep_cut_rank)),
             "% bleed chance",
         );
+        print_mastery_status(c, "Deep Cut");
         println!(
             "   Bleed damage: {} now, {} next.",
             deep_cut_damage_for_rank(c.deep_cut_rank),
@@ -1364,6 +1366,7 @@ fn skill_tree_menu(c: &mut Character) {
             shield_bash_percent_for_rank(next_skill_rank(c.shield_bash_rank)),
             "% weapon damage",
         );
+        print_mastery_status(c, "Shield Bash");
         print_skill_upgrade_preview(
             '5',
             "Iron Guard",
@@ -1373,16 +1376,18 @@ fn skill_tree_menu(c: &mut Character) {
             iron_guard_armor_bonus_for_rank(next_skill_rank(c.iron_guard_rank)) as u32,
             " armor",
         );
+        print_mastery_status(c, "Iron Guard");
         println!("{BOLD}Warcry Branch{RESET}");
         print_skill_upgrade_preview(
             '3',
             "Battle Cry",
             c.battle_cry_rank,
-            "cost 8 mana, cd 6, lasts 5 turns",
+            "cost 8 mana, cd 6, grants attack charges",
             battle_cry_bonus_percent_for_rank(c.battle_cry_rank),
             battle_cry_bonus_percent_for_rank(next_skill_rank(c.battle_cry_rank)),
             "% bonus damage",
         );
+        print_mastery_status(c, "Battle Cry");
         print_skill_upgrade_preview(
             '6',
             "Second Wind",
@@ -1392,9 +1397,10 @@ fn skill_tree_menu(c: &mut Character) {
             second_wind_heal_percent_for_rank(next_skill_rank(c.second_wind_rank)),
             "% max HP heal",
         );
+        print_mastery_status(c, "Second Wind");
         println!();
         println!(
-            "Each upgrade costs 1 skill point. Max rank is 5. Passive upgrades require rank 2 in their branch starter."
+            "Each rank upgrade costs 1 skill point. Masteries are free at rank 5. Passive upgrades require rank 2 in their branch starter."
         );
         print_footer(&[&format!(
             "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
@@ -1430,6 +1436,17 @@ fn print_skill_upgrade_preview(
             "   Next rank {}: {GREEN}{next_value}{value_label}{RESET}; {details}",
             rank + 1
         );
+    }
+}
+
+fn print_mastery_status(c: &Character, skill: &str) {
+    if skill_rank(c, skill) < 5 {
+        return;
+    }
+    if let Some(mastery) = mastery_for_skill(c, skill) {
+        println!("   {MAGENTA}Mastery:{RESET} {}", mastery.name());
+    } else {
+        println!("   {YELLOW}Mastery available:{RESET} select this skill to choose a free path.");
     }
 }
 
@@ -1578,13 +1595,10 @@ fn mastery_options(skill: &str) -> [(SkillMastery, &'static str); 3] {
 }
 
 fn mastery_menu(c: &mut Character, skill: &str) -> String {
-    if c.unspent_skills == 0 {
-        return "Need 1 skill point to choose a mastery.".to_string();
-    }
     loop {
         clear_screen();
         println!("{BOLD}{MAGENTA}{skill} Mastery{RESET}");
-        println!("Choose one path. The other two will be locked out permanently.");
+        println!("Choose one free path. The other two will be locked out permanently.");
         let options = mastery_options(skill);
         for (i, (mastery, details)) in options.iter().enumerate() {
             println!("{GREEN}{}){RESET} {} - {}", i + 1, mastery.name(), details);
@@ -1597,7 +1611,6 @@ fn mastery_menu(c: &mut Character, skill: &str) -> String {
                 let index = key.to_digit(10).unwrap() as usize - 1;
                 let mastery = options[index].0;
                 set_mastery_for_skill(c, skill, mastery);
-                c.unspent_skills -= 1;
                 return format!("Unlocked {} for {skill}.", mastery.name());
             }
             '\u{1b}' => return "Mastery selection cancelled.".to_string(),

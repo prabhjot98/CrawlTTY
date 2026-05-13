@@ -345,7 +345,7 @@ Tree rules:
 Mastery rules:
 
 - When a skill reaches rank 5, selecting it in the skill tree opens a mastery choice.
-- A mastery costs 1 skill point.
+- A mastery is free and does not consume a skill point.
 - Each rank 5 skill has 3 mutually exclusive mastery paths.
 - Picking one mastery permanently locks the other two choices for that skill.
 
