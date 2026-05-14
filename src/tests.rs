@@ -1,4 +1,3 @@
-
 use super::*;
 
 fn test_character() -> Character {
@@ -302,16 +301,10 @@ fn item_requirements_gate_equipping() {
         "Test Axe",
         ItemKind::Weapon,
         100,
-        8,
-        10,
-        0,
-        0,
-        -1,
+        item_stats(8, 10, 0, 0, -1),
         Rarity::Rare,
         5,
-        10,
-        0,
-        0,
+        requirements(10, 0, 0),
     );
 
     assert!(!can_equip_item(&c, &high_level_axe));
@@ -328,31 +321,19 @@ fn higher_level_loot_has_higher_requirements_and_stats() {
         "Low Axe",
         ItemKind::Weapon,
         60,
-        4,
-        6,
-        0,
-        0,
-        -1,
+        item_stats(4, 6, 0, 0, -1),
         Rarity::Common,
         1,
-        6,
-        0,
-        0,
+        requirements(6, 0, 0),
     );
     let high = item_with_rarity(
         "High Axe",
         ItemKind::Weapon,
         120,
-        8,
-        10,
-        0,
-        0,
-        -1,
+        item_stats(8, 10, 0, 0, -1),
         Rarity::Rare,
         5,
-        10,
-        0,
-        0,
+        requirements(10, 0, 0),
     );
 
     assert!(high.item_level > low.item_level);

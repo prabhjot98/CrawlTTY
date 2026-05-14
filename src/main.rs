@@ -362,19 +362,44 @@ impl Character {
     }
 }
 
-fn item(
-    name: &str,
-    kind: ItemKind,
-    value: u32,
+#[derive(Clone, Copy)]
+struct ItemStats {
     damage_min: i32,
     damage_max: i32,
     armor: i32,
     dodge: i32,
     speed: i32,
-) -> Item {
+}
+
+#[derive(Clone, Copy)]
+struct Requirements {
+    strength: u32,
+    dexterity: u32,
+    intelligence: u32,
+}
+
+fn item_stats(damage_min: i32, damage_max: i32, armor: i32, dodge: i32, speed: i32) -> ItemStats {
+    ItemStats {
+        damage_min,
+        damage_max,
+        armor,
+        dodge,
+        speed,
+    }
+}
+
+fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> Requirements {
+    Requirements {
+        strength,
+        dexterity,
+        intelligence,
+    }
+}
+
+fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> Item {
     let required_strength = match kind {
-        ItemKind::Weapon => damage_max.max(0) as u32,
-        ItemKind::Armor | ItemKind::Shield => (armor + 3).max(0) as u32,
+        ItemKind::Weapon => stats.damage_max.max(0) as u32,
+        ItemKind::Armor | ItemKind::Shield => (stats.armor + 3).max(0) as u32,
         ItemKind::HealthPotion | ItemKind::ManaPotion => 0,
     };
     let required_dexterity = if kind == ItemKind::Weapon && name.contains("Sword") {
@@ -386,11 +411,11 @@ fn item(
         name: name.to_string(),
         kind,
         value,
-        damage_min,
-        damage_max,
-        armor,
-        dodge,
-        speed,
+        damage_min: stats.damage_min,
+        damage_max: stats.damage_max,
+        armor: stats.armor,
+        dodge: stats.dodge,
+        speed: stats.speed,
         rarity: Rarity::Common,
         item_level: 1,
         required_strength,
@@ -404,31 +429,25 @@ fn item_with_rarity(
     name: &str,
     kind: ItemKind,
     value: u32,
-    damage_min: i32,
-    damage_max: i32,
-    armor: i32,
-    dodge: i32,
-    speed: i32,
+    stats: ItemStats,
     rarity: Rarity,
     item_level: u32,
-    required_strength: u32,
-    required_dexterity: u32,
-    required_intelligence: u32,
+    requirements: Requirements,
 ) -> Item {
     Item {
         name: name.to_string(),
         kind,
         value,
-        damage_min,
-        damage_max,
-        armor,
-        dodge,
-        speed,
+        damage_min: stats.damage_min,
+        damage_max: stats.damage_max,
+        armor: stats.armor,
+        dodge: stats.dodge,
+        speed: stats.speed,
         rarity,
         item_level,
-        required_strength,
-        required_dexterity,
-        required_intelligence,
+        required_strength: requirements.strength,
+        required_dexterity: requirements.dexterity,
+        required_intelligence: requirements.intelligence,
         upgrade_level: 0,
     }
 }
@@ -437,11 +456,7 @@ fn health_potion() -> Item {
         "Lesser Health Potion (restores 15% HP)",
         ItemKind::HealthPotion,
         HEALTH_POTION_COST,
-        0,
-        0,
-        0,
-        0,
-        0,
+        item_stats(0, 0, 0, 0, 0),
     )
 }
 fn mana_potion() -> Item {
@@ -449,11 +464,7 @@ fn mana_potion() -> Item {
         "Lesser Mana Potion (restores 15% mana)",
         ItemKind::ManaPotion,
         MANA_POTION_COST,
-        0,
-        0,
-        0,
-        0,
-        0,
+        item_stats(0, 0, 0, 0, 0),
     )
 }
 fn rusted_sword() -> Item {
@@ -461,11 +472,7 @@ fn rusted_sword() -> Item {
         "Rusted Sword (3-5 dmg, STR F, DEX F)",
         ItemKind::Weapon,
         20,
-        3,
-        5,
-        0,
-        0,
-        0,
+        item_stats(3, 5, 0, 0, 0),
     )
 }
 fn crude_axe() -> Item {
@@ -473,26 +480,23 @@ fn crude_axe() -> Item {
         "Crude Axe (4-6 dmg, STR F)",
         ItemKind::Weapon,
         60,
-        4,
-        6,
-        0,
-        0,
-        -1,
+        item_stats(4, 6, 0, 0, -1),
     )
 }
 fn cloth_tunic() -> Item {
-    item("Cloth Tunic (+1 armor)", ItemKind::Armor, 12, 0, 0, 1, 0, 0)
+    item(
+        "Cloth Tunic (+1 armor)",
+        ItemKind::Armor,
+        12,
+        item_stats(0, 0, 1, 0, 0),
+    )
 }
 fn battered_mail() -> Item {
     item(
         "Battered Mail (+2 armor, -5 speed)",
         ItemKind::Armor,
         55,
-        0,
-        0,
-        2,
-        0,
-        -5,
+        item_stats(0, 0, 2, 0, -5),
     )
 }
 fn worn_shield() -> Item {
@@ -500,11 +504,7 @@ fn worn_shield() -> Item {
         "Worn Shield (+1 armor, +2 dodge)",
         ItemKind::Shield,
         40,
-        0,
-        0,
-        1,
-        2,
-        0,
+        item_stats(0, 0, 1, 2, 0),
     )
 }
 
@@ -2190,19 +2190,47 @@ fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
     }
 }
 
-fn enemy(
-    name: &str,
-    glyph: char,
-    x: i32,
-    y: i32,
+#[derive(Clone, Copy)]
+struct EnemyStats {
     hp: i32,
     damage_min: i32,
     damage_max: i32,
     armor: i32,
     speed: i32,
+}
+
+#[derive(Clone, Copy)]
+struct EnemyRewards {
     xp: u32,
     gold_min: u32,
     gold_max: u32,
+}
+
+fn enemy_stats(hp: i32, damage_min: i32, damage_max: i32, armor: i32, speed: i32) -> EnemyStats {
+    EnemyStats {
+        hp,
+        damage_min,
+        damage_max,
+        armor,
+        speed,
+    }
+}
+
+fn enemy_rewards(xp: u32, gold_min: u32, gold_max: u32) -> EnemyRewards {
+    EnemyRewards {
+        xp,
+        gold_min,
+        gold_max,
+    }
+}
+
+fn enemy(
+    name: &str,
+    glyph: char,
+    x: i32,
+    y: i32,
+    stats: EnemyStats,
+    rewards: EnemyRewards,
     is_boss: bool,
 ) -> Enemy {
     Enemy {
@@ -2210,16 +2238,16 @@ fn enemy(
         glyph,
         x,
         y,
-        hp,
-        max_hp: hp,
-        damage_min,
-        damage_max,
-        armor,
-        speed,
+        hp: stats.hp,
+        max_hp: stats.hp,
+        damage_min: stats.damage_min,
+        damage_max: stats.damage_max,
+        armor: stats.armor,
+        speed: stats.speed,
         energy: 10,
-        xp,
-        gold_min,
-        gold_max,
+        xp: rewards.xp,
+        gold_min: rewards.gold_min,
+        gold_max: rewards.gold_max,
         is_boss,
         stunned_turns: 0,
         bleed_turns: 0,
@@ -2232,16 +2260,48 @@ fn enemy(
 }
 
 fn rat(x: i32, y: i32) -> Enemy {
-    enemy("Rat", 'r', x, y, 6, 1, 2, 0, 11, 8, 0, 3, false)
+    enemy(
+        "Rat",
+        'r',
+        x,
+        y,
+        enemy_stats(6, 1, 2, 0, 11),
+        enemy_rewards(8, 0, 3),
+        false,
+    )
 }
 fn skeleton(x: i32, y: i32) -> Enemy {
-    enemy("Skeleton", 's', x, y, 12, 2, 4, 1, 9, 18, 2, 8, false)
+    enemy(
+        "Skeleton",
+        's',
+        x,
+        y,
+        enemy_stats(12, 2, 4, 1, 9),
+        enemy_rewards(18, 2, 8),
+        false,
+    )
 }
 fn cultist(x: i32, y: i32) -> Enemy {
-    enemy("Cultist", 'c', x, y, 10, 2, 3, 0, 10, 22, 5, 12, false)
+    enemy(
+        "Cultist",
+        'c',
+        x,
+        y,
+        enemy_stats(10, 2, 3, 0, 10),
+        enemy_rewards(22, 5, 12),
+        false,
+    )
 }
 fn boneguard(x: i32, y: i32) -> Enemy {
-    enemy("Boneguard", 'b', x, y, 18, 3, 5, 2, 8, 35, 8, 18, false)
+    enemy(
+        "Boneguard",
+        'b',
+        x,
+        y,
+        enemy_stats(18, 3, 5, 2, 8),
+        enemy_rewards(35, 8, 18),
+        false,
+    )
 }
 fn elite_skeleton(x: i32, y: i32) -> Enemy {
     let modifier = random_elite_modifier();
@@ -2254,14 +2314,8 @@ fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifier) -> Enem
         'E',
         x,
         y,
-        24,
-        3,
-        6,
-        2,
-        10,
-        54,
-        20,
-        40,
+        enemy_stats(24, 3, 6, 2, 10),
+        enemy_rewards(54, 20, 40),
         false,
     );
     apply_elite_modifier(&mut elite, modifier);
@@ -2294,7 +2348,15 @@ fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
     }
 }
 fn bellkeeper(x: i32, y: i32) -> Enemy {
-    enemy("Bellkeeper", 'B', x, y, 60, 5, 8, 3, 8, 250, 100, 150, true)
+    enemy(
+        "Bellkeeper",
+        'B',
+        x,
+        y,
+        enemy_stats(60, 5, 8, 3, 8),
+        enemy_rewards(250, 100, 150),
+        true,
+    )
 }
 fn dune_stalker(x: i32, y: i32) -> Enemy {
     enemy(
@@ -2302,14 +2364,8 @@ fn dune_stalker(x: i32, y: i32) -> Enemy {
         'g',
         x,
         y,
-        16,
-        4,
-        7,
-        1,
-        13,
-        42,
-        12,
-        24,
+        enemy_stats(16, 4, 7, 1, 13),
+        enemy_rewards(42, 12, 24),
         false,
     )
 }
@@ -2319,19 +2375,21 @@ fn glass_wraith(x: i32, y: i32) -> Enemy {
         'w',
         x,
         y,
-        14,
-        5,
-        8,
-        0,
-        12,
-        48,
-        14,
-        28,
+        enemy_stats(14, 5, 8, 0, 12),
+        enemy_rewards(48, 14, 28),
         false,
     )
 }
 fn ember_magus(x: i32, y: i32) -> Enemy {
-    enemy("Ember Magus", 'm', x, y, 18, 4, 9, 1, 10, 58, 18, 34, false)
+    enemy(
+        "Ember Magus",
+        'm',
+        x,
+        y,
+        enemy_stats(18, 4, 9, 1, 10),
+        enemy_rewards(58, 18, 34),
+        false,
+    )
 }
 fn obsidian_guard(x: i32, y: i32) -> Enemy {
     enemy(
@@ -2339,14 +2397,8 @@ fn obsidian_guard(x: i32, y: i32) -> Enemy {
         'o',
         x,
         y,
-        28,
-        5,
-        9,
-        4,
-        8,
-        72,
-        22,
-        44,
+        enemy_stats(28, 5, 9, 4, 8),
+        enemy_rewards(72, 22, 44),
         false,
     )
 }
@@ -2368,14 +2420,8 @@ fn glass_tyrant(x: i32, y: i32) -> Enemy {
         'T',
         x,
         y,
-        95,
-        8,
-        12,
-        5,
-        9,
-        520,
-        220,
-        340,
+        enemy_stats(95, 8, 12, 5, 9),
+        enemy_rewards(520, 220, 340),
         true,
     )
 }
@@ -3692,61 +3738,37 @@ fn random_loot(floor: u32, better: bool) -> Item {
             &loot_name(&rarity, "Iron Sword"),
             ItemKind::Weapon,
             45 + bonus as u32 * 15,
-            3 + bonus,
-            5 + bonus,
-            0,
-            0,
-            0,
+            item_stats(3 + bonus, 5 + bonus, 0, 0, 0),
             rarity,
             item_level,
-            4 + item_level,
-            2 + item_level,
-            0,
+            requirements(4 + item_level, 2 + item_level, 0),
         ),
         1 => item_with_rarity(
             &loot_name(&rarity, "War Axe"),
             ItemKind::Weapon,
             60 + bonus as u32 * 15,
-            4 + bonus,
-            6 + bonus,
-            0,
-            0,
-            -1,
+            item_stats(4 + bonus, 6 + bonus, 0, 0, -1),
             rarity,
             item_level,
-            5 + item_level,
-            0,
-            0,
+            requirements(5 + item_level, 0, 0),
         ),
         2 => item_with_rarity(
             &loot_name(&rarity, "Mail Vest"),
             ItemKind::Armor,
             50 + bonus as u32 * 15,
-            0,
-            0,
-            1 + bonus,
-            0,
-            -bonus.min(2),
+            item_stats(0, 0, 1 + bonus, 0, -bonus.min(2)),
             rarity,
             item_level,
-            4 + item_level,
-            0,
-            0,
+            requirements(4 + item_level, 0, 0),
         ),
         3 => item_with_rarity(
             &loot_name(&rarity, "Guard Shield"),
             ItemKind::Shield,
             45 + bonus as u32 * 15,
-            0,
-            0,
-            1 + bonus,
-            2 + bonus,
-            0,
+            item_stats(0, 0, 1 + bonus, 2 + bonus, 0),
             rarity,
             item_level,
-            3 + item_level,
-            0,
-            0,
+            requirements(3 + item_level, 0, 0),
         ),
         _ => {
             if rng.gen_bool(0.5) {
