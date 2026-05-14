@@ -377,14 +377,26 @@ fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
             format!("Equipped {name}.")
         }
         ItemKind::HealthPotion => {
+            if c.hp >= c.max_hp() {
+                c.inventory.insert(index, selected);
+                return "HP is already full.".to_string();
+            }
             let heal = lesser_potion_restore(c.max_hp());
+            let before = c.hp;
             c.hp = (c.hp + heal).min(c.max_hp());
-            format!("Used a lesser health potion and restored {heal} HP.")
+            let restored = c.hp - before;
+            format!("Used a lesser health potion and restored {restored} HP.")
         }
         ItemKind::ManaPotion => {
+            if c.mana >= c.max_mana() {
+                c.inventory.insert(index, selected);
+                return "Mana is already full.".to_string();
+            }
             let restore = lesser_potion_restore(c.max_mana());
+            let before = c.mana;
             c.mana = (c.mana + restore).min(c.max_mana());
-            format!("Used a lesser mana potion and restored {restore} mana.")
+            let restored = c.mana - before;
+            format!("Used a lesser mana potion and restored {restored} mana.")
         }
     }
 }

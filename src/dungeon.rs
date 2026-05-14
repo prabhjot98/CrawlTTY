@@ -1475,15 +1475,25 @@ fn use_potion(c: &mut Character) -> bool {
         .iter()
         .position(|i| matches!(i.kind, ItemKind::HealthPotion))
     {
+        if c.hp >= c.max_hp() {
+            log_event(
+                &mut c.active_dungeon.as_mut().unwrap().log,
+                LogKind::Warn,
+                "HP is already full.",
+            );
+            return false;
+        }
         c.inventory.remove(index);
         let heal = lesser_potion_restore(c.max_hp());
+        let before = c.hp;
         c.hp = (c.hp + heal).min(c.max_hp());
+        let restored = c.hp - before;
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Heal,
             format!(
                 "You drink a lesser health potion and restore {}.",
-                heal_amount_text(heal)
+                heal_amount_text(restored)
             ),
         );
         true

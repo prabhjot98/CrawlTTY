@@ -705,7 +705,71 @@ fn potion_hotkey_consumes_one_health_potion_and_caps_healing() {
     assert!(use_potion(&mut c));
     assert_eq!(c.hp, c.max_hp());
 
+    c.inventory.push(health_potion());
+    let full_hp_potions = c
+        .inventory
+        .iter()
+        .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
+        .count();
+    assert!(!use_potion(&mut c));
+    assert_eq!(
+        c.inventory
+            .iter()
+            .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
+            .count(),
+        full_hp_potions
+    );
+
     c.inventory
         .retain(|item| !matches!(item.kind, ItemKind::HealthPotion));
+    c.hp = 1;
     assert!(!use_potion(&mut c));
+}
+
+#[test]
+fn inventory_potions_restore_actual_amount_and_do_not_waste_at_full() {
+    let mut c = test_character();
+    let health_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::HealthPotion))
+        .unwrap();
+    let starting_items = c.inventory.len();
+
+    assert_eq!(
+        equip_or_use_inventory_item(&mut c, health_index),
+        "HP is already full."
+    );
+    assert_eq!(c.inventory.len(), starting_items);
+
+    c.hp = c.max_hp() - 1;
+    let health_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::HealthPotion))
+        .unwrap();
+    assert_eq!(
+        equip_or_use_inventory_item(&mut c, health_index),
+        "Used a lesser health potion and restored 1 HP."
+    );
+
+    let mana_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::ManaPotion))
+        .unwrap();
+    assert_eq!(
+        equip_or_use_inventory_item(&mut c, mana_index),
+        "Mana is already full."
+    );
+    c.mana = c.max_mana() - 1;
+    let mana_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::ManaPotion))
+        .unwrap();
+    assert_eq!(
+        equip_or_use_inventory_item(&mut c, mana_index),
+        "Used a lesser mana potion and restored 1 mana."
+    );
 }
