@@ -30,10 +30,12 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
             }
         }
         mark_latest_log_group(c, before_log_len, took_turn, action_label);
-        if took_turn && c.active_dungeon.is_some() {
-            tick_player_effects(c);
-            enemy_turns(c);
-            check_death(c);
+        if took_turn {
+            if c.active_dungeon.is_some() {
+                tick_player_effects(c);
+                enemy_turns(c);
+                check_death(c);
+            }
             save_character(c)?;
         }
         if c.active_dungeon.is_none() {
