@@ -77,8 +77,14 @@ pub(crate) fn merchant(c: &mut Character) {
                 }
             }
             '\n' => match selected {
-                0 => message = buy_item_message(c, health_potion()),
-                1 => message = buy_item_message(c, mana_potion()),
+                0 => {
+                    message = buy_item_message(c, health_potion());
+                    append_autosave_status(c, &mut message);
+                }
+                1 => {
+                    message = buy_item_message(c, mana_potion());
+                    append_autosave_status(c, &mut message);
+                }
                 2 => sell_item_screen(c),
                 _ => {}
             },
@@ -142,13 +148,31 @@ pub(crate) fn blacksmith(c: &mut Character) {
                 }
             }
             '\n' => match selected {
-                0 => message = buy_item_message(c, crude_axe()),
-                1 => message = buy_item_message(c, battered_mail()),
-                2 => message = buy_item_message(c, worn_shield()),
+                0 => {
+                    message = buy_item_message(c, crude_axe());
+                    append_autosave_status(c, &mut message);
+                }
+                1 => {
+                    message = buy_item_message(c, battered_mail());
+                    append_autosave_status(c, &mut message);
+                }
+                2 => {
+                    message = buy_item_message(c, worn_shield());
+                    append_autosave_status(c, &mut message);
+                }
                 3 => salvage_screen(c),
-                4 => message = upgrade_equipped_message(c, UpgradeSlot::Weapon),
-                5 => message = upgrade_equipped_message(c, UpgradeSlot::Armor),
-                6 => message = upgrade_equipped_message(c, UpgradeSlot::Shield),
+                4 => {
+                    message = upgrade_equipped_message(c, UpgradeSlot::Weapon);
+                    append_autosave_status(c, &mut message);
+                }
+                5 => {
+                    message = upgrade_equipped_message(c, UpgradeSlot::Armor);
+                    append_autosave_status(c, &mut message);
+                }
+                6 => {
+                    message = upgrade_equipped_message(c, UpgradeSlot::Shield);
+                    append_autosave_status(c, &mut message);
+                }
                 _ => {}
             },
             _ => message = "Unknown blacksmith command.".to_string(),
@@ -216,7 +240,10 @@ pub(crate) fn salvage_screen(c: &mut Character) {
                     selected += 1;
                 }
             }
-            '\n' => message = salvage_inventory_item(c, selected),
+            '\n' => {
+                message = salvage_inventory_item(c, selected);
+                append_autosave_status(c, &mut message);
+            }
             _ => message = "Unknown salvage command.".to_string(),
         }
     }
@@ -393,6 +420,7 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
                 let sell_value = item.value / 4;
                 c.gold += sell_value;
                 message = format!("Sold {} for {} gold.", item.name, sell_value);
+                append_autosave_status(c, &mut message);
             }
             _ => message = "Unknown sell command.".to_string(),
         }
@@ -465,6 +493,7 @@ pub(crate) fn stash_menu(c: &mut Character) {
                         move_selected(&mut c.stash, &mut c.inventory, stash_selected, "Retrieved")
                     }
                 };
+                append_autosave_status(c, &mut message);
             }
             _ => message = "Unknown stash command.".to_string(),
         }
@@ -538,15 +567,21 @@ pub(crate) fn spend_attributes(c: &mut Character) {
                 c.strength += 1;
                 c.unspent_attributes -= 1;
                 c.hp += 5;
+                message = "Spent 1 attribute on Strength.".to_string();
+                append_autosave_status(c, &mut message);
             }
             '2' => {
                 c.dexterity += 1;
                 c.unspent_attributes -= 1;
+                message = "Spent 1 attribute on Dexterity.".to_string();
+                append_autosave_status(c, &mut message);
             }
             '3' => {
                 c.intelligence += 1;
                 c.unspent_attributes -= 1;
                 c.mana += 5;
+                message = "Spent 1 attribute on Intelligence.".to_string();
+                append_autosave_status(c, &mut message);
             }
             '\u{1b}' => break,
             _ => message = "Unknown attribute command.".to_string(),

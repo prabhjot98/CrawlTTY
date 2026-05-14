@@ -44,6 +44,9 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
             }
             'x' | 'X' => {
                 message = drop_selected_inventory_item(c, selected);
+                if inventory_action_spends_turn(&message) {
+                    append_autosave_status(c, &mut message);
+                }
                 if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
                     log_inventory_action(c, &message);
                     return true;
@@ -51,6 +54,9 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
             }
             '\n' => {
                 message = equip_or_use_inventory_item(c, selected);
+                if inventory_action_spends_turn(&message) {
+                    append_autosave_status(c, &mut message);
+                }
                 if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
                     log_inventory_action(c, &message);
                     return true;

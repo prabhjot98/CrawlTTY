@@ -28,6 +28,15 @@ pub(crate) fn save_character(character: &Character) -> Result<()> {
     save_character_to_path(character, Path::new(SAVE_PATH))
 }
 
+pub(crate) fn append_autosave_status(character: &Character, message: &mut String) {
+    if let Err(err) = save_character(character) {
+        if !message.is_empty() {
+            message.push(' ');
+        }
+        message.push_str(&format!("Autosave failed: {err:#}."));
+    }
+}
+
 pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()> {
     let data = serde_json::to_string_pretty(character).context("failed to serialize save")?;
     let tmp_path = save_path.with_file_name(format!(

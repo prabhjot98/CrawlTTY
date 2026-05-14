@@ -86,12 +86,30 @@ pub(crate) fn skill_tree_menu(c: &mut Character) {
             "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
-            '1' => message = choose_skill_or_mastery(c, "Cleave"),
-            '2' => message = choose_skill_or_mastery(c, "Shield Bash"),
-            '3' => message = choose_skill_or_mastery(c, "Battle Cry"),
-            '4' => message = choose_skill_or_mastery(c, "Deep Cut"),
-            '5' => message = choose_skill_or_mastery(c, "Iron Guard"),
-            '6' => message = choose_skill_or_mastery(c, "Second Wind"),
+            '1' => {
+                message = choose_skill_or_mastery(c, "Cleave");
+                append_autosave_status(c, &mut message);
+            }
+            '2' => {
+                message = choose_skill_or_mastery(c, "Shield Bash");
+                append_autosave_status(c, &mut message);
+            }
+            '3' => {
+                message = choose_skill_or_mastery(c, "Battle Cry");
+                append_autosave_status(c, &mut message);
+            }
+            '4' => {
+                message = choose_skill_or_mastery(c, "Deep Cut");
+                append_autosave_status(c, &mut message);
+            }
+            '5' => {
+                message = choose_skill_or_mastery(c, "Iron Guard");
+                append_autosave_status(c, &mut message);
+            }
+            '6' => {
+                message = choose_skill_or_mastery(c, "Second Wind");
+                append_autosave_status(c, &mut message);
+            }
             '\u{1b}' => break,
             _ => message = "Unknown skill command.".to_string(),
         }
