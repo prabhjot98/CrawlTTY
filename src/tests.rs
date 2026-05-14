@@ -424,6 +424,22 @@ fn dungeon_generation_obeys_floor_content_rules() {
 }
 
 #[test]
+fn enemy_turn_resolution_skips_changed_or_closed_dungeons() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let before_floor = current_dungeon_floor(&c);
+
+    assert!(should_resolve_enemy_turns_after_action(&c, before_floor));
+
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    c.active_dungeon.as_mut().unwrap().floor = 3;
+    assert!(!should_resolve_enemy_turns_after_action(&c, before_floor));
+
+    c.active_dungeon = None;
+    assert!(!should_resolve_enemy_turns_after_action(&c, before_floor));
+}
+
+#[test]
 fn stairs_advance_floors_but_final_floor_requires_boss() {
     let mut c = test_character();
     c.active_dungeon = Some(generate_dungeon(1));

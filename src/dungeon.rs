@@ -5,6 +5,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
         print_skill_help(c);
         print_dungeon_footer();
         let key = read_key_char();
+        let before_floor = current_dungeon_floor(c);
         let before_log_len = current_dungeon_log_len(c);
         let action_label = dungeon_action_label(key);
         let mut took_turn = false;
@@ -31,7 +32,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
         }
         mark_latest_log_group(c, before_log_len, took_turn, action_label);
         if took_turn {
-            if c.active_dungeon.is_some() {
+            if should_resolve_enemy_turns_after_action(c, before_floor) {
                 tick_player_effects(c);
                 enemy_turns(c);
                 check_death(c);
@@ -89,6 +90,14 @@ fn current_dungeon_log_len(c: &Character) -> usize {
         .as_ref()
         .map(|d| d.log.len())
         .unwrap_or_default()
+}
+
+fn current_dungeon_floor(c: &Character) -> Option<u32> {
+    c.active_dungeon.as_ref().map(|d| d.floor)
+}
+
+fn should_resolve_enemy_turns_after_action(c: &Character, before_floor: Option<u32>) -> bool {
+    current_dungeon_floor(c).is_some_and(|after_floor| Some(after_floor) == before_floor)
 }
 
 fn dungeon_action_label(key: char) -> &'static str {
