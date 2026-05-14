@@ -15,7 +15,7 @@ pub(crate) fn load_or_create_character() -> Result<Character> {
         "{BOLD}Character creation:{RESET} {GREEN}1{RESET}=Softcore  {RED}2{RESET}=Hardcore"
     )]);
     let death_mode = loop {
-        match read_key_char() {
+        match read_key_char()? {
             '1' => break DeathMode::Softcore,
             '2' => break DeathMode::Hardcore,
             _ => println!("Choose 1 or 2."),

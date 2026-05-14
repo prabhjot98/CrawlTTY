@@ -34,7 +34,10 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
         print_footer(&[&format!(
             "{BOLD}Inventory:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=equip/use  {RED}x{RESET}=drop selected  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            return false;
+        };
+        match key {
             '\u{1b}' => return false,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {

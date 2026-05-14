@@ -1,3 +1,4 @@
+use anyhow::{Context, Result, anyhow};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
@@ -19,45 +20,51 @@ impl Drop for RawModeGuard {
     }
 }
 
-pub(crate) fn read_key_char_nav() -> char {
-    let _raw_mode = RawModeGuard::new().expect("failed to enable raw mode");
-    loop {
-        if let Event::Key(KeyEvent {
-            code, modifiers, ..
-        }) = event::read().expect("failed to read terminal event")
-        {
-            if modifiers.contains(KeyModifiers::CONTROL) && matches!(code, KeyCode::Char('c')) {
-                disable_raw_mode().ok();
-                std::process::exit(0);
-            }
-            match code {
-                KeyCode::Char(c) => break c,
-                KeyCode::Esc => break '\u{1b}',
-                KeyCode::Enter => break '\n',
-                KeyCode::Tab => break '\t',
-                KeyCode::Up => break 'w',
-                KeyCode::Down => break 's',
-                _ => {}
-            }
+pub(crate) fn read_key_char_nav() -> Result<char> {
+    read_key_char_with_navigation(true)
+}
+
+pub(crate) fn read_key_char() -> Result<char> {
+    read_key_char_with_navigation(false)
+}
+
+pub(crate) fn read_key_char_nav_or_message(message: &mut String) -> Option<char> {
+    match read_key_char_nav() {
+        Ok(key) => Some(key),
+        Err(err) => {
+            *message = format!("Input error: {err:#}");
+            None
         }
     }
 }
 
-pub(crate) fn read_key_char() -> char {
-    let _raw_mode = RawModeGuard::new().expect("failed to enable raw mode");
+pub(crate) fn read_key_char_or_message(message: &mut String) -> Option<char> {
+    match read_key_char() {
+        Ok(key) => Some(key),
+        Err(err) => {
+            *message = format!("Input error: {err:#}");
+            None
+        }
+    }
+}
+
+fn read_key_char_with_navigation(navigation: bool) -> Result<char> {
+    let _raw_mode = RawModeGuard::new().context("failed to enable raw mode")?;
     loop {
         if let Event::Key(KeyEvent {
             code, modifiers, ..
-        }) = event::read().expect("failed to read terminal event")
+        }) = event::read().context("failed to read terminal event")?
         {
             if modifiers.contains(KeyModifiers::CONTROL) && matches!(code, KeyCode::Char('c')) {
-                disable_raw_mode().ok();
-                std::process::exit(0);
+                return Err(anyhow!("input interrupted"));
             }
             match code {
-                KeyCode::Char(c) => break c,
-                KeyCode::Esc => break '\u{1b}',
-                KeyCode::Enter => break '\n',
+                KeyCode::Char(c) => return Ok(c),
+                KeyCode::Esc => return Ok('\u{1b}'),
+                KeyCode::Enter => return Ok('\n'),
+                KeyCode::Tab if navigation => return Ok('\t'),
+                KeyCode::Up if navigation => return Ok('w'),
+                KeyCode::Down if navigation => return Ok('s'),
                 _ => {}
             }
         }

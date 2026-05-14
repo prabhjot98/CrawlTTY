@@ -68,7 +68,10 @@ pub(crate) fn merchant(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Merchant:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
@@ -139,7 +142,10 @@ pub(crate) fn blacksmith(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Blacksmith:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
@@ -232,7 +238,10 @@ pub(crate) fn salvage_screen(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Salvage:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=salvage  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
@@ -403,7 +412,10 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Sell:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=sell  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
@@ -465,7 +477,10 @@ pub(crate) fn stash_menu(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Stash:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {CYAN}Tab{RESET}=switch list  {YELLOW}Enter{RESET}=move selected  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char_nav() {
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '\u{1b}' => break,
             '\t' => side = side.other(),
             'w' | 'W' => match side {
@@ -562,7 +577,10 @@ pub(crate) fn spend_attributes(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Attributes:{RESET} {GREEN}1{RESET}={RED}Strength{RESET}  {GREEN}2{RESET}={GREEN}Dexterity{RESET}  {GREEN}3{RESET}={BLUE}Intelligence{RESET}  {RED}Esc{RESET}=back"
         )]);
-        match read_key_char() {
+        let Some(key) = read_key_char_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '1' => {
                 c.strength += 1;
                 c.unspent_attributes -= 1;

@@ -85,7 +85,10 @@ pub(crate) fn skill_tree_menu(c: &mut Character) {
         print_footer(&[&format!(
             "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
         )]);
-        match read_key_char() {
+        let Some(key) = read_key_char_or_message(&mut message) else {
+            break;
+        };
+        match key {
             '1' => {
                 message = choose_skill_or_mastery(c, "Cleave");
                 append_autosave_status(c, &mut message);
@@ -357,14 +360,15 @@ pub(crate) fn mastery_menu(c: &mut Character, skill: &str) -> String {
             "{BOLD}Mastery:{RESET} {GREEN}1-3{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
         match read_key_char() {
-            key @ ('1' | '2' | '3') => {
+            Ok(key @ ('1' | '2' | '3')) => {
                 let index = key.to_digit(10).unwrap() as usize - 1;
                 let mastery = options[index].0;
                 set_mastery_for_skill(c, skill, mastery);
                 return format!("Unlocked {} for {skill}.", mastery.name());
             }
-            '\u{1b}' => return "Mastery selection cancelled.".to_string(),
-            _ => {}
+            Ok('\u{1b}') => return "Mastery selection cancelled.".to_string(),
+            Ok(_) => {}
+            Err(err) => return format!("Input error: {err:#}"),
         }
     }
 }

@@ -6,7 +6,13 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
         draw_dungeon(c);
         print_skill_help(c);
         print_dungeon_footer();
-        let key = read_key_char();
+        let key = match read_key_char() {
+            Ok(key) => key,
+            Err(err) => {
+                save_character(c)?;
+                return Err(err);
+            }
+        };
         let before_floor = current_dungeon_floor(c);
         let before_log_len = current_dungeon_log_len(c);
         let action_label = dungeon_action_label(key);

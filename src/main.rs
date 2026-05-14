@@ -21,7 +21,7 @@ mod ui;
 
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
-use input::{read_key_char, read_key_char_nav};
+use input::{read_key_char, read_key_char_nav_or_message, read_key_char_or_message};
 pub(crate) use inventory::*;
 pub(crate) use items::*;
 pub(crate) use model::*;
@@ -67,7 +67,14 @@ fn main() -> Result<()> {
                 "{GREEN}i{RESET}=inventory  {GREEN}a{RESET}=attributes  {GREEN}k{RESET}=skill tree  {RED}q{RESET}=save+quit"
             ),
         ]);
-        match read_key_char() {
+        let key = match read_key_char() {
+            Ok(key) => key,
+            Err(err) => {
+                save_character(&character)?;
+                return Err(err);
+            }
+        };
+        match key {
             'h' | 'H' => {
                 healer(&mut character);
                 town_message = "Healed to full HP and mana.".to_string();
