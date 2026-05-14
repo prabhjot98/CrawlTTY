@@ -38,6 +38,12 @@ pub(crate) fn append_autosave_status(character: &Character, message: &mut String
 }
 
 pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()> {
+    if let Some(parent) = save_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent).context("failed to create save directory")?;
+    }
     let data = serde_json::to_string_pretty(character).context("failed to serialize save")?;
     let tmp_path = save_path.with_file_name(format!(
         "{}.tmp",
@@ -54,5 +60,18 @@ pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) ->
         file.sync_all()
             .context("failed to flush temporary save file")?;
     }
-    fs::rename(&tmp_path, save_path).context("failed to replace save file")
+    replace_file(&tmp_path, save_path).context("failed to replace save file")
+}
+
+#[cfg(windows)]
+pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
+    if save_path.exists() {
+        fs::remove_file(save_path).context("failed to remove existing save file")?;
+    }
+    fs::rename(tmp_path, save_path).context("failed to move temporary save file")
+}
+
+#[cfg(not(windows))]
+pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
+    fs::rename(tmp_path, save_path).context("failed to move temporary save file")
 }

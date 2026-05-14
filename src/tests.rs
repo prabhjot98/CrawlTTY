@@ -68,6 +68,18 @@ fn save_character_writes_atomically() {
 }
 
 #[test]
+fn save_character_creates_parent_directories() {
+    let c = test_character();
+    let dir = env::temp_dir().join(format!("crawltty-save-parent-test-{}", std::process::id()));
+    let save_path = dir.join("nested").join("save.json");
+
+    save_character_to_path(&c, &save_path).unwrap();
+
+    assert!(save_path.exists());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn new_ironbound_matches_mvp_starting_state() {
     let c = test_character();
 
