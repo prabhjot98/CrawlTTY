@@ -1,4 +1,6 @@
-fn dungeon_loop(c: &mut Character) -> Result<()> {
+use crate::*;
+
+pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
     loop {
         clear_screen();
         draw_dungeon(c);
@@ -46,7 +48,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
     Ok(())
 }
 
-fn draw_dungeon(c: &Character) {
+pub(crate) fn draw_dungeon(c: &Character) {
     let d = c.active_dungeon.as_ref().unwrap();
     println!(
         "{BOLD}{} Floor {}{RESET}  {} {} {} {}",
@@ -85,22 +87,25 @@ fn draw_dungeon(c: &Character) {
     print_combat_log(d);
 }
 
-fn current_dungeon_log_len(c: &Character) -> usize {
+pub(crate) fn current_dungeon_log_len(c: &Character) -> usize {
     c.active_dungeon
         .as_ref()
         .map(|d| d.log.len())
         .unwrap_or_default()
 }
 
-fn current_dungeon_floor(c: &Character) -> Option<u32> {
+pub(crate) fn current_dungeon_floor(c: &Character) -> Option<u32> {
     c.active_dungeon.as_ref().map(|d| d.floor)
 }
 
-fn should_resolve_enemy_turns_after_action(c: &Character, before_floor: Option<u32>) -> bool {
+pub(crate) fn should_resolve_enemy_turns_after_action(
+    c: &Character,
+    before_floor: Option<u32>,
+) -> bool {
     current_dungeon_floor(c).is_some_and(|after_floor| Some(after_floor) == before_floor)
 }
 
-fn dungeon_action_label(key: char) -> &'static str {
+pub(crate) fn dungeon_action_label(key: char) -> &'static str {
     match key {
         'w' | 'W' => "Move north / attack",
         's' | 'S' => "Move south / attack",
@@ -114,7 +119,7 @@ fn dungeon_action_label(key: char) -> &'static str {
     }
 }
 
-fn mark_latest_log_group(
+pub(crate) fn mark_latest_log_group(
     c: &mut Character,
     before_log_len: usize,
     took_turn: bool,
@@ -136,7 +141,7 @@ fn mark_latest_log_group(
     trim_dungeon_log(&mut d.log);
 }
 
-fn trim_dungeon_log(log: &mut Vec<String>) {
+pub(crate) fn trim_dungeon_log(log: &mut Vec<String>) {
     const MAX_LOG_LINES: usize = 120;
     if log.len() > MAX_LOG_LINES {
         let remove_count = log.len() - MAX_LOG_LINES;
@@ -144,7 +149,7 @@ fn trim_dungeon_log(log: &mut Vec<String>) {
     }
 }
 
-fn print_combat_log(d: &Dungeon) {
+pub(crate) fn print_combat_log(d: &Dungeon) {
     const MAX_LOG_LINES_ON_SCREEN: usize = 8;
     println!("{BOLD}{CYAN}+== Combat Log: latest command ==+{RESET}");
 
@@ -173,12 +178,12 @@ fn print_combat_log(d: &Dungeon) {
     }
 }
 
-fn is_log_header(line: &str) -> bool {
+pub(crate) fn is_log_header(line: &str) -> bool {
     (line.starts_with("== ") && line.ends_with(" =="))
         || (line.starts_with("=== ") && line.ends_with(" ==="))
 }
 
-fn print_log_line(line: &str, current_group: bool) {
+pub(crate) fn print_log_line(line: &str, current_group: bool) {
     if is_log_header(line) {
         let color = if line.contains("No turn spent") {
             YELLOW
@@ -197,7 +202,7 @@ fn print_log_line(line: &str, current_group: bool) {
     }
 }
 
-fn log_line_color(line: &str) -> &'static str {
+pub(crate) fn log_line_color(line: &str) -> &'static str {
     if line.starts_with("[HIT]") || line.starts_with("[HEAL]") {
         GREEN
     } else if line.starts_with("[ENEMY]") {
@@ -217,7 +222,7 @@ fn log_line_color(line: &str) -> &'static str {
     }
 }
 
-fn print_dungeon_footer() {
+pub(crate) fn print_dungeon_footer() {
     print_footer(&[
         &format!(
             "{BOLD}Dungeon:{RESET} {GREEN}w/a/s/d{RESET}=move/attack  {GREEN}1{RESET}=Cleave  {GREEN}2{RESET}=Bash  {GREEN}3{RESET}=Cry  {BLUE}p{RESET}=potion  i=inventory  {RED}Esc{RESET}=town"
@@ -228,7 +233,7 @@ fn print_dungeon_footer() {
     ]);
 }
 
-fn print_skill_help(c: &Character) {
+pub(crate) fn print_skill_help(c: &Character) {
     let cleave_line = format!(
         "{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
         c.cleave_rank,
@@ -273,7 +278,7 @@ fn print_skill_help(c: &Character) {
     );
 }
 
-fn cleave_target_help(c: &Character) -> &'static str {
+pub(crate) fn cleave_target_help(c: &Character) -> &'static str {
     if c.cleave_mastery == Some(SkillMastery::ReapingCleave) {
         "every adjacent enemy"
     } else {
@@ -281,7 +286,7 @@ fn cleave_target_help(c: &Character) -> &'static str {
     }
 }
 
-fn shield_bash_range_help(c: &Character) -> &'static str {
+pub(crate) fn shield_bash_range_help(c: &Character) -> &'static str {
     if c.shield_bash_mastery == Some(SkillMastery::LongBash) {
         "1 enemy up to 2 tiles in a clear cardinal line"
     } else {
@@ -289,7 +294,7 @@ fn shield_bash_range_help(c: &Character) -> &'static str {
     }
 }
 
-fn shield_bash_stun_turns(c: &Character) -> u32 {
+pub(crate) fn shield_bash_stun_turns(c: &Character) -> u32 {
     if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
         2
     } else {
@@ -297,7 +302,7 @@ fn shield_bash_stun_turns(c: &Character) -> u32 {
     }
 }
 
-fn shield_bash_stun_help(c: &Character) -> &'static str {
+pub(crate) fn shield_bash_stun_help(c: &Character) -> &'static str {
     if shield_bash_stun_turns(c) == 2 {
         "2 turns"
     } else {
@@ -305,7 +310,7 @@ fn shield_bash_stun_help(c: &Character) -> &'static str {
     }
 }
 
-fn battle_cry_charge_count(c: &Character) -> u32 {
+pub(crate) fn battle_cry_charge_count(c: &Character) -> u32 {
     if c.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
         7
     } else {
@@ -313,7 +318,7 @@ fn battle_cry_charge_count(c: &Character) -> u32 {
     }
 }
 
-fn print_above_footer(lines: &[&str], footer_lines: u16) {
+pub(crate) fn print_above_footer(lines: &[&str], footer_lines: u16) {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     let start_row = height
         .saturating_sub(footer_lines)
@@ -326,7 +331,7 @@ fn print_above_footer(lines: &[&str], footer_lines: u16) {
     let _ = io::stdout().flush();
 }
 
-fn print_footer(lines: &[&str]) {
+pub(crate) fn print_footer(lines: &[&str]) {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     let start_row = height
         .saturating_sub(lines.len() as u16)
@@ -338,7 +343,7 @@ fn print_footer(lines: &[&str]) {
     let _ = io::stdout().flush();
 }
 
-fn print_colored_tile(ch: char) {
+pub(crate) fn print_colored_tile(ch: char) {
     match ch {
         '@' => print!("{BOLD}{GREEN}@{RESET}"),
         '#' => print!("{BRIGHT_BLACK}#{RESET}"),
@@ -361,7 +366,7 @@ fn print_colored_tile(ch: char) {
     }
 }
 
-fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
+pub(crate) fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     let d = c.active_dungeon.as_mut().unwrap();
     let nx = d.player_x + dx;
     let ny = d.player_y + dy;
@@ -384,12 +389,12 @@ fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     true
 }
 
-fn player_attack(c: &mut Character, enemy_index: usize) {
+pub(crate) fn player_attack(c: &mut Character, enemy_index: usize) {
     damage_enemy(c, enemy_index, 1.0, "hit");
     consume_battle_cry_charge(c);
 }
 
-fn use_cleave(c: &mut Character) -> bool {
+pub(crate) fn use_cleave(c: &mut Character) -> bool {
     if c.cleave_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
@@ -454,7 +459,7 @@ fn use_cleave(c: &mut Character) -> bool {
     true
 }
 
-fn use_shield_bash(c: &mut Character) -> bool {
+pub(crate) fn use_shield_bash(c: &mut Character) -> bool {
     if c.shield_bash_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
@@ -500,7 +505,7 @@ fn use_shield_bash(c: &mut Character) -> bool {
     true
 }
 
-fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
+pub(crate) fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
     let stun_turns = shield_bash_stun_turns(c);
     let Some(d) = c.active_dungeon.as_mut() else {
         return;
@@ -515,7 +520,7 @@ fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
     log_event(&mut d.log, LogKind::Status, "Shield Bash stuns the enemy.");
 }
 
-fn use_battle_cry(c: &mut Character) -> bool {
+pub(crate) fn use_battle_cry(c: &mut Character) -> bool {
     if c.battle_cry_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
@@ -558,7 +563,7 @@ fn use_battle_cry(c: &mut Character) -> bool {
     true
 }
 
-fn consume_battle_cry_charge(c: &mut Character) {
+pub(crate) fn consume_battle_cry_charge(c: &mut Character) {
     if c.battle_cry_charges == 0 {
         return;
     }
@@ -575,7 +580,7 @@ fn consume_battle_cry_charge(c: &mut Character) {
     }
 }
 
-fn shield_bash_target_index(c: &Character, range: i32) -> Option<usize> {
+pub(crate) fn shield_bash_target_index(c: &Character, range: i32) -> Option<usize> {
     let d = c.active_dungeon.as_ref().unwrap();
     d.enemies
         .iter()
@@ -590,7 +595,7 @@ fn shield_bash_target_index(c: &Character, range: i32) -> Option<usize> {
         .map(|(i, _)| i)
 }
 
-fn weaken_nearby_enemies(c: &mut Character, range: i32) {
+pub(crate) fn weaken_nearby_enemies(c: &mut Character, range: i32) {
     if let Some(d) = c.active_dungeon.as_mut() {
         for enemy in &mut d.enemies {
             let dist = (enemy.x - d.player_x).abs() + (enemy.y - d.player_y).abs();
@@ -606,7 +611,7 @@ fn weaken_nearby_enemies(c: &mut Character, range: i32) {
     }
 }
 
-fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
+pub(crate) fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
     let d = c.active_dungeon.as_ref().unwrap();
     d.enemies
         .iter()
@@ -616,7 +621,7 @@ fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
         .collect()
 }
 
-fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &str) {
+pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &str) {
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
     let damage_bonus = if c.battle_cry_charges > 0 {
@@ -718,7 +723,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
     }
 }
 
-fn complete_boss_fight(c: &mut Character, boss_name: &str) {
+pub(crate) fn complete_boss_fight(c: &mut Character, boss_name: &str) {
     if boss_name == "Glass Tyrant" {
         c.glass_tyrant_defeated = true;
     } else {
@@ -727,7 +732,7 @@ fn complete_boss_fight(c: &mut Character, boss_name: &str) {
     c.active_dungeon = None;
 }
 
-fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
+pub(crate) fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
     let mut heal = 0;
     if battle_cry_active {
         heal = second_wind_heal_amount(c);
@@ -762,13 +767,13 @@ fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
     }
 }
 
-fn tick_player_effects(c: &mut Character) {
+pub(crate) fn tick_player_effects(c: &mut Character) {
     c.cleave_cooldown = c.cleave_cooldown.saturating_sub(1);
     c.shield_bash_cooldown = c.shield_bash_cooldown.saturating_sub(1);
     c.battle_cry_cooldown = c.battle_cry_cooldown.saturating_sub(1);
 }
 
-fn enemy_turns(c: &mut Character) {
+pub(crate) fn enemy_turns(c: &mut Character) {
     let Some(mut d) = c.active_dungeon.take() else {
         return;
     };
@@ -917,18 +922,18 @@ fn enemy_turns(c: &mut Character) {
     c.active_dungeon = Some(d);
 }
 
-fn enemy_action_energy_threshold(c: &Character) -> i32 {
+pub(crate) fn enemy_action_energy_threshold(c: &Character) -> i32 {
     ((c.speed() as i32 + 1) / 2).max(1)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BellkeeperPhase {
+pub(crate) enum BellkeeperPhase {
     Tolling,
     CursedBell,
     Enraged,
 }
 
-fn bellkeeper_phase(enemy: &Enemy) -> BellkeeperPhase {
+pub(crate) fn bellkeeper_phase(enemy: &Enemy) -> BellkeeperPhase {
     if enemy.hp * 4 <= enemy.max_hp {
         BellkeeperPhase::Enraged
     } else if enemy.hp * 10 <= enemy.max_hp * 6 {
@@ -938,7 +943,7 @@ fn bellkeeper_phase(enemy: &Enemy) -> BellkeeperPhase {
     }
 }
 
-fn bellkeeper_specials(
+pub(crate) fn bellkeeper_specials(
     c: &mut Character,
     d: &mut Dungeon,
     boss_index: usize,
@@ -957,7 +962,7 @@ fn bellkeeper_specials(
     }
 }
 
-fn glass_tyrant_specials(
+pub(crate) fn glass_tyrant_specials(
     c: &mut Character,
     d: &mut Dungeon,
     boss_index: usize,
@@ -980,7 +985,11 @@ fn glass_tyrant_specials(
     }
 }
 
-fn summon_glass_mirage(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i32, i32)>) {
+pub(crate) fn summon_glass_mirage(
+    d: &mut Dungeon,
+    boss_index: usize,
+    occupied: &mut Vec<(i32, i32)>,
+) {
     let summon_count = d
         .enemies
         .iter()
@@ -1012,7 +1021,7 @@ fn summon_glass_mirage(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i
     }
 }
 
-fn glass_tyrant_prism_burst(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
+pub(crate) fn glass_tyrant_prism_burst(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
     let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
     d.bell_wave_tiles.clear();
     for (dx, dy) in [
@@ -1049,7 +1058,11 @@ fn glass_tyrant_prism_burst(c: &mut Character, d: &mut Dungeon, boss_index: usiz
     }
 }
 
-fn summon_bellkeeper_skeleton(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i32, i32)>) {
+pub(crate) fn summon_bellkeeper_skeleton(
+    d: &mut Dungeon,
+    boss_index: usize,
+    occupied: &mut Vec<(i32, i32)>,
+) {
     let summon_count = d
         .enemies
         .iter()
@@ -1079,7 +1092,7 @@ fn summon_bellkeeper_skeleton(d: &mut Dungeon, boss_index: usize, occupied: &mut
     }
 }
 
-fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
+pub(crate) fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
     let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
     d.bell_wave_tiles.clear();
     for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -1107,7 +1120,7 @@ fn bellkeeper_wave(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
     }
 }
 
-fn effective_enemy_armor(enemy: &Enemy) -> i32 {
+pub(crate) fn effective_enemy_armor(enemy: &Enemy) -> i32 {
     (enemy.armor
         + if enemy.guarding { 2 } else { 0 }
         + if matches!(enemy.elite_modifier, Some(EliteModifier::Armored)) {
@@ -1119,7 +1132,7 @@ fn effective_enemy_armor(enemy: &Enemy) -> i32 {
     .max(0)
 }
 
-fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
+pub(crate) fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
     let enemy = &d.enemies[enemy_index];
     if enemy.glyph != 'b' && enemy.glyph != 'o' {
         return false;
@@ -1128,7 +1141,7 @@ fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
     (2..=4).contains(&dist)
 }
 
-fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) -> bool {
+pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) -> bool {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
     if hit_roll(25, c.dodge_rating() as i32) {
@@ -1170,7 +1183,7 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) ->
     false
 }
 
-fn resolve_enemy_killed_by_effect(
+pub(crate) fn resolve_enemy_killed_by_effect(
     c: &mut Character,
     d: &mut Dungeon,
     enemy_index: usize,
@@ -1215,7 +1228,7 @@ fn resolve_enemy_killed_by_effect(
     false
 }
 
-fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
+pub(crate) fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
     let enemy = &d.enemies[enemy_index];
     let is_ranged = matches!(enemy.glyph, 'c' | 'm' | 'w')
         || (enemy.glyph == 'E' && enemy.name.contains("Glass Wraith"));
@@ -1230,7 +1243,13 @@ fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
         && clear_cardinal_line(d, enemy.x, enemy.y, d.player_x, d.player_y)
 }
 
-fn clear_cardinal_line(d: &Dungeon, from_x: i32, from_y: i32, to_x: i32, to_y: i32) -> bool {
+pub(crate) fn clear_cardinal_line(
+    d: &Dungeon,
+    from_x: i32,
+    from_y: i32,
+    to_x: i32,
+    to_y: i32,
+) -> bool {
     if from_x != to_x && from_y != to_y {
         return false;
     }
@@ -1248,7 +1267,7 @@ fn clear_cardinal_line(d: &Dungeon, from_x: i32, from_y: i32, to_x: i32, to_y: i
     true
 }
 
-fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
+pub(crate) fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
     if hit_roll(30, c.dodge_rating() as i32) {
@@ -1275,7 +1294,7 @@ fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     }
 }
 
-fn bellkeeper_enrage_damage_bonus(enemy: &Enemy) -> i32 {
+pub(crate) fn bellkeeper_enrage_damage_bonus(enemy: &Enemy) -> i32 {
     if enemy.is_boss && bellkeeper_phase(enemy) == BellkeeperPhase::Enraged {
         2
     } else {
@@ -1283,7 +1302,7 @@ fn bellkeeper_enrage_damage_bonus(enemy: &Enemy) -> i32 {
     }
 }
 
-fn elite_damage_bonus(enemy: &Enemy) -> i32 {
+pub(crate) fn elite_damage_bonus(enemy: &Enemy) -> i32 {
     if matches!(enemy.elite_modifier, Some(EliteModifier::Burning)) {
         1
     } else {
@@ -1291,7 +1310,7 @@ fn elite_damage_bonus(enemy: &Enemy) -> i32 {
     }
 }
 
-fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
+pub(crate) fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
     if !matches!(
         d.enemies[enemy_index].elite_modifier,
         Some(EliteModifier::Vampiric)
@@ -1315,25 +1334,25 @@ fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
     }
 }
 
-fn apply_player_damage(c: &mut Character, damage: u32) {
+pub(crate) fn apply_player_damage(c: &mut Character, damage: u32) {
     let absorbed = c.second_wind_shield.min(damage);
     c.second_wind_shield -= absorbed;
     c.hp = c.hp.saturating_sub(damage - absorbed);
 }
 
-fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
+pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
     let cry_penalty = if c.battle_cry_charges > 0 { 0.90 } else { 1.0 };
     (((raw - c.armor()).max(1) as f32) * cry_penalty)
         .round()
         .max(1.0) as u32
 }
 
-fn hit_roll(hit: i32, dodge: i32) -> bool {
+pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
     let chance = (hit as f32 / (hit + dodge).max(1) as f32).clamp(0.20, 0.95);
     rand::thread_rng().gen_bool(chance as f64)
 }
 
-fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
+pub(crate) fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
     let mut rng = rand::thread_rng();
     let drop_chance = if guaranteed_magic { 1.0 } else { 0.22 };
     if !rng.gen_bool(drop_chance) {
@@ -1348,7 +1367,7 @@ fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
     }
 }
 
-fn random_loot(floor: u32, better: bool) -> Item {
+pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
     let mut rng = rand::thread_rng();
     let rarity = if better {
         if rng.gen_bool(0.25) {
@@ -1413,7 +1432,7 @@ fn random_loot(floor: u32, better: bool) -> Item {
     }
 }
 
-fn rarity_name(rarity: &Rarity) -> &'static str {
+pub(crate) fn rarity_name(rarity: &Rarity) -> &'static str {
     match rarity {
         Rarity::Common => "Common",
         Rarity::Magic => "Magic",
@@ -1421,7 +1440,7 @@ fn rarity_name(rarity: &Rarity) -> &'static str {
     }
 }
 
-fn loot_name(rarity: &Rarity, base: &str) -> String {
+pub(crate) fn loot_name(rarity: &Rarity, base: &str) -> String {
     let mut rng = rand::thread_rng();
     match rarity {
         Rarity::Common => base.to_string(),
@@ -1442,7 +1461,7 @@ fn loot_name(rarity: &Rarity, base: &str) -> String {
     }
 }
 
-fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
+pub(crate) fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
     let mut levels_gained = Vec::new();
     c.xp += amount;
     loop {
@@ -1461,11 +1480,11 @@ fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
     levels_gained
 }
 
-fn xp_required_for_next_level(current_level: u32) -> u32 {
+pub(crate) fn xp_required_for_next_level(current_level: u32) -> u32 {
     40u32.saturating_mul(2u32.saturating_pow(current_level.saturating_sub(1)))
 }
 
-fn auto_interact_tile(c: &mut Character) {
+pub(crate) fn auto_interact_tile(c: &mut Character) {
     open_chest_on_player(c);
     let standing_on_stairs = c
         .active_dungeon
@@ -1477,7 +1496,7 @@ fn auto_interact_tile(c: &mut Character) {
     }
 }
 
-fn open_chest_on_player(c: &mut Character) {
+pub(crate) fn open_chest_on_player(c: &mut Character) {
     let d = c.active_dungeon.as_mut().unwrap();
     if let Some(chest) = d
         .chests
@@ -1499,7 +1518,7 @@ fn open_chest_on_player(c: &mut Character) {
     }
 }
 
-fn use_stairs(c: &mut Character) {
+pub(crate) fn use_stairs(c: &mut Character) {
     let floor;
     {
         let d = c.active_dungeon.as_ref().unwrap();
@@ -1527,7 +1546,7 @@ fn use_stairs(c: &mut Character) {
     }
 }
 
-fn use_potion(c: &mut Character) -> bool {
+pub(crate) fn use_potion(c: &mut Character) -> bool {
     if let Some(index) = c
         .inventory
         .iter()
@@ -1565,7 +1584,7 @@ fn use_potion(c: &mut Character) -> bool {
     }
 }
 
-fn check_death(c: &mut Character) {
+pub(crate) fn check_death(c: &mut Character) {
     if c.hp > 0 {
         return;
     }
@@ -1583,4 +1602,3 @@ fn check_death(c: &mut Character) {
         }
     }
 }
-

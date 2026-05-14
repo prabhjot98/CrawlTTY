@@ -1,4 +1,6 @@
-fn inventory_screen(c: &mut Character) -> bool {
+use crate::*;
+
+pub(crate) fn inventory_screen(c: &mut Character) -> bool {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
@@ -59,19 +61,19 @@ fn inventory_screen(c: &mut Character) -> bool {
     }
 }
 
-fn inventory_action_spends_turn(message: &str) -> bool {
+pub(crate) fn inventory_action_spends_turn(message: &str) -> bool {
     message.starts_with("Equipped ")
         || message.starts_with("Used ")
         || message.starts_with("Dropped ")
 }
 
-fn log_inventory_action(c: &mut Character, message: &str) {
+pub(crate) fn log_inventory_action(c: &mut Character, message: &str) {
     if let Some(d) = c.active_dungeon.as_mut() {
         log_event(&mut d.log, LogKind::Info, message);
     }
 }
 
-fn print_inventory_preview(c: &Character, max_rows: usize) {
+pub(crate) fn print_inventory_preview(c: &Character, max_rows: usize) {
     println!(
         "{BOLD}Your Inventory{RESET} ({CYAN}{}{RESET})",
         c.inventory.len()
@@ -92,7 +94,7 @@ fn print_inventory_preview(c: &Character, max_rows: usize) {
     }
 }
 
-fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
+pub(crate) fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
     let total = c.inventory.len();
     let max_rows = max_rows.max(1);
     let offset = scroll_offset(selected, total, max_rows);
@@ -120,7 +122,13 @@ fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
     }
 }
 
-fn print_stash_column(title: &str, items: &[Item], selected: usize, active: bool, max_rows: usize) {
+pub(crate) fn print_stash_column(
+    title: &str,
+    items: &[Item],
+    selected: usize,
+    active: bool,
+    max_rows: usize,
+) {
     let heading = if active {
         format!("{BOLD}{GREEN}>{RESET} {BOLD}{title}{RESET}")
     } else {
@@ -152,12 +160,12 @@ fn print_stash_column(title: &str, items: &[Item], selected: usize, active: bool
     }
 }
 
-fn inventory_visible_rows(reserved_rows: u16) -> usize {
+pub(crate) fn inventory_visible_rows(reserved_rows: u16) -> usize {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     height.saturating_sub(reserved_rows).max(5) as usize
 }
 
-fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
+pub(crate) fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
     if total <= max_rows || selected < max_rows {
         0
     } else {
@@ -165,7 +173,7 @@ fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
     }
 }
 
-fn clamp_selection(selected: &mut usize, total: usize) {
+pub(crate) fn clamp_selection(selected: &mut usize, total: usize) {
     if total == 0 {
         *selected = 0;
     } else if *selected >= total {
@@ -173,7 +181,7 @@ fn clamp_selection(selected: &mut usize, total: usize) {
     }
 }
 
-fn drop_selected_inventory_item(c: &mut Character, index: usize) -> String {
+pub(crate) fn drop_selected_inventory_item(c: &mut Character, index: usize) -> String {
     if c.inventory.is_empty() {
         "Inventory is empty.".to_string()
     } else if index >= c.inventory.len() {
@@ -184,7 +192,7 @@ fn drop_selected_inventory_item(c: &mut Character, index: usize) -> String {
     }
 }
 
-fn item_level_text(item: &Item) -> String {
+pub(crate) fn item_level_text(item: &Item) -> String {
     if matches!(
         item.kind,
         ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
@@ -195,7 +203,7 @@ fn item_level_text(item: &Item) -> String {
     }
 }
 
-fn item_requirements_text(item: &Item) -> String {
+pub(crate) fn item_requirements_text(item: &Item) -> String {
     let mut reqs = Vec::new();
     if item.required_strength > 0 {
         reqs.push(format!("{RED}STR {}{RESET}", item.required_strength));
@@ -213,7 +221,7 @@ fn item_requirements_text(item: &Item) -> String {
     }
 }
 
-fn item_level_and_requirements(item: &Item) -> String {
+pub(crate) fn item_level_and_requirements(item: &Item) -> String {
     let item_level = item_level_text(item);
     let requirements = item_requirements_text(item);
     match (item_level.is_empty(), requirements.is_empty()) {
@@ -224,7 +232,7 @@ fn item_level_and_requirements(item: &Item) -> String {
     }
 }
 
-fn item_summary(item: &Item) -> String {
+pub(crate) fn item_summary(item: &Item) -> String {
     let rarity = rarity_name(&item.rarity);
     let name = colored_item_name(item);
     let upgrade = if item.upgrade_level > 0 {
@@ -264,7 +272,7 @@ fn item_summary(item: &Item) -> String {
     }
 }
 
-fn colored_item_name(item: &Item) -> String {
+pub(crate) fn colored_item_name(item: &Item) -> String {
     let color = match item.rarity {
         Rarity::Common => WHITE,
         Rarity::Magic => BLUE,
@@ -273,7 +281,7 @@ fn colored_item_name(item: &Item) -> String {
     format!("{color}{}{RESET}", item.name)
 }
 
-fn item_comparison(c: &Character, item: &Item) -> Option<String> {
+pub(crate) fn item_comparison(c: &Character, item: &Item) -> Option<String> {
     let comparison = match item.kind {
         ItemKind::Weapon => {
             let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
@@ -301,7 +309,7 @@ fn item_comparison(c: &Character, item: &Item) -> Option<String> {
     }
 }
 
-fn format_delta(label: &str, delta: i32) -> String {
+pub(crate) fn format_delta(label: &str, delta: i32) -> String {
     if delta > 0 {
         format!("{GREEN}+{delta} {label}{RESET}")
     } else if delta < 0 {
@@ -311,13 +319,13 @@ fn format_delta(label: &str, delta: i32) -> String {
     }
 }
 
-fn can_equip_item(c: &Character, item: &Item) -> bool {
+pub(crate) fn can_equip_item(c: &Character, item: &Item) -> bool {
     c.strength >= item.required_strength
         && c.dexterity >= item.required_dexterity
         && c.intelligence >= item.required_intelligence
 }
 
-fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
+pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
     if can_equip_item(c, item) {
         return None;
     }
@@ -343,7 +351,7 @@ fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
     Some(format!("Requires {}.", missing.join(", ")))
 }
 
-fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
+pub(crate) fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
     if index >= c.inventory.len() {
         return "No item in that slot.".to_string();
     }
@@ -400,4 +408,3 @@ fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
         }
     }
 }
-

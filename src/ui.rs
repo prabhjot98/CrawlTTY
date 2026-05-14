@@ -1,4 +1,6 @@
-fn print_town(c: &Character) {
+use crate::*;
+
+pub(crate) fn print_town(c: &Character) {
     println!("{BOLD}{CYAN}+--------------------------------------------------+{RESET}");
     println!("{BOLD}{CYAN}| Town: Hollow's Rest                              |{RESET}");
     println!("{BOLD}{CYAN}+--------------------------------------------------+{RESET}");
@@ -62,92 +64,92 @@ fn print_town(c: &Character) {
     }
 }
 
-fn colored_stat(label: &str, value: impl std::fmt::Display, color: &str) -> String {
+pub(crate) fn colored_stat(label: &str, value: impl std::fmt::Display, color: &str) -> String {
     format!("{color}{label} {value}{RESET}")
 }
 
-fn strength_text(value: u32) -> String {
+pub(crate) fn strength_text(value: u32) -> String {
     colored_stat("STR", value, RED)
 }
 
-fn dexterity_text(value: u32) -> String {
+pub(crate) fn dexterity_text(value: u32) -> String {
     colored_stat("DEX", value, GREEN)
 }
 
-fn intelligence_text(value: u32) -> String {
+pub(crate) fn intelligence_text(value: u32) -> String {
     colored_stat("INT", value, BLUE)
 }
 
-fn hp_text(current: u32, max: u32) -> String {
+pub(crate) fn hp_text(current: u32, max: u32) -> String {
     format!("{RED}HP {current}/{max}{RESET}")
 }
 
-fn mana_text(current: u32, max: u32) -> String {
+pub(crate) fn mana_text(current: u32, max: u32) -> String {
     format!("{BLUE}Mana {current}/{max}{RESET}")
 }
 
-fn gold_text(value: u32) -> String {
+pub(crate) fn gold_text(value: u32) -> String {
     format!("{YELLOW}Gold {value}{RESET}")
 }
 
-fn xp_text(current: u32, needed: u32) -> String {
+pub(crate) fn xp_text(current: u32, needed: u32) -> String {
     format!("{MAGENTA}XP {current}/{needed}{RESET}")
 }
 
-fn level_text(value: u32) -> String {
+pub(crate) fn level_text(value: u32) -> String {
     format!("{CYAN}Level {value}{RESET}")
 }
 
-fn hit_text(value: u32) -> String {
+pub(crate) fn hit_text(value: u32) -> String {
     colored_stat("Hit", value, CYAN)
 }
 
-fn dodge_text(value: u32) -> String {
+pub(crate) fn dodge_text(value: u32) -> String {
     colored_stat("Dodge", value, GREEN)
 }
 
-fn speed_text(value: u32) -> String {
+pub(crate) fn speed_text(value: u32) -> String {
     colored_stat("Speed", value, YELLOW)
 }
 
-fn armor_text(value: i32) -> String {
+pub(crate) fn armor_text(value: i32) -> String {
     colored_stat("Armor", value, WHITE)
 }
 
-fn unspent_attributes_text(value: u32) -> String {
+pub(crate) fn unspent_attributes_text(value: u32) -> String {
     format!("{CYAN}Unspent attributes: {value}{RESET}")
 }
 
-fn unspent_skills_text(value: u32) -> String {
+pub(crate) fn unspent_skills_text(value: u32) -> String {
     format!("{MAGENTA}Unspent skills: {value}{RESET}")
 }
 
-fn shard_text(label: &str, value: u32) -> String {
+pub(crate) fn shard_text(label: &str, value: u32) -> String {
     format!("{WHITE}{label} {value}{RESET}")
 }
 
-fn damage_text(value: impl std::fmt::Display) -> String {
+pub(crate) fn damage_text(value: impl std::fmt::Display) -> String {
     format!("{RED}{value} damage{RESET}")
 }
 
-fn xp_reward_text(value: u32) -> String {
+pub(crate) fn xp_reward_text(value: u32) -> String {
     format!("{MAGENTA}{value} XP{RESET}")
 }
 
-fn gold_reward_text(value: u32) -> String {
+pub(crate) fn gold_reward_text(value: u32) -> String {
     format!("{YELLOW}{value} gold{RESET}")
 }
 
-fn heal_amount_text(value: u32) -> String {
+pub(crate) fn heal_amount_text(value: u32) -> String {
     format!("{GREEN}{value} HP{RESET}")
 }
 
-fn lesser_potion_restore(max_resource: u32) -> u32 {
+pub(crate) fn lesser_potion_restore(max_resource: u32) -> u32 {
     ((max_resource * LESSER_POTION_RESTORE_PERCENT) / 100).max(1)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LogKind {
+pub(crate) enum LogKind {
     Hit,
     Enemy,
     Miss,
@@ -161,7 +163,7 @@ enum LogKind {
 }
 
 impl LogKind {
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             LogKind::Hit => "HIT",
             LogKind::Enemy => "ENEMY",
@@ -177,15 +179,15 @@ impl LogKind {
     }
 }
 
-fn log_event(log: &mut Vec<String>, kind: LogKind, message: impl Into<String>) {
+pub(crate) fn log_event(log: &mut Vec<String>, kind: LogKind, message: impl Into<String>) {
     log.push(format!("[{}] {}", kind.label(), message.into()));
 }
 
-fn enemy_hp_text(enemy: &Enemy) -> String {
+pub(crate) fn enemy_hp_text(enemy: &Enemy) -> String {
     format!("HP {}/{}", enemy.hp.max(0), enemy.max_hp)
 }
 
-fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
+pub(crate) fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
     for level in levels_gained {
         log_event(
             log,
@@ -202,8 +204,7 @@ fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
     }
 }
 
-
-fn prompt(label: &str) -> String {
+pub(crate) fn prompt(label: &str) -> String {
     print!("{label}");
     io::stdout().flush().expect("failed to flush stdout");
     let mut input = String::new();
@@ -213,8 +214,7 @@ fn prompt(label: &str) -> String {
     input.trim_end().to_string()
 }
 
-fn clear_screen() {
+pub(crate) fn clear_screen() {
     print!("\x1B[2J\x1B[1;1H");
     let _ = io::stdout().flush();
 }
-

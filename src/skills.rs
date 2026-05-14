@@ -1,4 +1,6 @@
-fn skill_tree_menu(c: &mut Character) {
+use crate::*;
+
+pub(crate) fn skill_tree_menu(c: &mut Character) {
     let mut message = String::new();
     loop {
         clear_screen();
@@ -96,7 +98,7 @@ fn skill_tree_menu(c: &mut Character) {
     }
 }
 
-fn print_skill_upgrade_preview(
+pub(crate) fn print_skill_upgrade_preview(
     key: char,
     name: &str,
     rank: u32,
@@ -117,7 +119,7 @@ fn print_skill_upgrade_preview(
     }
 }
 
-fn print_mastery_status(c: &Character, skill: &str) {
+pub(crate) fn print_mastery_status(c: &Character, skill: &str) {
     if skill_rank(c, skill) < 5 {
         return;
     }
@@ -128,7 +130,7 @@ fn print_mastery_status(c: &Character, skill: &str) {
     }
 }
 
-fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
+pub(crate) fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
     if skill_rank(c, skill) >= 5 {
         if mastery_for_skill(c, skill).is_some() {
             return format!(
@@ -141,7 +143,7 @@ fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
     upgrade_skill(c, skill)
 }
 
-fn upgrade_skill(c: &mut Character, skill: &str) -> String {
+pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
     if c.unspent_skills == 0 {
         return "No unspent skill points.".to_string();
     }
@@ -165,7 +167,7 @@ fn upgrade_skill(c: &mut Character, skill: &str) -> String {
 }
 
 impl SkillMastery {
-    fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             SkillMastery::ReapingCleave => "Reaping Cleave",
             SkillMastery::SunderingCleave => "Sundering Cleave",
@@ -189,7 +191,7 @@ impl SkillMastery {
     }
 }
 
-fn mastery_for_skill(c: &Character, skill: &str) -> Option<SkillMastery> {
+pub(crate) fn mastery_for_skill(c: &Character, skill: &str) -> Option<SkillMastery> {
     match skill {
         "Cleave" => c.cleave_mastery,
         "Shield Bash" => c.shield_bash_mastery,
@@ -201,7 +203,7 @@ fn mastery_for_skill(c: &Character, skill: &str) -> Option<SkillMastery> {
     }
 }
 
-fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) {
+pub(crate) fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) {
     match skill {
         "Cleave" => c.cleave_mastery = Some(mastery),
         "Shield Bash" => c.shield_bash_mastery = Some(mastery),
@@ -213,7 +215,7 @@ fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) 
     }
 }
 
-fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, String); 3] {
+pub(crate) fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, String); 3] {
     match skill {
         "Cleave" => [
             (
@@ -323,7 +325,7 @@ fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, String); 3] {
     }
 }
 
-fn mastery_menu(c: &mut Character, skill: &str) -> String {
+pub(crate) fn mastery_menu(c: &mut Character, skill: &str) -> String {
     loop {
         clear_screen();
         println!("{BOLD}{MAGENTA}{skill} Mastery{RESET}");
@@ -349,7 +351,7 @@ fn mastery_menu(c: &mut Character, skill: &str) -> String {
     }
 }
 
-fn skill_rank(c: &Character, skill: &str) -> u32 {
+pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {
     match skill {
         "Cleave" => c.cleave_rank,
         "Shield Bash" => c.shield_bash_rank,
@@ -361,7 +363,7 @@ fn skill_rank(c: &Character, skill: &str) -> u32 {
     }
 }
 
-fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
+pub(crate) fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
     match skill {
         "Deep Cut" if c.cleave_rank < 2 => {
             Some("Deep Cut upgrades require Cleave rank 2.".to_string())
@@ -376,61 +378,60 @@ fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
     }
 }
 
-fn next_skill_rank(rank: u32) -> u32 {
+pub(crate) fn next_skill_rank(rank: u32) -> u32 {
     (rank + 1).min(5)
 }
-fn cleave_multiplier(c: &Character) -> f32 {
+pub(crate) fn cleave_multiplier(c: &Character) -> f32 {
     cleave_multiplier_for_rank(c.cleave_rank)
 }
-fn cleave_multiplier_for_rank(rank: u32) -> f32 {
+pub(crate) fn cleave_multiplier_for_rank(rank: u32) -> f32 {
     0.8 + (rank.saturating_sub(1) as f32 * 0.10)
 }
-fn shield_bash_multiplier(c: &Character) -> f32 {
+pub(crate) fn shield_bash_multiplier(c: &Character) -> f32 {
     shield_bash_multiplier_for_rank(c.shield_bash_rank)
 }
-fn shield_bash_multiplier_for_rank(rank: u32) -> f32 {
+pub(crate) fn shield_bash_multiplier_for_rank(rank: u32) -> f32 {
     0.7 + (rank.saturating_sub(1) as f32 * 0.10)
 }
-fn battle_cry_multiplier(c: &Character) -> f32 {
+pub(crate) fn battle_cry_multiplier(c: &Character) -> f32 {
     battle_cry_multiplier_for_rank(c.battle_cry_rank)
 }
-fn battle_cry_multiplier_for_rank(rank: u32) -> f32 {
+pub(crate) fn battle_cry_multiplier_for_rank(rank: u32) -> f32 {
     1.20 + (rank.saturating_sub(1) as f32 * 0.05)
 }
-fn cleave_percent_for_rank(rank: u32) -> u32 {
+pub(crate) fn cleave_percent_for_rank(rank: u32) -> u32 {
     (cleave_multiplier_for_rank(rank) * 100.0).round() as u32
 }
-fn shield_bash_percent_for_rank(rank: u32) -> u32 {
+pub(crate) fn shield_bash_percent_for_rank(rank: u32) -> u32 {
     (shield_bash_multiplier_for_rank(rank) * 100.0).round() as u32
 }
-fn battle_cry_bonus_percent_for_rank(rank: u32) -> u32 {
+pub(crate) fn battle_cry_bonus_percent_for_rank(rank: u32) -> u32 {
     ((battle_cry_multiplier_for_rank(rank) - 1.0) * 100.0).round() as u32
 }
-fn cleave_percent(c: &Character) -> u32 {
+pub(crate) fn cleave_percent(c: &Character) -> u32 {
     cleave_percent_for_rank(c.cleave_rank)
 }
-fn shield_bash_percent(c: &Character) -> u32 {
+pub(crate) fn shield_bash_percent(c: &Character) -> u32 {
     shield_bash_percent_for_rank(c.shield_bash_rank)
 }
-fn battle_cry_bonus_percent(c: &Character) -> u32 {
+pub(crate) fn battle_cry_bonus_percent(c: &Character) -> u32 {
     battle_cry_bonus_percent_for_rank(c.battle_cry_rank)
 }
-fn deep_cut_chance_for_rank(rank: u32) -> u32 {
+pub(crate) fn deep_cut_chance_for_rank(rank: u32) -> u32 {
     10 + rank.min(5) * 5
 }
-fn deep_cut_damage_for_rank(rank: u32) -> i32 {
+pub(crate) fn deep_cut_damage_for_rank(rank: u32) -> i32 {
     1 + rank.min(5).div_ceil(2) as i32
 }
-fn iron_guard_armor_bonus(c: &Character) -> i32 {
+pub(crate) fn iron_guard_armor_bonus(c: &Character) -> i32 {
     iron_guard_armor_bonus_for_rank(c.iron_guard_rank)
 }
-fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
+pub(crate) fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
     1 + rank.min(5) as i32
 }
-fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
+pub(crate) fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
     5 + rank.min(5) * 5
 }
-fn second_wind_heal_amount(c: &Character) -> u32 {
+pub(crate) fn second_wind_heal_amount(c: &Character) -> u32 {
     ((c.max_hp() * second_wind_heal_percent_for_rank(c.second_wind_rank)) / 100).max(1)
 }
-

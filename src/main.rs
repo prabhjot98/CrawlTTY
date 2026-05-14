@@ -1,26 +1,34 @@
-use anyhow::{Context, Result};
-use crossterm::terminal::size as terminal_size;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use std::{
+pub(crate) use anyhow::{Context, Result};
+pub(crate) use crossterm::terminal::size as terminal_size;
+pub(crate) use rand::Rng;
+pub(crate) use serde::{Deserialize, Serialize};
+pub(crate) use std::{
     env, fs,
     io::{self, Write},
     path::Path,
 };
 
+mod dungeon;
+mod dungeon_gen;
 mod input;
+mod inventory;
+mod items;
+mod model;
+mod save;
+mod skills;
+mod town;
+mod ui;
 
+pub(crate) use dungeon::*;
+pub(crate) use dungeon_gen::*;
 use input::{read_key_char, read_key_char_nav};
-
-include!("model.rs");
-include!("items.rs");
-include!("ui.rs");
-include!("save.rs");
-include!("town.rs");
-include!("skills.rs");
-include!("dungeon_gen.rs");
-include!("dungeon.rs");
-include!("inventory.rs");
+pub(crate) use inventory::*;
+pub(crate) use items::*;
+pub(crate) use model::*;
+pub(crate) use save::*;
+pub(crate) use skills::*;
+pub(crate) use town::*;
+pub(crate) use ui::*;
 
 fn main() -> Result<()> {
     fs::create_dir_all("saves").context("failed to create saves directory")?;

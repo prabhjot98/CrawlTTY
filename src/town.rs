@@ -1,4 +1,6 @@
-fn quest_giver(c: &mut Character) -> String {
+use crate::*;
+
+pub(crate) fn quest_giver(c: &mut Character) -> String {
     if c.act2_completed {
         "Warden Mara: Two curses broken. Campaign complete for now. More acts may come later."
             .to_string()
@@ -30,12 +32,12 @@ fn quest_giver(c: &mut Character) -> String {
     }
 }
 
-fn healer(c: &mut Character) {
+pub(crate) fn healer(c: &mut Character) {
     c.hp = c.max_hp();
     c.mana = c.max_mana();
 }
 
-fn merchant(c: &mut Character) {
+pub(crate) fn merchant(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
@@ -85,7 +87,7 @@ fn merchant(c: &mut Character) {
     }
 }
 
-fn blacksmith(c: &mut Character) {
+pub(crate) fn blacksmith(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
@@ -154,7 +156,7 @@ fn blacksmith(c: &mut Character) {
     }
 }
 
-fn buy_item_message(c: &mut Character, item: Item) -> String {
+pub(crate) fn buy_item_message(c: &mut Character, item: Item) -> String {
     if c.gold < item.value {
         return "Not enough gold.".to_string();
     }
@@ -165,13 +167,13 @@ fn buy_item_message(c: &mut Character, item: Item) -> String {
 }
 
 #[derive(Clone, Copy)]
-enum UpgradeSlot {
+pub(crate) enum UpgradeSlot {
     Weapon,
     Armor,
     Shield,
 }
 
-fn salvage_screen(c: &mut Character) {
+pub(crate) fn salvage_screen(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
@@ -220,7 +222,7 @@ fn salvage_screen(c: &mut Character) {
     }
 }
 
-fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
+pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
     if index >= c.inventory.len() {
         return "No item selected.".to_string();
     }
@@ -238,7 +240,7 @@ fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
     )
 }
 
-fn salvage_shard_yield(item: &Item) -> u32 {
+pub(crate) fn salvage_shard_yield(item: &Item) -> u32 {
     let rarity_bonus = match item.rarity {
         Rarity::Common => 1,
         Rarity::Magic => 2,
@@ -247,7 +249,7 @@ fn salvage_shard_yield(item: &Item) -> u32 {
     rarity_bonus + item.upgrade_level
 }
 
-fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> String {
+pub(crate) fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> String {
     let (cost_shards, cost_gold, kind, item_name) = {
         let item = equipped_item(c, slot);
         let kind = shard_kind(item).expect("equipped gear has shard kind");
@@ -272,12 +274,12 @@ fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> String {
     format!("Upgraded {} to +{}.", item.name, item.upgrade_level)
 }
 
-fn upgrade_cost(item: &Item) -> (u32, u32) {
+pub(crate) fn upgrade_cost(item: &Item) -> (u32, u32) {
     let next = item.upgrade_level + 1;
     (next * 2, next * 25)
 }
 
-fn upgrade_item(item: &mut Item) {
+pub(crate) fn upgrade_item(item: &mut Item) {
     item.upgrade_level += 1;
     item.value += 10 * item.upgrade_level;
     match item.kind {
@@ -291,7 +293,7 @@ fn upgrade_item(item: &mut Item) {
     }
 }
 
-fn equipped_item(c: &Character, slot: UpgradeSlot) -> &Item {
+pub(crate) fn equipped_item(c: &Character, slot: UpgradeSlot) -> &Item {
     match slot {
         UpgradeSlot::Weapon => &c.equipped_weapon,
         UpgradeSlot::Armor => &c.equipped_armor,
@@ -299,7 +301,7 @@ fn equipped_item(c: &Character, slot: UpgradeSlot) -> &Item {
     }
 }
 
-fn equipped_item_mut(c: &mut Character, slot: UpgradeSlot) -> &mut Item {
+pub(crate) fn equipped_item_mut(c: &mut Character, slot: UpgradeSlot) -> &mut Item {
     match slot {
         UpgradeSlot::Weapon => &mut c.equipped_weapon,
         UpgradeSlot::Armor => &mut c.equipped_armor,
@@ -307,7 +309,7 @@ fn equipped_item_mut(c: &mut Character, slot: UpgradeSlot) -> &mut Item {
     }
 }
 
-fn shard_kind(item: &Item) -> Option<ItemKind> {
+pub(crate) fn shard_kind(item: &Item) -> Option<ItemKind> {
     match item.kind {
         ItemKind::Weapon => Some(ItemKind::Weapon),
         ItemKind::Armor => Some(ItemKind::Armor),
@@ -316,7 +318,7 @@ fn shard_kind(item: &Item) -> Option<ItemKind> {
     }
 }
 
-fn shard_name(kind: ItemKind) -> &'static str {
+pub(crate) fn shard_name(kind: ItemKind) -> &'static str {
     match kind {
         ItemKind::Weapon => "weapon",
         ItemKind::Armor => "armor",
@@ -325,7 +327,7 @@ fn shard_name(kind: ItemKind) -> &'static str {
     }
 }
 
-fn shard_count(c: &Character, kind: ItemKind) -> u32 {
+pub(crate) fn shard_count(c: &Character, kind: ItemKind) -> u32 {
     match kind {
         ItemKind::Weapon => c.weapon_shards,
         ItemKind::Armor => c.armor_shards,
@@ -334,7 +336,7 @@ fn shard_count(c: &Character, kind: ItemKind) -> u32 {
     }
 }
 
-fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
+pub(crate) fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
     match kind {
         ItemKind::Weapon => c.weapon_shards += amount,
         ItemKind::Armor => c.armor_shards += amount,
@@ -343,7 +345,7 @@ fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
     }
 }
 
-fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
+pub(crate) fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
     match kind {
         ItemKind::Weapon => c.weapon_shards = c.weapon_shards.saturating_sub(amount),
         ItemKind::Armor => c.armor_shards = c.armor_shards.saturating_sub(amount),
@@ -352,7 +354,7 @@ fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
     }
 }
 
-fn sell_item_screen(c: &mut Character) {
+pub(crate) fn sell_item_screen(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
@@ -397,7 +399,7 @@ fn sell_item_screen(c: &mut Character) {
     }
 }
 
-fn stash_menu(c: &mut Character) {
+pub(crate) fn stash_menu(c: &mut Character) {
     let mut side = StashSide::Inventory;
     let mut inv_selected = 0usize;
     let mut stash_selected = 0usize;
@@ -470,13 +472,13 @@ fn stash_menu(c: &mut Character) {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum StashSide {
+pub(crate) enum StashSide {
     Inventory,
     Stash,
 }
 
 impl StashSide {
-    fn other(self) -> Self {
+    pub(crate) fn other(self) -> Self {
         match self {
             StashSide::Inventory => StashSide::Stash,
             StashSide::Stash => StashSide::Inventory,
@@ -484,7 +486,12 @@ impl StashSide {
     }
 }
 
-fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &str) -> String {
+pub(crate) fn move_selected(
+    from: &mut Vec<Item>,
+    to: &mut Vec<Item>,
+    index: usize,
+    verb: &str,
+) -> String {
     if from.is_empty() {
         "Nothing to move.".to_string()
     } else if index >= from.len() {
@@ -497,7 +504,7 @@ fn move_selected(from: &mut Vec<Item>, to: &mut Vec<Item>, index: usize, verb: &
     }
 }
 
-fn spend_attributes(c: &mut Character) {
+pub(crate) fn spend_attributes(c: &mut Character) {
     let mut message = String::new();
     while c.unspent_attributes > 0 {
         clear_screen();
@@ -546,4 +553,3 @@ fn spend_attributes(c: &mut Character) {
         }
     }
 }
-

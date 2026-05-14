@@ -1,63 +1,65 @@
-const SAVE_PATH: &str = "saves/save.json";
-const MAP_W: i32 = 40;
-const MAP_H: i32 = 16;
-const ACT1_FLOORS: u32 = 10;
-const ACT2_FLOORS: u32 = 8;
-const ACT2_START_FLOOR: u32 = ACT1_FLOORS + 1;
-const FINAL_FLOOR: u32 = ACT1_FLOORS + ACT2_FLOORS;
-const HEALTH_POTION_COST: u32 = 50;
-const MANA_POTION_COST: u32 = 100;
-const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
+use crate::*;
 
-const RESET: &str = "\x1b[0m";
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const RED: &str = "\x1b[31m";
-const GREEN: &str = "\x1b[32m";
-const YELLOW: &str = "\x1b[33m";
-const BLUE: &str = "\x1b[34m";
-const MAGENTA: &str = "\x1b[35m";
-const CYAN: &str = "\x1b[36m";
-const WHITE: &str = "\x1b[37m";
-const BRIGHT_BLACK: &str = "\x1b[90m";
+pub(crate) const SAVE_PATH: &str = "saves/save.json";
+pub(crate) const MAP_W: i32 = 40;
+pub(crate) const MAP_H: i32 = 16;
+pub(crate) const ACT1_FLOORS: u32 = 10;
+pub(crate) const ACT2_FLOORS: u32 = 8;
+pub(crate) const ACT2_START_FLOOR: u32 = ACT1_FLOORS + 1;
+pub(crate) const FINAL_FLOOR: u32 = ACT1_FLOORS + ACT2_FLOORS;
+pub(crate) const HEALTH_POTION_COST: u32 = 50;
+pub(crate) const MANA_POTION_COST: u32 = 100;
+pub(crate) const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
+
+pub(crate) const RESET: &str = "\x1b[0m";
+pub(crate) const BOLD: &str = "\x1b[1m";
+pub(crate) const DIM: &str = "\x1b[2m";
+pub(crate) const RED: &str = "\x1b[31m";
+pub(crate) const GREEN: &str = "\x1b[32m";
+pub(crate) const YELLOW: &str = "\x1b[33m";
+pub(crate) const BLUE: &str = "\x1b[34m";
+pub(crate) const MAGENTA: &str = "\x1b[35m";
+pub(crate) const CYAN: &str = "\x1b[36m";
+pub(crate) const WHITE: &str = "\x1b[37m";
+pub(crate) const BRIGHT_BLACK: &str = "\x1b[90m";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum DeathMode {
+pub(crate) enum DeathMode {
     Softcore,
     Hardcore,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Item {
-    name: String,
-    kind: ItemKind,
-    value: u32,
+pub(crate) struct Item {
+    pub(crate) name: String,
+    pub(crate) kind: ItemKind,
+    pub(crate) value: u32,
     #[serde(default)]
-    damage_min: i32,
+    pub(crate) damage_min: i32,
     #[serde(default)]
-    damage_max: i32,
+    pub(crate) damage_max: i32,
     #[serde(default)]
-    armor: i32,
+    pub(crate) armor: i32,
     #[serde(default)]
-    dodge: i32,
+    pub(crate) dodge: i32,
     #[serde(default)]
-    speed: i32,
+    pub(crate) speed: i32,
     #[serde(default)]
-    rarity: Rarity,
+    pub(crate) rarity: Rarity,
     #[serde(default = "default_item_level")]
-    item_level: u32,
+    pub(crate) item_level: u32,
     #[serde(default)]
-    required_strength: u32,
+    pub(crate) required_strength: u32,
     #[serde(default)]
-    required_dexterity: u32,
+    pub(crate) required_dexterity: u32,
     #[serde(default)]
-    required_intelligence: u32,
+    pub(crate) required_intelligence: u32,
     #[serde(default)]
-    upgrade_level: u32,
+    pub(crate) upgrade_level: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-enum Rarity {
+pub(crate) enum Rarity {
     #[default]
     Common,
     Magic,
@@ -65,7 +67,7 @@ enum Rarity {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-enum ItemKind {
+pub(crate) enum ItemKind {
     HealthPotion,
     ManaPotion,
     Weapon,
@@ -74,7 +76,7 @@ enum ItemKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-enum EliteModifier {
+pub(crate) enum EliteModifier {
     Armored,
     Swift,
     Vampiric,
@@ -82,7 +84,7 @@ enum EliteModifier {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-enum SkillMastery {
+pub(crate) enum SkillMastery {
     ReapingCleave,
     SunderingCleave,
     BloodArc,
@@ -104,149 +106,149 @@ enum SkillMastery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Enemy {
-    name: String,
-    glyph: char,
-    x: i32,
-    y: i32,
-    hp: i32,
-    max_hp: i32,
-    damage_min: i32,
-    damage_max: i32,
-    armor: i32,
-    speed: i32,
+pub(crate) struct Enemy {
+    pub(crate) name: String,
+    pub(crate) glyph: char,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) hp: i32,
+    pub(crate) max_hp: i32,
+    pub(crate) damage_min: i32,
+    pub(crate) damage_max: i32,
+    pub(crate) armor: i32,
+    pub(crate) speed: i32,
     #[serde(default)]
-    energy: i32,
-    xp: u32,
-    gold_min: u32,
-    gold_max: u32,
-    is_boss: bool,
+    pub(crate) energy: i32,
+    pub(crate) xp: u32,
+    pub(crate) gold_min: u32,
+    pub(crate) gold_max: u32,
+    pub(crate) is_boss: bool,
     #[serde(default)]
-    stunned_turns: u32,
+    pub(crate) stunned_turns: u32,
     #[serde(default)]
-    bleed_turns: u32,
+    pub(crate) bleed_turns: u32,
     #[serde(default)]
-    bleed_damage: i32,
+    pub(crate) bleed_damage: i32,
     #[serde(default)]
-    armor_shred_turns: u32,
+    pub(crate) armor_shred_turns: u32,
     #[serde(default)]
-    vulnerable_turns: u32,
+    pub(crate) vulnerable_turns: u32,
     #[serde(default)]
-    guarding: bool,
+    pub(crate) guarding: bool,
     #[serde(default)]
-    elite_modifier: Option<EliteModifier>,
+    pub(crate) elite_modifier: Option<EliteModifier>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Chest {
-    x: i32,
-    y: i32,
-    opened: bool,
+pub(crate) struct Chest {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) opened: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Dungeon {
-    floor: u32,
-    player_x: i32,
-    player_y: i32,
-    stairs_x: i32,
-    stairs_y: i32,
-    enemies: Vec<Enemy>,
-    chests: Vec<Chest>,
-    log: Vec<String>,
+pub(crate) struct Dungeon {
+    pub(crate) floor: u32,
+    pub(crate) player_x: i32,
+    pub(crate) player_y: i32,
+    pub(crate) stairs_x: i32,
+    pub(crate) stairs_y: i32,
+    pub(crate) enemies: Vec<Enemy>,
+    pub(crate) chests: Vec<Chest>,
+    pub(crate) log: Vec<String>,
     #[serde(default)]
-    tiles: Vec<char>,
+    pub(crate) tiles: Vec<char>,
     #[serde(default)]
-    bell_wave_tiles: Vec<(i32, i32)>,
+    pub(crate) bell_wave_tiles: Vec<(i32, i32)>,
     #[serde(default)]
-    boss_turn_counter: u32,
+    pub(crate) boss_turn_counter: u32,
     #[serde(default)]
-    log_turn: u32,
+    pub(crate) log_turn: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Character {
-    name: String,
-    class_name: String,
-    death_mode: DeathMode,
-    level: u32,
-    xp: u32,
-    gold: u32,
-    strength: u32,
-    dexterity: u32,
-    intelligence: u32,
+pub(crate) struct Character {
+    pub(crate) name: String,
+    pub(crate) class_name: String,
+    pub(crate) death_mode: DeathMode,
+    pub(crate) level: u32,
+    pub(crate) xp: u32,
+    pub(crate) gold: u32,
+    pub(crate) strength: u32,
+    pub(crate) dexterity: u32,
+    pub(crate) intelligence: u32,
     #[serde(default)]
-    unspent_attributes: u32,
+    pub(crate) unspent_attributes: u32,
     #[serde(default)]
-    unspent_skills: u32,
+    pub(crate) unspent_skills: u32,
     #[serde(default = "default_skill_rank")]
-    cleave_rank: u32,
+    pub(crate) cleave_rank: u32,
     #[serde(default = "default_skill_rank")]
-    shield_bash_rank: u32,
+    pub(crate) shield_bash_rank: u32,
     #[serde(default = "default_skill_rank")]
-    battle_cry_rank: u32,
+    pub(crate) battle_cry_rank: u32,
     #[serde(default = "default_skill_rank")]
-    deep_cut_rank: u32,
+    pub(crate) deep_cut_rank: u32,
     #[serde(default = "default_skill_rank")]
-    iron_guard_rank: u32,
+    pub(crate) iron_guard_rank: u32,
     #[serde(default = "default_skill_rank")]
-    second_wind_rank: u32,
-    hp: u32,
-    mana: u32,
-    inventory: Vec<Item>,
-    stash: Vec<Item>,
-    equipped_weapon: Item,
-    equipped_armor: Item,
-    equipped_shield: Item,
-    bellkeeper_defeated: bool,
+    pub(crate) second_wind_rank: u32,
+    pub(crate) hp: u32,
+    pub(crate) mana: u32,
+    pub(crate) inventory: Vec<Item>,
+    pub(crate) stash: Vec<Item>,
+    pub(crate) equipped_weapon: Item,
+    pub(crate) equipped_armor: Item,
+    pub(crate) equipped_shield: Item,
+    pub(crate) bellkeeper_defeated: bool,
     #[serde(default)]
-    glass_tyrant_defeated: bool,
+    pub(crate) glass_tyrant_defeated: bool,
     #[serde(default)]
-    act1_completed: bool,
+    pub(crate) act1_completed: bool,
     #[serde(default)]
-    act2_completed: bool,
+    pub(crate) act2_completed: bool,
     #[serde(default)]
-    cleave_cooldown: u32,
+    pub(crate) cleave_cooldown: u32,
     #[serde(default)]
-    shield_bash_cooldown: u32,
+    pub(crate) shield_bash_cooldown: u32,
     #[serde(default)]
-    battle_cry_cooldown: u32,
+    pub(crate) battle_cry_cooldown: u32,
     #[serde(default, alias = "battle_cry_turns")]
-    battle_cry_charges: u32,
+    pub(crate) battle_cry_charges: u32,
     #[serde(default)]
-    active_dungeon: Option<Dungeon>,
+    pub(crate) active_dungeon: Option<Dungeon>,
     #[serde(default)]
-    weapon_shards: u32,
+    pub(crate) weapon_shards: u32,
     #[serde(default)]
-    armor_shards: u32,
+    pub(crate) armor_shards: u32,
     #[serde(default)]
-    shield_shards: u32,
+    pub(crate) shield_shards: u32,
     #[serde(default)]
-    cleave_mastery: Option<SkillMastery>,
+    pub(crate) cleave_mastery: Option<SkillMastery>,
     #[serde(default)]
-    shield_bash_mastery: Option<SkillMastery>,
+    pub(crate) shield_bash_mastery: Option<SkillMastery>,
     #[serde(default)]
-    battle_cry_mastery: Option<SkillMastery>,
+    pub(crate) battle_cry_mastery: Option<SkillMastery>,
     #[serde(default)]
-    deep_cut_mastery: Option<SkillMastery>,
+    pub(crate) deep_cut_mastery: Option<SkillMastery>,
     #[serde(default)]
-    iron_guard_mastery: Option<SkillMastery>,
+    pub(crate) iron_guard_mastery: Option<SkillMastery>,
     #[serde(default)]
-    second_wind_mastery: Option<SkillMastery>,
+    pub(crate) second_wind_mastery: Option<SkillMastery>,
     #[serde(default)]
-    second_wind_shield: u32,
+    pub(crate) second_wind_shield: u32,
 }
 
-fn default_skill_rank() -> u32 {
+pub(crate) fn default_skill_rank() -> u32 {
     1
 }
 
-fn default_item_level() -> u32 {
+pub(crate) fn default_item_level() -> u32 {
     1
 }
 
 impl Character {
-    fn new(name: String, death_mode: DeathMode) -> Self {
+    pub(crate) fn new(name: String, death_mode: DeathMode) -> Self {
         let strength = 6;
         let dexterity = 3;
         let intelligence = 1;
@@ -299,16 +301,16 @@ impl Character {
         }
     }
 
-    fn max_hp(&self) -> u32 {
+    pub(crate) fn max_hp(&self) -> u32 {
         10 + self.strength * 5
     }
-    fn max_mana(&self) -> u32 {
+    pub(crate) fn max_mana(&self) -> u32 {
         10 + self.intelligence * 5
     }
-    fn hit_rating(&self) -> u32 {
+    pub(crate) fn hit_rating(&self) -> u32 {
         10 + self.dexterity * 5
     }
-    fn dodge_rating(&self) -> u32 {
+    pub(crate) fn dodge_rating(&self) -> u32 {
         let mastery_bonus = if self.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
             3
         } else {
@@ -320,14 +322,14 @@ impl Character {
             + mastery_bonus)
             .max(0) as u32
     }
-    fn speed(&self) -> u32 {
+    pub(crate) fn speed(&self) -> u32 {
         (10 + self.dexterity as i32 * 5
             + self.equipped_weapon.speed
             + self.equipped_armor.speed
             + self.equipped_shield.speed)
             .max(1) as u32
     }
-    fn armor(&self) -> i32 {
+    pub(crate) fn armor(&self) -> i32 {
         let bulwark_bonus = if self.iron_guard_mastery == Some(SkillMastery::Bulwark)
             && self.hp * 2 <= self.max_hp()
         {
@@ -340,11 +342,10 @@ impl Character {
             + iron_guard_armor_bonus(self)
             + bulwark_bonus
     }
-    fn weapon_damage(&self) -> (i32, i32) {
+    pub(crate) fn weapon_damage(&self) -> (i32, i32) {
         (
             self.equipped_weapon.damage_min + (self.strength as i32 / 4),
             self.equipped_weapon.damage_max + (self.strength as i32 / 3),
         )
     }
 }
-

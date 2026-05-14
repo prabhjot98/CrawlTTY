@@ -1,4 +1,6 @@
-fn enter_dungeon(c: &mut Character) -> String {
+use crate::*;
+
+pub(crate) fn enter_dungeon(c: &mut Character) -> String {
     if c.act2_completed {
         return "The Glass Wastes are conquered. Rest, trade, or start a new exile.".to_string();
     }
@@ -18,19 +20,19 @@ fn enter_dungeon(c: &mut Character) -> String {
 }
 
 #[derive(Clone)]
-struct Room {
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
+pub(crate) struct Room {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) w: i32,
+    pub(crate) h: i32,
 }
 
 impl Room {
-    fn center(&self) -> (i32, i32) {
+    pub(crate) fn center(&self) -> (i32, i32) {
         (self.x + self.w / 2, self.y + self.h / 2)
     }
 
-    fn intersects(&self, other: &Room) -> bool {
+    pub(crate) fn intersects(&self, other: &Room) -> bool {
         self.x <= other.x + other.w + 1
             && self.x + self.w + 1 >= other.x
             && self.y <= other.y + other.h + 1
@@ -38,7 +40,7 @@ impl Room {
     }
 }
 
-fn generate_dungeon(floor: u32) -> Dungeon {
+pub(crate) fn generate_dungeon(floor: u32) -> Dungeon {
     let mut rng = rand::thread_rng();
     let mut tiles = vec!['#'; (MAP_W * MAP_H) as usize];
     let act_floor = act_floor(floor);
@@ -239,7 +241,7 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     }
 }
 
-fn act_floor(floor: u32) -> u32 {
+pub(crate) fn act_floor(floor: u32) -> u32 {
     if floor >= ACT2_START_FLOOR {
         floor - ACT1_FLOORS
     } else {
@@ -247,7 +249,7 @@ fn act_floor(floor: u32) -> u32 {
     }
 }
 
-fn act_name(floor: u32) -> &'static str {
+pub(crate) fn act_name(floor: u32) -> &'static str {
     if floor >= ACT2_START_FLOOR {
         "Glass Wastes"
     } else {
@@ -255,7 +257,7 @@ fn act_name(floor: u32) -> &'static str {
     }
 }
 
-fn floor_difficulty_multiplier(floor: u32) -> f32 {
+pub(crate) fn floor_difficulty_multiplier(floor: u32) -> f32 {
     if floor >= ACT2_START_FLOOR {
         4.5 + (act_floor(floor).saturating_sub(1) as f32
             / ACT2_FLOORS.saturating_sub(1).max(1) as f32)
@@ -265,7 +267,7 @@ fn floor_difficulty_multiplier(floor: u32) -> f32 {
     }
 }
 
-fn floor_reward_multiplier(floor: u32) -> f32 {
+pub(crate) fn floor_reward_multiplier(floor: u32) -> f32 {
     if floor >= ACT2_START_FLOOR {
         2.2 + (act_floor(floor).saturating_sub(1) as f32
             / ACT2_FLOORS.saturating_sub(1).max(1) as f32)
@@ -275,7 +277,7 @@ fn floor_reward_multiplier(floor: u32) -> f32 {
     }
 }
 
-fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
+pub(crate) fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
     let difficulty_multiplier = floor_difficulty_multiplier(floor);
     let reward_multiplier = floor_reward_multiplier(floor);
     enemy.max_hp = scale_i32(enemy.max_hp, difficulty_multiplier);
@@ -289,11 +291,11 @@ fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
     enemy
 }
 
-fn scale_i32(value: i32, multiplier: f32) -> i32 {
+pub(crate) fn scale_i32(value: i32, multiplier: f32) -> i32 {
     ((value as f32) * multiplier).round().max(1.0) as i32
 }
 
-fn scale_u32(value: u32, multiplier: f32) -> u32 {
+pub(crate) fn scale_u32(value: u32, multiplier: f32) -> u32 {
     if value == 0 {
         0
     } else {
@@ -301,11 +303,11 @@ fn scale_u32(value: u32, multiplier: f32) -> u32 {
     }
 }
 
-fn tile_index(x: i32, y: i32) -> usize {
+pub(crate) fn tile_index(x: i32, y: i32) -> usize {
     (y * MAP_W + x) as usize
 }
 
-fn carve_room(tiles: &mut [char], room: &Room) {
+pub(crate) fn carve_room(tiles: &mut [char], room: &Room) {
     for y in room.y..room.y + room.h {
         for x in room.x..room.x + room.w {
             tiles[tile_index(x, y)] = '.';
@@ -313,7 +315,7 @@ fn carve_room(tiles: &mut [char], room: &Room) {
     }
 }
 
-fn carve_corridor(tiles: &mut [char], from: (i32, i32), to: (i32, i32)) {
+pub(crate) fn carve_corridor(tiles: &mut [char], from: (i32, i32), to: (i32, i32)) {
     let mut x = from.0;
     let mut y = from.1;
     while x != to.0 {
@@ -327,7 +329,7 @@ fn carve_corridor(tiles: &mut [char], from: (i32, i32), to: (i32, i32)) {
     tiles[tile_index(x, y)] = '.';
 }
 
-fn farthest_room_center(rooms: &[Room], from: (i32, i32)) -> (i32, i32) {
+pub(crate) fn farthest_room_center(rooms: &[Room], from: (i32, i32)) -> (i32, i32) {
     rooms
         .iter()
         .map(Room::center)
@@ -335,7 +337,11 @@ fn farthest_room_center(rooms: &[Room], from: (i32, i32)) -> (i32, i32) {
         .unwrap_or((MAP_W - 3, MAP_H - 3))
 }
 
-fn random_room_floor(rooms: &[Room], rng: &mut impl Rng, occupied: &[(i32, i32)]) -> (i32, i32) {
+pub(crate) fn random_room_floor(
+    rooms: &[Room],
+    rng: &mut impl Rng,
+    occupied: &[(i32, i32)],
+) -> (i32, i32) {
     for _ in 0..100 {
         let room = &rooms[rng.gen_range(0..rooms.len())];
         let pos = (
@@ -356,7 +362,7 @@ fn random_room_floor(rooms: &[Room], rng: &mut impl Rng, occupied: &[(i32, i32)]
         .unwrap_or_else(|| rooms.last().unwrap().center())
 }
 
-fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
+pub(crate) fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
     if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H {
         return '#';
     }
@@ -370,22 +376,28 @@ fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
 }
 
 #[derive(Clone, Copy)]
-struct EnemyStats {
+pub(crate) struct EnemyStats {
+    pub(crate) hp: i32,
+    pub(crate) damage_min: i32,
+    pub(crate) damage_max: i32,
+    pub(crate) armor: i32,
+    pub(crate) speed: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct EnemyRewards {
+    pub(crate) xp: u32,
+    pub(crate) gold_min: u32,
+    pub(crate) gold_max: u32,
+}
+
+pub(crate) fn enemy_stats(
     hp: i32,
     damage_min: i32,
     damage_max: i32,
     armor: i32,
     speed: i32,
-}
-
-#[derive(Clone, Copy)]
-struct EnemyRewards {
-    xp: u32,
-    gold_min: u32,
-    gold_max: u32,
-}
-
-fn enemy_stats(hp: i32, damage_min: i32, damage_max: i32, armor: i32, speed: i32) -> EnemyStats {
+) -> EnemyStats {
     EnemyStats {
         hp,
         damage_min,
@@ -395,7 +407,7 @@ fn enemy_stats(hp: i32, damage_min: i32, damage_max: i32, armor: i32, speed: i32
     }
 }
 
-fn enemy_rewards(xp: u32, gold_min: u32, gold_max: u32) -> EnemyRewards {
+pub(crate) fn enemy_rewards(xp: u32, gold_min: u32, gold_max: u32) -> EnemyRewards {
     EnemyRewards {
         xp,
         gold_min,
@@ -403,7 +415,7 @@ fn enemy_rewards(xp: u32, gold_min: u32, gold_max: u32) -> EnemyRewards {
     }
 }
 
-fn enemy(
+pub(crate) fn enemy(
     name: &str,
     glyph: char,
     x: i32,
@@ -438,7 +450,7 @@ fn enemy(
     }
 }
 
-fn rat(x: i32, y: i32) -> Enemy {
+pub(crate) fn rat(x: i32, y: i32) -> Enemy {
     enemy(
         "Rat",
         'r',
@@ -449,7 +461,7 @@ fn rat(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn skeleton(x: i32, y: i32) -> Enemy {
+pub(crate) fn skeleton(x: i32, y: i32) -> Enemy {
     enemy(
         "Skeleton",
         's',
@@ -460,7 +472,7 @@ fn skeleton(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn cultist(x: i32, y: i32) -> Enemy {
+pub(crate) fn cultist(x: i32, y: i32) -> Enemy {
     enemy(
         "Cultist",
         'c',
@@ -471,7 +483,7 @@ fn cultist(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn boneguard(x: i32, y: i32) -> Enemy {
+pub(crate) fn boneguard(x: i32, y: i32) -> Enemy {
     enemy(
         "Boneguard",
         'b',
@@ -482,12 +494,12 @@ fn boneguard(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn elite_skeleton(x: i32, y: i32) -> Enemy {
+pub(crate) fn elite_skeleton(x: i32, y: i32) -> Enemy {
     let modifier = random_elite_modifier();
     elite_skeleton_with_modifier(x, y, modifier)
 }
 
-fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifier) -> Enemy {
+pub(crate) fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifier) -> Enemy {
     let mut elite = enemy(
         "Elite Skeleton",
         'E',
@@ -501,7 +513,7 @@ fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifier) -> Enem
     elite
 }
 
-fn random_elite_modifier() -> EliteModifier {
+pub(crate) fn random_elite_modifier() -> EliteModifier {
     match rand::thread_rng().gen_range(0..4) {
         0 => EliteModifier::Armored,
         1 => EliteModifier::Swift,
@@ -510,7 +522,7 @@ fn random_elite_modifier() -> EliteModifier {
     }
 }
 
-fn apply_elite_modifier(enemy: &mut Enemy, modifier: EliteModifier) {
+pub(crate) fn apply_elite_modifier(enemy: &mut Enemy, modifier: EliteModifier) {
     enemy.name = format!("{} {}", elite_modifier_name(&modifier), enemy.name);
     if matches!(modifier, EliteModifier::Swift) {
         enemy.speed += 2;
@@ -518,7 +530,7 @@ fn apply_elite_modifier(enemy: &mut Enemy, modifier: EliteModifier) {
     enemy.elite_modifier = Some(modifier);
 }
 
-fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
+pub(crate) fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
     match modifier {
         EliteModifier::Armored => "Armored",
         EliteModifier::Swift => "Swift",
@@ -526,7 +538,7 @@ fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
         EliteModifier::Burning => "Burning",
     }
 }
-fn bellkeeper(x: i32, y: i32) -> Enemy {
+pub(crate) fn bellkeeper(x: i32, y: i32) -> Enemy {
     enemy(
         "Bellkeeper",
         'B',
@@ -537,7 +549,7 @@ fn bellkeeper(x: i32, y: i32) -> Enemy {
         true,
     )
 }
-fn dune_stalker(x: i32, y: i32) -> Enemy {
+pub(crate) fn dune_stalker(x: i32, y: i32) -> Enemy {
     enemy(
         "Dune Stalker",
         'g',
@@ -548,7 +560,7 @@ fn dune_stalker(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn glass_wraith(x: i32, y: i32) -> Enemy {
+pub(crate) fn glass_wraith(x: i32, y: i32) -> Enemy {
     enemy(
         "Glass Wraith",
         'w',
@@ -559,7 +571,7 @@ fn glass_wraith(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn ember_magus(x: i32, y: i32) -> Enemy {
+pub(crate) fn ember_magus(x: i32, y: i32) -> Enemy {
     enemy(
         "Ember Magus",
         'm',
@@ -570,7 +582,7 @@ fn ember_magus(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn obsidian_guard(x: i32, y: i32) -> Enemy {
+pub(crate) fn obsidian_guard(x: i32, y: i32) -> Enemy {
     enemy(
         "Obsidian Guard",
         'o',
@@ -581,7 +593,7 @@ fn obsidian_guard(x: i32, y: i32) -> Enemy {
         false,
     )
 }
-fn elite_glass_wraith(x: i32, y: i32) -> Enemy {
+pub(crate) fn elite_glass_wraith(x: i32, y: i32) -> Enemy {
     let mut elite = glass_wraith(x, y);
     elite.name = "Mirrored Elite Glass Wraith".to_string();
     elite.glyph = 'E';
@@ -593,7 +605,7 @@ fn elite_glass_wraith(x: i32, y: i32) -> Enemy {
     apply_elite_modifier(&mut elite, random_elite_modifier());
     elite
 }
-fn glass_tyrant(x: i32, y: i32) -> Enemy {
+pub(crate) fn glass_tyrant(x: i32, y: i32) -> Enemy {
     enemy(
         "Glass Tyrant",
         'T',
@@ -604,4 +616,3 @@ fn glass_tyrant(x: i32, y: i32) -> Enemy {
         true,
     )
 }
-

@@ -1,20 +1,28 @@
+use crate::*;
+
 #[derive(Clone, Copy)]
-struct ItemStats {
+pub(crate) struct ItemStats {
+    pub(crate) damage_min: i32,
+    pub(crate) damage_max: i32,
+    pub(crate) armor: i32,
+    pub(crate) dodge: i32,
+    pub(crate) speed: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Requirements {
+    pub(crate) strength: u32,
+    pub(crate) dexterity: u32,
+    pub(crate) intelligence: u32,
+}
+
+pub(crate) fn item_stats(
     damage_min: i32,
     damage_max: i32,
     armor: i32,
     dodge: i32,
     speed: i32,
-}
-
-#[derive(Clone, Copy)]
-struct Requirements {
-    strength: u32,
-    dexterity: u32,
-    intelligence: u32,
-}
-
-fn item_stats(damage_min: i32, damage_max: i32, armor: i32, dodge: i32, speed: i32) -> ItemStats {
+) -> ItemStats {
     ItemStats {
         damage_min,
         damage_max,
@@ -24,7 +32,7 @@ fn item_stats(damage_min: i32, damage_max: i32, armor: i32, dodge: i32, speed: i
     }
 }
 
-fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> Requirements {
+pub(crate) fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> Requirements {
     Requirements {
         strength,
         dexterity,
@@ -32,7 +40,7 @@ fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> Requirement
     }
 }
 
-fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> Item {
+pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> Item {
     let required_strength = match kind {
         ItemKind::Weapon => stats.damage_max.max(0) as u32,
         ItemKind::Armor | ItemKind::Shield => (stats.armor + 3).max(0) as u32,
@@ -61,7 +69,7 @@ fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> Item {
     }
 }
 
-fn item_with_rarity(
+pub(crate) fn item_with_rarity(
     name: &str,
     kind: ItemKind,
     value: u32,
@@ -87,7 +95,7 @@ fn item_with_rarity(
         upgrade_level: 0,
     }
 }
-fn health_potion() -> Item {
+pub(crate) fn health_potion() -> Item {
     item(
         "Lesser Health Potion (restores 15% HP)",
         ItemKind::HealthPotion,
@@ -95,7 +103,7 @@ fn health_potion() -> Item {
         item_stats(0, 0, 0, 0, 0),
     )
 }
-fn mana_potion() -> Item {
+pub(crate) fn mana_potion() -> Item {
     item(
         "Lesser Mana Potion (restores 15% mana)",
         ItemKind::ManaPotion,
@@ -103,7 +111,7 @@ fn mana_potion() -> Item {
         item_stats(0, 0, 0, 0, 0),
     )
 }
-fn rusted_sword() -> Item {
+pub(crate) fn rusted_sword() -> Item {
     item(
         "Rusted Sword (3-5 dmg, STR F, DEX F)",
         ItemKind::Weapon,
@@ -111,7 +119,7 @@ fn rusted_sword() -> Item {
         item_stats(3, 5, 0, 0, 0),
     )
 }
-fn crude_axe() -> Item {
+pub(crate) fn crude_axe() -> Item {
     item(
         "Crude Axe (4-6 dmg, STR F)",
         ItemKind::Weapon,
@@ -119,7 +127,7 @@ fn crude_axe() -> Item {
         item_stats(4, 6, 0, 0, -1),
     )
 }
-fn cloth_tunic() -> Item {
+pub(crate) fn cloth_tunic() -> Item {
     item(
         "Cloth Tunic (+1 armor)",
         ItemKind::Armor,
@@ -127,7 +135,7 @@ fn cloth_tunic() -> Item {
         item_stats(0, 0, 1, 0, 0),
     )
 }
-fn battered_mail() -> Item {
+pub(crate) fn battered_mail() -> Item {
     item(
         "Battered Mail (+2 armor, -5 speed)",
         ItemKind::Armor,
@@ -135,7 +143,7 @@ fn battered_mail() -> Item {
         item_stats(0, 0, 2, 0, -5),
     )
 }
-fn worn_shield() -> Item {
+pub(crate) fn worn_shield() -> Item {
     item(
         "Worn Shield (+1 armor, +2 dodge)",
         ItemKind::Shield,
@@ -143,4 +151,3 @@ fn worn_shield() -> Item {
         item_stats(0, 0, 1, 2, 0),
     )
 }
-

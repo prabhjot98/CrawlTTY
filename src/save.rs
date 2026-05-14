@@ -1,4 +1,6 @@
-fn load_or_create_character() -> Result<Character> {
+use crate::*;
+
+pub(crate) fn load_or_create_character() -> Result<Character> {
     if Path::new(SAVE_PATH).exists() {
         let data = fs::read_to_string(SAVE_PATH).context("failed to read save file")?;
         return serde_json::from_str(&data).context("failed to parse save file");
@@ -22,11 +24,11 @@ fn load_or_create_character() -> Result<Character> {
     Ok(Character::new(name.trim().to_string(), death_mode))
 }
 
-fn save_character(character: &Character) -> Result<()> {
+pub(crate) fn save_character(character: &Character) -> Result<()> {
     save_character_to_path(character, Path::new(SAVE_PATH))
 }
 
-fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()> {
+pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()> {
     let data = serde_json::to_string_pretty(character).context("failed to serialize save")?;
     let tmp_path = save_path.with_file_name(format!(
         "{}.tmp",
@@ -45,4 +47,3 @@ fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()>
     }
     fs::rename(&tmp_path, save_path).context("failed to replace save file")
 }
-
