@@ -15,6 +15,9 @@ const SAVE_PATH: &str = "saves/save.json";
 const MAP_W: i32 = 40;
 const MAP_H: i32 = 16;
 const ACT1_FLOORS: u32 = 10;
+const ACT2_FLOORS: u32 = 8;
+const ACT2_START_FLOOR: u32 = ACT1_FLOORS + 1;
+const FINAL_FLOOR: u32 = ACT1_FLOORS + ACT2_FLOORS;
 const HEALTH_POTION_COST: u32 = 50;
 const MANA_POTION_COST: u32 = 100;
 const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
@@ -208,7 +211,11 @@ struct Character {
     equipped_shield: Item,
     bellkeeper_defeated: bool,
     #[serde(default)]
+    glass_tyrant_defeated: bool,
+    #[serde(default)]
     act1_completed: bool,
+    #[serde(default)]
+    act2_completed: bool,
     #[serde(default)]
     cleave_cooldown: u32,
     #[serde(default)]
@@ -282,7 +289,9 @@ impl Character {
             equipped_armor: cloth_tunic(),
             equipped_shield: worn_shield(),
             bellkeeper_defeated: false,
+            glass_tyrant_defeated: false,
             act1_completed: false,
+            act2_completed: false,
             cleave_cooldown: 0,
             shield_bash_cooldown: 0,
             battle_cry_cooldown: 0,
@@ -623,9 +632,15 @@ fn print_town(c: &Character) {
         "{BOLD}Shield:{RESET} {}",
         colored_item_name(&c.equipped_shield)
     );
-    if c.act1_completed {
+    if c.act2_completed {
+        println!("{GREEN}Act II complete:{RESET} The Glass Wastes lie quiet under a cold dawn.");
+    } else if c.glass_tyrant_defeated {
         println!(
-            "{GREEN}Act I complete:{RESET} The Hollow Marches are safe for now. Act II is unlocked as a placeholder."
+            "{YELLOW}Quest ready to turn in:{RESET} Speak with Warden Mara ({GREEN}t{RESET}) about the Glass Tyrant."
+        );
+    } else if c.act1_completed {
+        println!(
+            "{CYAN}Act II:{RESET} Cross the Glass Wastes and shatter the Glass Tyrant on floor {FINAL_FLOOR}."
         );
     } else if c.bellkeeper_defeated {
         println!(
@@ -781,24 +796,42 @@ fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
 fn quest_giver(c: &mut Character) {
     clear_screen();
     println!("{BOLD}{CYAN}Warden Mara{RESET}");
-    if c.act1_completed {
-        println!("Mara stands at the northern road, watching ash drift over the marsh.");
+    if c.act2_completed {
+        println!("Mara studies a shard of clear black glass. It no longer sings.");
+        println!("\"Two curses broken. Hollow's Rest may yet become a home instead of a grave.\"");
+        pause("Campaign complete for now. More acts may come later.");
+    } else if c.glass_tyrant_defeated {
+        println!("\"The wind changed. You shattered the mind in the glass.\"");
+        println!("Quest complete: Shatter the Glass Tyrant");
         println!(
-            "\"You broke the bell's curse. Beyond this road lie the Glass Wastes... but that journey is not yet playable.\""
+            "Reward: {YELLOW}250 gold{RESET}, {MAGENTA}+2 skill points{RESET}, {CYAN}+3 attributes{RESET}, {GREEN}full heal{RESET}."
         );
-        pause("Act II placeholder: The Glass Wastes will open in a later milestone.");
+        c.gold += 250;
+        c.unspent_skills += 2;
+        c.unspent_attributes += 3;
+        c.hp = c.max_hp();
+        c.mana = c.max_mana();
+        c.act2_completed = true;
+        pause("Act II complete. The Glass Wastes fall silent.");
+    } else if c.act1_completed {
+        println!("Mara points north where marsh soil turns to glittering sand.");
+        println!(
+            "\"The bell woke something older. Cross the Glass Wastes, brave the mirage courts, and shatter the Glass Tyrant before it dreams us into statues.\""
+        );
+        println!("Objective: defeat the Glass Tyrant on floor {FINAL_FLOOR} of the Glass Wastes.");
+        pause("Quest accepted: Shatter the Glass Tyrant.");
     } else if c.bellkeeper_defeated {
         println!("\"The bells are silent. Hollow's Rest owes you its next dawn.\"");
         println!("Quest complete: Silence the Bellkeeper");
         println!(
-            "Reward: {YELLOW}100 gold{RESET}, {MAGENTA}+1 skill point{RESET}, {GREEN}full heal{RESET}, {CYAN}Act II placeholder unlocked{RESET}."
+            "Reward: {YELLOW}100 gold{RESET}, {MAGENTA}+1 skill point{RESET}, {GREEN}full heal{RESET}, {CYAN}Act II unlocked{RESET}."
         );
         c.gold += 100;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
         c.mana = c.max_mana();
         c.act1_completed = true;
-        pause("Act I complete. The road to the Glass Wastes is now visible.");
+        pause("Act I complete. The road to the Glass Wastes is now open.");
     } else {
         println!(
             "\"A cursed bell tolls beneath the crypt. Each ring wakes more dead. Descend, find the Bellkeeper, and end it.\""
@@ -1762,8 +1795,16 @@ fn second_wind_heal_amount(c: &Character) -> u32 {
 }
 
 fn enter_dungeon(c: &mut Character) {
+    if c.act2_completed {
+        pause("The Glass Wastes are conquered. Rest, trade, or start a new exile.");
+        return;
+    }
+    if c.glass_tyrant_defeated {
+        pause("The Glass Tyrant is shattered. Return to Warden Mara (t) to complete Act II.");
+        return;
+    }
     if c.act1_completed {
-        pause("Act II placeholder: The road to the Glass Wastes is visible, but not playable yet.");
+        c.active_dungeon = Some(generate_dungeon(ACT2_START_FLOOR));
         return;
     }
     if c.bellkeeper_defeated {
@@ -1797,11 +1838,21 @@ impl Room {
 fn generate_dungeon(floor: u32) -> Dungeon {
     let mut rng = rand::thread_rng();
     let mut tiles = vec!['#'; (MAP_W * MAP_H) as usize];
-    let target_rooms = match floor {
-        1 => rng.gen_range(6..=8),
-        2..=4 => rng.gen_range(7..=9),
-        5..=9 => rng.gen_range(8..=10),
-        _ => rng.gen_range(5..=7),
+    let act_floor = act_floor(floor);
+    let is_act2 = floor >= ACT2_START_FLOOR;
+    let target_rooms = if is_act2 {
+        match act_floor {
+            1..=3 => rng.gen_range(6..=9),
+            4..=7 => rng.gen_range(8..=11),
+            _ => rng.gen_range(6..=8),
+        }
+    } else {
+        match floor {
+            1 => rng.gen_range(6..=8),
+            2..=4 => rng.gen_range(7..=9),
+            5..=9 => rng.gen_range(8..=10),
+            _ => rng.gen_range(5..=7),
+        }
     };
     let mut rooms: Vec<Room> = Vec::new();
 
@@ -1839,54 +1890,105 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     let start = rooms.first().unwrap().center();
     let stairs = farthest_room_center(&rooms, start);
     let mut enemies = Vec::new();
-    let enemy_count = match floor {
-        1 => 5,
-        2..=4 => 7,
-        5..=9 => 8,
-        _ => 5,
+    let enemy_count = if is_act2 {
+        match act_floor {
+            1..=3 => 7,
+            4..=7 => 9,
+            _ => 6,
+        }
+    } else {
+        match floor {
+            1 => 5,
+            2..=4 => 7,
+            5..=9 => 8,
+            _ => 5,
+        }
     };
     for _ in 0..enemy_count {
         let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
-        let e = match floor {
-            1 => {
-                if rng.gen_bool(0.55) {
-                    rat(x, y)
-                } else {
-                    skeleton(x, y)
+        let e = if is_act2 {
+            match act_floor {
+                1..=2 => {
+                    if rng.gen_bool(0.55) {
+                        dune_stalker(x, y)
+                    } else {
+                        glass_wraith(x, y)
+                    }
+                }
+                3..=5 => {
+                    if rng.gen_bool(0.40) {
+                        glass_wraith(x, y)
+                    } else if rng.gen_bool(0.55) {
+                        ember_magus(x, y)
+                    } else {
+                        obsidian_guard(x, y)
+                    }
+                }
+                _ => {
+                    if rng.gen_bool(0.35) {
+                        ember_magus(x, y)
+                    } else if rng.gen_bool(0.50) {
+                        obsidian_guard(x, y)
+                    } else {
+                        glass_wraith(x, y)
+                    }
                 }
             }
-            2..=4 => {
-                if rng.gen_bool(0.45) {
-                    skeleton(x, y)
-                } else {
-                    cultist(x, y)
+        } else {
+            match floor {
+                1 => {
+                    if rng.gen_bool(0.55) {
+                        rat(x, y)
+                    } else {
+                        skeleton(x, y)
+                    }
                 }
-            }
-            5..=9 => {
-                if rng.gen_bool(0.35) {
-                    skeleton(x, y)
-                } else if rng.gen_bool(0.50) {
-                    cultist(x, y)
-                } else {
-                    boneguard(x, y)
+                2..=4 => {
+                    if rng.gen_bool(0.45) {
+                        skeleton(x, y)
+                    } else {
+                        cultist(x, y)
+                    }
                 }
-            }
-            _ => {
-                if rng.gen_bool(0.45) {
-                    cultist(x, y)
-                } else {
-                    boneguard(x, y)
+                5..=9 => {
+                    if rng.gen_bool(0.35) {
+                        skeleton(x, y)
+                    } else if rng.gen_bool(0.50) {
+                        cultist(x, y)
+                    } else {
+                        boneguard(x, y)
+                    }
+                }
+                _ => {
+                    if rng.gen_bool(0.45) {
+                        cultist(x, y)
+                    } else {
+                        boneguard(x, y)
+                    }
                 }
             }
         };
         enemies.push(scale_enemy_for_floor(e, floor));
     }
-    if (2..ACT1_FLOORS).contains(&floor) && floor % 2 == 0 {
-        let (x, y) = farthest_room_center(&rooms, start);
-        enemies.push(scale_enemy_for_floor(elite_skeleton(x, y), floor));
-    }
-    if floor == ACT1_FLOORS {
-        enemies.push(scale_enemy_for_floor(bellkeeper(stairs.0, stairs.1), floor));
+    if is_act2 {
+        if (2..ACT2_FLOORS).contains(&act_floor) && act_floor % 2 == 1 {
+            let (x, y) = farthest_room_center(&rooms, start);
+            enemies.push(scale_enemy_for_floor(elite_glass_wraith(x, y), floor));
+        }
+        if act_floor == ACT2_FLOORS {
+            enemies.push(scale_enemy_for_floor(
+                glass_tyrant(stairs.0, stairs.1),
+                floor,
+            ));
+        }
+    } else {
+        if (2..ACT1_FLOORS).contains(&floor) && floor % 2 == 0 {
+            let (x, y) = farthest_room_center(&rooms, start);
+            enemies.push(scale_enemy_for_floor(elite_skeleton(x, y), floor));
+        }
+        if floor == ACT1_FLOORS {
+            enemies.push(scale_enemy_for_floor(bellkeeper(stairs.0, stairs.1), floor));
+        }
     }
 
     let chest_count = rng.gen_range(1..=3);
@@ -1908,7 +2010,11 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         stairs_y: stairs.1,
         enemies,
         chests,
-        log: vec![format!("[INFO] Entered Hollow Crypts floor {}.", floor)],
+        log: vec![format!(
+            "[INFO] Entered {} floor {}.",
+            act_name(floor),
+            act_floor
+        )],
         tiles,
         bell_wave_tiles: Vec::new(),
         boss_turn_counter: 0,
@@ -1916,12 +2022,40 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     }
 }
 
+fn act_floor(floor: u32) -> u32 {
+    if floor >= ACT2_START_FLOOR {
+        floor - ACT1_FLOORS
+    } else {
+        floor
+    }
+}
+
+fn act_name(floor: u32) -> &'static str {
+    if floor >= ACT2_START_FLOOR {
+        "Glass Wastes"
+    } else {
+        "Hollow Crypts"
+    }
+}
+
 fn floor_difficulty_multiplier(floor: u32) -> f32 {
-    floor_reward_multiplier(floor) * 2.0
+    if floor >= ACT2_START_FLOOR {
+        4.5 + (act_floor(floor).saturating_sub(1) as f32
+            / ACT2_FLOORS.saturating_sub(1).max(1) as f32)
+            * 2.0
+    } else {
+        floor_reward_multiplier(floor) * 2.0
+    }
 }
 
 fn floor_reward_multiplier(floor: u32) -> f32 {
-    1.0 + floor.saturating_sub(1) as f32 / ACT1_FLOORS.saturating_sub(1).max(1) as f32
+    if floor >= ACT2_START_FLOOR {
+        2.2 + (act_floor(floor).saturating_sub(1) as f32
+            / ACT2_FLOORS.saturating_sub(1).max(1) as f32)
+            * 1.3
+    } else {
+        1.0 + floor.saturating_sub(1) as f32 / ACT1_FLOORS.saturating_sub(1).max(1) as f32
+    }
 }
 
 fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
@@ -2121,6 +2255,89 @@ fn elite_modifier_name(modifier: &EliteModifier) -> &'static str {
 fn bellkeeper(x: i32, y: i32) -> Enemy {
     enemy("Bellkeeper", 'B', x, y, 60, 5, 8, 3, 8, 250, 100, 150, true)
 }
+fn dune_stalker(x: i32, y: i32) -> Enemy {
+    enemy(
+        "Dune Stalker",
+        'g',
+        x,
+        y,
+        16,
+        4,
+        7,
+        1,
+        13,
+        42,
+        12,
+        24,
+        false,
+    )
+}
+fn glass_wraith(x: i32, y: i32) -> Enemy {
+    enemy(
+        "Glass Wraith",
+        'w',
+        x,
+        y,
+        14,
+        5,
+        8,
+        0,
+        12,
+        48,
+        14,
+        28,
+        false,
+    )
+}
+fn ember_magus(x: i32, y: i32) -> Enemy {
+    enemy("Ember Magus", 'm', x, y, 18, 4, 9, 1, 10, 58, 18, 34, false)
+}
+fn obsidian_guard(x: i32, y: i32) -> Enemy {
+    enemy(
+        "Obsidian Guard",
+        'o',
+        x,
+        y,
+        28,
+        5,
+        9,
+        4,
+        8,
+        72,
+        22,
+        44,
+        false,
+    )
+}
+fn elite_glass_wraith(x: i32, y: i32) -> Enemy {
+    let mut elite = glass_wraith(x, y);
+    elite.name = "Mirrored Elite Glass Wraith".to_string();
+    elite.glyph = 'E';
+    elite.max_hp += 10;
+    elite.hp = elite.max_hp;
+    elite.damage_min += 1;
+    elite.damage_max += 2;
+    elite.xp += 45;
+    apply_elite_modifier(&mut elite, random_elite_modifier());
+    elite
+}
+fn glass_tyrant(x: i32, y: i32) -> Enemy {
+    enemy(
+        "Glass Tyrant",
+        'T',
+        x,
+        y,
+        95,
+        8,
+        12,
+        5,
+        9,
+        520,
+        220,
+        340,
+        true,
+    )
+}
 
 fn dungeon_loop(c: &mut Character) -> Result<()> {
     loop {
@@ -2173,8 +2390,9 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
 fn draw_dungeon(c: &Character) {
     let d = c.active_dungeon.as_ref().unwrap();
     println!(
-        "{BOLD}Hollow Crypts Floor {}{RESET}  {} {} {} {}",
-        d.floor,
+        "{BOLD}{} Floor {}{RESET}  {} {} {} {}",
+        act_name(d.floor),
+        act_floor(d.floor),
         hp_text(c.hp, c.max_hp()),
         mana_text(c.mana, c.max_mana()),
         gold_text(c.gold),
@@ -2417,8 +2635,13 @@ fn print_colored_tile(ch: char) {
         's' => print!("{WHITE}s{RESET}"),
         'c' => print!("{MAGENTA}c{RESET}"),
         'b' => print!("{BLUE}b{RESET}"),
+        'g' => print!("{YELLOW}g{RESET}"),
+        'w' => print!("{CYAN}w{RESET}"),
+        'm' => print!("{RED}m{RESET}"),
+        'o' => print!("{BRIGHT_BLACK}o{RESET}"),
         'E' => print!("{BOLD}{MAGENTA}E{RESET}"),
         'B' => print!("{BOLD}{RED}B{RESET}"),
+        'T' => print!("{BOLD}{CYAN}T{RESET}"),
         other => print!("{other}"),
     }
 }
@@ -2701,7 +2924,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
     }
     let mut guard_message = None;
     let mut bleed_message = None;
-    let (name, damage, hp_text, killed, xp, gold, was_boss) = {
+    let (name, damage, hp_text, killed, xp, gold, was_boss, boss_name) = {
         let enemy = &mut d.enemies[enemy_index];
         let armor = effective_enemy_armor(enemy);
         let damage = (raw - armor).max(1);
@@ -2732,6 +2955,11 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
             enemy.xp,
             gold,
             enemy.is_boss,
+            if enemy.is_boss {
+                Some(enemy.name.clone())
+            } else {
+                None
+            },
         )
     };
 
@@ -2756,8 +2984,7 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
         trigger_second_wind(c, c.battle_cry_charges > 0);
         maybe_drop_loot(c, was_boss);
         if was_boss {
-            c.bellkeeper_defeated = true;
-            c.active_dungeon = None;
+            complete_boss_fight(c, boss_name.as_deref().unwrap_or(&name));
         }
     } else {
         log_event(
@@ -2772,6 +2999,15 @@ fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &s
             log_event(&mut d.log, LogKind::Status, message);
         }
     }
+}
+
+fn complete_boss_fight(c: &mut Character, boss_name: &str) {
+    if boss_name == "Glass Tyrant" {
+        c.glass_tyrant_defeated = true;
+    } else {
+        c.bellkeeper_defeated = true;
+    }
+    c.active_dungeon = None;
 }
 
 fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
@@ -2889,7 +3125,11 @@ fn enemy_turns(c: &mut Character) {
                         LogKind::Loot,
                         format!("Boss reward dropped: {loot_name}."),
                     );
-                    c.bellkeeper_defeated = true;
+                    if d.enemies[i].name == "Glass Tyrant" {
+                        c.glass_tyrant_defeated = true;
+                    } else {
+                        c.bellkeeper_defeated = true;
+                    }
                     return;
                 }
                 continue;
@@ -2905,7 +3145,11 @@ fn enemy_turns(c: &mut Character) {
             continue;
         }
         if d.enemies[i].is_boss {
-            bellkeeper_specials(c, &mut d, i, &mut occupied);
+            if d.enemies[i].name == "Glass Tyrant" {
+                glass_tyrant_specials(c, &mut d, i, &mut occupied);
+            } else {
+                bellkeeper_specials(c, &mut d, i, &mut occupied);
+            }
         }
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
@@ -2981,6 +3225,98 @@ fn bellkeeper_specials(
     }
 }
 
+fn glass_tyrant_specials(
+    c: &mut Character,
+    d: &mut Dungeon,
+    boss_index: usize,
+    occupied: &mut Vec<(i32, i32)>,
+) {
+    d.boss_turn_counter += 1;
+    if d.boss_turn_counter % 3 == 0 {
+        summon_glass_mirage(d, boss_index, occupied);
+    }
+    if d.boss_turn_counter % 4 == 0 || d.enemies[boss_index].hp * 3 <= d.enemies[boss_index].max_hp
+    {
+        glass_tyrant_prism_burst(c, d, boss_index);
+    }
+    if d.enemies[boss_index].hp * 4 <= d.enemies[boss_index].max_hp {
+        log_event(
+            &mut d.log,
+            LogKind::Boss,
+            "The Glass Tyrant fractures into a lethal prism storm.",
+        );
+    }
+}
+
+fn summon_glass_mirage(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i32, i32)>) {
+    let summon_count = d
+        .enemies
+        .iter()
+        .filter(|e| e.name == "Glass Mirage" && e.hp > 0)
+        .count();
+    if summon_count >= 2 {
+        return;
+    }
+    let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
+    for (dx, dy) in [(1, 1), (-1, 1), (1, -1), (-1, -1), (1, 0), (-1, 0)] {
+        let pos = (boss_x + dx, boss_y + dy);
+        if dungeon_tile(d, pos.0, pos.1) != '#'
+            && pos != (d.player_x, d.player_y)
+            && !occupied.contains(&pos)
+        {
+            let mut summon = glass_wraith(pos.0, pos.1);
+            summon.name = "Glass Mirage".to_string();
+            summon.max_hp = (summon.max_hp / 2).max(1);
+            summon.hp = summon.max_hp;
+            d.enemies.push(summon);
+            occupied.push(pos);
+            log_event(
+                &mut d.log,
+                LogKind::Boss,
+                "The Glass Tyrant splits off a razor mirage.",
+            );
+            return;
+        }
+    }
+}
+
+fn glass_tyrant_prism_burst(c: &mut Character, d: &mut Dungeon, boss_index: usize) {
+    let (boss_x, boss_y) = (d.enemies[boss_index].x, d.enemies[boss_index].y);
+    d.bell_wave_tiles.clear();
+    for (dx, dy) in [
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+        (1, 1),
+        (-1, 1),
+        (1, -1),
+        (-1, -1),
+    ] {
+        for step in 1..=4 {
+            let pos = (boss_x + dx * step, boss_y + dy * step);
+            if dungeon_tile(d, pos.0, pos.1) == '#' {
+                break;
+            }
+            d.bell_wave_tiles.push(pos);
+        }
+    }
+    log_event(
+        &mut d.log,
+        LogKind::Boss,
+        "The Glass Tyrant fires a prism burst!",
+    );
+    if d.bell_wave_tiles.contains(&(d.player_x, d.player_y)) {
+        let damage = enemy_damage_after_mitigation(10, c);
+        apply_player_damage(c, damage);
+        log_event(
+            &mut d.log,
+            LogKind::Enemy,
+            format!("prism burst cuts you for {}.", damage_text(damage)),
+        );
+    }
+}
+
 fn summon_bellkeeper_skeleton(d: &mut Dungeon, boss_index: usize, occupied: &mut Vec<(i32, i32)>) {
     let summon_count = d
         .enemies
@@ -3053,7 +3389,7 @@ fn effective_enemy_armor(enemy: &Enemy) -> i32 {
 
 fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
     let enemy = &d.enemies[enemy_index];
-    if enemy.glyph != 'b' {
+    if enemy.glyph != 'b' && enemy.glyph != 'o' {
         return false;
     }
     let dist = (enemy.x - d.player_x).abs() + (enemy.y - d.player_y).abs();
@@ -3100,7 +3436,9 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
 
 fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
     let enemy = &d.enemies[enemy_index];
-    if enemy.glyph != 'c' {
+    let is_ranged = matches!(enemy.glyph, 'c' | 'm' | 'w')
+        || (enemy.glyph == 'E' && enemy.name.contains("Glass Wraith"));
+    if !is_ranged {
         return false;
     }
     let dx = (enemy.x - d.player_x).abs();
@@ -3415,12 +3753,17 @@ fn use_stairs(c: &mut Character) {
         }
         floor = d.floor;
     }
-    if floor >= ACT1_FLOORS {
+    if floor == ACT1_FLOORS || floor >= FINAL_FLOOR {
         let d = c.active_dungeon.as_mut().unwrap();
+        let blocker = if floor >= FINAL_FLOOR {
+            "The Glass Tyrant"
+        } else {
+            "The Bellkeeper"
+        };
         log_event(
             &mut d.log,
             LogKind::Boss,
-            "The Bellkeeper blocks your escape. Defeat it!",
+            format!("{blocker} blocks your escape. Defeat it!"),
         );
     } else {
         c.active_dungeon = Some(generate_dungeon(floor + 1));
@@ -4292,6 +4635,28 @@ mod tests {
                 .iter()
                 .any(|e| e.is_boss && e.name == "Bellkeeper")
         );
+
+        for floor in ACT2_START_FLOOR..=FINAL_FLOOR {
+            let d = generate_dungeon(floor);
+            assert_eq!(d.floor, floor);
+            assert_eq!(act_name(d.floor), "Glass Wastes");
+            assert_eq!(d.tiles.len(), (MAP_W * MAP_H) as usize);
+            assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
+        }
+        let act2_mid = generate_dungeon(ACT2_START_FLOOR + 2);
+        assert!(
+            act2_mid
+                .enemies
+                .iter()
+                .any(|e| e.name.contains("Glass Wraith"))
+        );
+        let act2_boss_floor = generate_dungeon(FINAL_FLOOR);
+        assert!(
+            act2_boss_floor
+                .enemies
+                .iter()
+                .any(|e| e.is_boss && e.name == "Glass Tyrant")
+        );
     }
 
     #[test]
@@ -4316,6 +4681,21 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert_eq!(d.floor, ACT1_FLOORS);
         assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+
+        c.active_dungeon = Some(generate_dungeon(FINAL_FLOOR));
+        {
+            let d = c.active_dungeon.as_mut().unwrap();
+            d.player_x = d.stairs_x;
+            d.player_y = d.stairs_y;
+        }
+        use_stairs(&mut c);
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.floor, FINAL_FLOOR);
+        assert!(
+            d.log
+                .iter()
+                .any(|line| line.contains("Glass Tyrant blocks"))
+        );
     }
 
     #[test]
