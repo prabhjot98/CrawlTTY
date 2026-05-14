@@ -3153,7 +3153,12 @@ fn enemy_turns(c: &mut Character) {
         }
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
-            enemy_melee_attack(c, &mut d, i);
+            if enemy_melee_attack(c, &mut d, i) {
+                if resolve_enemy_killed_by_effect(c, &mut d, i, "Spiked Guard") {
+                    return;
+                }
+                continue;
+            }
         } else if should_boneguard_guard(&d, i) {
             d.enemies[i].guarding = true;
             log_event(
@@ -3396,7 +3401,7 @@ fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
     (2..=4).contains(&dist)
 }
 
-fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
+fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) -> bool {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
     if hit_roll(25, c.dodge_rating() as i32) {
@@ -3423,6 +3428,9 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
                     enemy_name
                 ),
             );
+            if d.enemies[enemy_index].hp <= 0 {
+                return true;
+            }
         }
         apply_vampiric_heal(d, enemy_index);
     } else {
@@ -3432,6 +3440,52 @@ fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
             format!("{} misses you.", enemy.name),
         );
     }
+    false
+}
+
+fn resolve_enemy_killed_by_effect(
+    c: &mut Character,
+    d: &mut Dungeon,
+    enemy_index: usize,
+    source: &str,
+) -> bool {
+    if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp > 0 {
+        return false;
+    }
+    let name = d.enemies[enemy_index].name.clone();
+    let xp = d.enemies[enemy_index].xp;
+    let was_boss = d.enemies[enemy_index].is_boss;
+    let mut rng = rand::thread_rng();
+    let gold = rng.gen_range(d.enemies[enemy_index].gold_min..=d.enemies[enemy_index].gold_max);
+    c.gold += gold;
+    let levels_gained = add_xp(c, xp);
+    log_event(
+        &mut d.log,
+        LogKind::Kill,
+        format!(
+            "{name} dies to {source}. +{}, +{}.",
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        ),
+    );
+    push_level_up_logs(&mut d.log, &levels_gained);
+    if was_boss {
+        let loot = random_loot(d.floor, true);
+        let loot_name = colored_item_name(&loot);
+        c.inventory.push(loot);
+        log_event(
+            &mut d.log,
+            LogKind::Loot,
+            format!("Boss reward dropped: {loot_name}."),
+        );
+        if name == "Glass Tyrant" {
+            c.glass_tyrant_defeated = true;
+        } else {
+            c.bellkeeper_defeated = true;
+        }
+        return true;
+    }
+    false
 }
 
 fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
@@ -4855,6 +4909,24 @@ mod tests {
 
         assert!(c.bellkeeper_defeated);
         assert!(c.active_dungeon.is_none());
+    }
+
+    #[test]
+    fn spiked_guard_boss_kill_completes_boss_fight() {
+        let mut c = test_character();
+        let mut boss = bellkeeper(5, 5);
+        boss.hp = 0;
+        let mut d = open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]);
+
+        assert!(resolve_enemy_killed_by_effect(
+            &mut c,
+            &mut d,
+            0,
+            "Spiked Guard"
+        ));
+
+        assert!(c.bellkeeper_defeated);
+        assert!(d.log.iter().any(|line| line.contains("Spiked Guard")));
     }
 
     #[test]
