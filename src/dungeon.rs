@@ -621,7 +621,17 @@ pub(crate) fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
         .collect()
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum EnemyDeathCause<'a> {
+    PlayerAttack { verb: &'a str, damage: i32 },
+    Bleed,
+    Effect { source: &'a str },
+}
+
 pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &str) {
+    let Some(mut d) = c.active_dungeon.take() else {
+        return;
+    };
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
     let damage_bonus = if c.battle_cry_charges > 0 {
@@ -629,14 +639,16 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
     } else {
         1.0
     };
+    let battle_cry_active = c.battle_cry_charges > 0;
     let hit = hit_roll(c.hit_rating() as i32, 10);
-    let d = c.active_dungeon.as_mut().unwrap();
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
+        c.active_dungeon = Some(d);
         return;
     }
     if !hit {
         let name = d.enemies[enemy_index].name.clone();
         log_event(&mut d.log, LogKind::Miss, format!("You miss {name}."));
+        c.active_dungeon = Some(d);
         return;
     }
 
@@ -646,7 +658,7 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
     }
     let mut guard_message = None;
     let mut bleed_message = None;
-    let (name, damage, hp_text, killed, xp, gold, was_boss, boss_name) = {
+    let (damage, hp_text, killed) = {
         let enemy = &mut d.enemies[enemy_index];
         let armor = effective_enemy_armor(enemy);
         let damage = (raw - armor).max(1);
@@ -663,52 +675,26 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
             }
             bleed_message = Some(format!("{} starts bleeding.", enemy.name));
         }
-        let killed = enemy.hp <= 0;
-        let gold = if killed {
-            rng.gen_range(enemy.gold_min..=enemy.gold_max)
-        } else {
-            0
-        };
-        (
-            enemy.name.clone(),
-            damage,
-            enemy_hp_text(enemy),
-            killed,
-            enemy.xp,
-            gold,
-            enemy.is_boss,
-            if enemy.is_boss {
-                Some(enemy.name.clone())
-            } else {
-                None
-            },
-        )
+        (damage, enemy_hp_text(enemy), enemy.hp <= 0)
     };
 
     if killed {
-        c.gold += gold;
-        let levels_gained = add_xp(c, xp);
-        let d = c.active_dungeon.as_mut().unwrap();
-        log_event(
-            &mut d.log,
-            LogKind::Kill,
-            format!(
-                "You {verb} {name} for {} and kill it. +{}, +{}.",
-                damage_text(damage),
-                xp_reward_text(xp),
-                gold_reward_text(gold)
-            ),
+        let boss_defeated = resolve_enemy_death(
+            c,
+            &mut d,
+            enemy_index,
+            EnemyDeathCause::PlayerAttack { verb, damage },
         );
         if let Some(message) = guard_message {
             log_event(&mut d.log, LogKind::Status, message);
         }
-        push_level_up_logs(&mut d.log, &levels_gained);
-        trigger_second_wind(c, c.battle_cry_charges > 0);
-        maybe_drop_loot(c, was_boss);
-        if was_boss {
-            complete_boss_fight(c, boss_name.as_deref().unwrap_or(&name));
+        trigger_second_wind_with_log(c, &mut d.log, battle_cry_active);
+        if !boss_defeated {
+            maybe_drop_loot_in_dungeon(c, &mut d, false);
+            c.active_dungeon = Some(d);
         }
     } else {
+        let name = d.enemies[enemy_index].name.clone();
         log_event(
             &mut d.log,
             LogKind::Hit,
@@ -720,19 +706,98 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
         if let Some(message) = bleed_message {
             log_event(&mut d.log, LogKind::Status, message);
         }
+        c.active_dungeon = Some(d);
     }
 }
 
-pub(crate) fn complete_boss_fight(c: &mut Character, boss_name: &str) {
+pub(crate) fn complete_boss_fight_in_dungeon(c: &mut Character, boss_name: &str) {
     if boss_name == "Glass Tyrant" {
         c.glass_tyrant_defeated = true;
     } else {
         c.bellkeeper_defeated = true;
     }
-    c.active_dungeon = None;
 }
 
-pub(crate) fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
+pub(crate) fn resolve_enemy_death(
+    c: &mut Character,
+    d: &mut Dungeon,
+    enemy_index: usize,
+    cause: EnemyDeathCause<'_>,
+) -> bool {
+    if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp > 0 {
+        return false;
+    }
+    let enemy = &d.enemies[enemy_index];
+    let name = enemy.name.clone();
+    let xp = enemy.xp;
+    let was_boss = enemy.is_boss;
+    let mut rng = rand::thread_rng();
+    let gold = rng.gen_range(enemy.gold_min..=enemy.gold_max);
+    c.gold += gold;
+    let levels_gained = add_xp(c, xp);
+    log_event(
+        &mut d.log,
+        LogKind::Kill,
+        enemy_death_message(&name, xp, gold, cause),
+    );
+    push_level_up_logs(&mut d.log, &levels_gained);
+    if matches!(cause, EnemyDeathCause::Bleed)
+        && c.deep_cut_mastery == Some(SkillMastery::Bloodletting)
+    {
+        let heal = (c.max_hp() / 10).max(1);
+        c.hp = (c.hp + heal).min(c.max_hp());
+        log_event(
+            &mut d.log,
+            LogKind::Heal,
+            format!("Bloodletting restores {}.", heal_amount_text(heal)),
+        );
+    }
+    if was_boss {
+        let loot = random_equipment_loot(d.floor, true);
+        let loot_name = colored_item_name(&loot);
+        c.inventory.push(loot);
+        log_event(
+            &mut d.log,
+            LogKind::Loot,
+            format!("Boss reward dropped: {loot_name}."),
+        );
+        complete_boss_fight_in_dungeon(c, &name);
+        return true;
+    }
+    false
+}
+
+pub(crate) fn enemy_death_message(
+    name: &str,
+    xp: u32,
+    gold: u32,
+    cause: EnemyDeathCause<'_>,
+) -> String {
+    match cause {
+        EnemyDeathCause::PlayerAttack { verb, damage } => format!(
+            "You {verb} {name} for {} and kill it. +{}, +{}.",
+            damage_text(damage),
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        ),
+        EnemyDeathCause::Bleed => format!(
+            "{name} dies from bleeding. +{}, +{}.",
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        ),
+        EnemyDeathCause::Effect { source } => format!(
+            "{name} dies to {source}. +{}, +{}.",
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        ),
+    }
+}
+
+pub(crate) fn trigger_second_wind_with_log(
+    c: &mut Character,
+    log: &mut Vec<String>,
+    battle_cry_active: bool,
+) {
     let mut heal = 0;
     if battle_cry_active {
         heal = second_wind_heal_amount(c);
@@ -751,19 +816,17 @@ pub(crate) fn trigger_second_wind(c: &mut Character, battle_cry_active: bool) {
     if c.second_wind_mastery == Some(SkillMastery::AdrenalSurge) && battle_cry_active {
         c.battle_cry_charges += 1;
     }
-    if let Some(d) = c.active_dungeon.as_mut() {
+    log_event(
+        log,
+        LogKind::Heal,
+        format!("Second Wind restores {}.", heal_amount_text(actual_heal)),
+    );
+    if c.second_wind_shield > 0 {
         log_event(
-            &mut d.log,
-            LogKind::Heal,
-            format!("Second Wind restores {}.", heal_amount_text(actual_heal)),
+            log,
+            LogKind::Status,
+            format!("Grim Recovery shield: {}.", c.second_wind_shield),
         );
-        if c.second_wind_shield > 0 {
-            log_event(
-                &mut d.log,
-                LogKind::Status,
-                format!("Grim Recovery shield: {}.", c.second_wind_shield),
-            );
-        }
     }
 }
 
@@ -812,46 +875,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 ),
             );
             if d.enemies[i].hp <= 0 {
-                let name = d.enemies[i].name.clone();
-                let xp = d.enemies[i].xp;
-                let was_boss = d.enemies[i].is_boss;
-                let mut rng = rand::thread_rng();
-                let gold = rng.gen_range(d.enemies[i].gold_min..=d.enemies[i].gold_max);
-                c.gold += gold;
-                let levels_gained = add_xp(c, xp);
-                log_event(
-                    &mut d.log,
-                    LogKind::Kill,
-                    format!(
-                        "{name} dies from bleeding. +{}, +{}.",
-                        xp_reward_text(xp),
-                        gold_reward_text(gold)
-                    ),
-                );
-                push_level_up_logs(&mut d.log, &levels_gained);
-                if c.deep_cut_mastery == Some(SkillMastery::Bloodletting) {
-                    let heal = (c.max_hp() / 10).max(1);
-                    c.hp = (c.hp + heal).min(c.max_hp());
-                    log_event(
-                        &mut d.log,
-                        LogKind::Heal,
-                        format!("Bloodletting restores {}.", heal_amount_text(heal)),
-                    );
-                }
-                if was_boss {
-                    let loot = random_equipment_loot(d.floor, true);
-                    let loot_name = colored_item_name(&loot);
-                    c.inventory.push(loot);
-                    log_event(
-                        &mut d.log,
-                        LogKind::Loot,
-                        format!("Boss reward dropped: {loot_name}."),
-                    );
-                    if d.enemies[i].name == "Glass Tyrant" {
-                        c.glass_tyrant_defeated = true;
-                    } else {
-                        c.bellkeeper_defeated = true;
-                    }
+                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Bleed) {
                     return;
                 }
                 continue;
@@ -1189,43 +1213,7 @@ pub(crate) fn resolve_enemy_killed_by_effect(
     enemy_index: usize,
     source: &str,
 ) -> bool {
-    if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp > 0 {
-        return false;
-    }
-    let name = d.enemies[enemy_index].name.clone();
-    let xp = d.enemies[enemy_index].xp;
-    let was_boss = d.enemies[enemy_index].is_boss;
-    let mut rng = rand::thread_rng();
-    let gold = rng.gen_range(d.enemies[enemy_index].gold_min..=d.enemies[enemy_index].gold_max);
-    c.gold += gold;
-    let levels_gained = add_xp(c, xp);
-    log_event(
-        &mut d.log,
-        LogKind::Kill,
-        format!(
-            "{name} dies to {source}. +{}, +{}.",
-            xp_reward_text(xp),
-            gold_reward_text(gold)
-        ),
-    );
-    push_level_up_logs(&mut d.log, &levels_gained);
-    if was_boss {
-        let loot = random_equipment_loot(d.floor, true);
-        let loot_name = colored_item_name(&loot);
-        c.inventory.push(loot);
-        log_event(
-            &mut d.log,
-            LogKind::Loot,
-            format!("Boss reward dropped: {loot_name}."),
-        );
-        if name == "Glass Tyrant" {
-            c.glass_tyrant_defeated = true;
-        } else {
-            c.bellkeeper_defeated = true;
-        }
-        return true;
-    }
-    false
+    resolve_enemy_death(c, d, enemy_index, EnemyDeathCause::Effect { source })
 }
 
 pub(crate) fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
@@ -1352,23 +1340,24 @@ pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
     rand::thread_rng().gen_bool(chance as f64)
 }
 
-pub(crate) fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
+pub(crate) fn maybe_drop_loot_in_dungeon(
+    c: &mut Character,
+    d: &mut Dungeon,
+    guaranteed_magic: bool,
+) {
     let mut rng = rand::thread_rng();
     let drop_chance = if guaranteed_magic { 1.0 } else { 0.22 };
     if !rng.gen_bool(drop_chance) {
         return;
     }
-    let floor = c.active_dungeon.as_ref().map(|d| d.floor).unwrap_or(1);
     let loot = if guaranteed_magic {
-        random_equipment_loot(floor, true)
+        random_equipment_loot(d.floor, true)
     } else {
-        random_loot(floor, rng.gen_bool(0.30))
+        random_loot(d.floor, rng.gen_bool(0.30))
     };
     let name = colored_item_name(&loot);
     c.inventory.push(loot);
-    if let Some(d) = c.active_dungeon.as_mut() {
-        log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
-    }
+    log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
 }
 
 pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
