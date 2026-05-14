@@ -1893,6 +1893,7 @@ fn generate_dungeon(floor: u32) -> Dungeon {
 
     let start = rooms.first().unwrap().center();
     let stairs = farthest_room_center(&rooms, start);
+    let mut occupied = vec![start, stairs];
     let mut enemies = Vec::new();
     let enemy_count = if is_act2 {
         match act_floor {
@@ -1909,7 +1910,8 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         }
     };
     for _ in 0..enemy_count {
-        let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
+        let (x, y) = random_room_floor(&rooms, &mut rng, &occupied);
+        occupied.push((x, y));
         let e = if is_act2 {
             match act_floor {
                 1..=2 => {
@@ -1976,8 +1978,15 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     }
     if is_act2 {
         if (2..ACT2_FLOORS).contains(&act_floor) && act_floor % 2 == 1 {
-            let (x, y) = farthest_room_center(&rooms, start);
-            enemies.push(scale_enemy_for_floor(elite_glass_wraith(x, y), floor));
+            let mut pos = farthest_room_center(&rooms, start);
+            if occupied.contains(&pos) {
+                pos = random_room_floor(&rooms, &mut rng, &occupied);
+            }
+            occupied.push(pos);
+            enemies.push(scale_enemy_for_floor(
+                elite_glass_wraith(pos.0, pos.1),
+                floor,
+            ));
         }
         if act_floor == ACT2_FLOORS {
             enemies.push(scale_enemy_for_floor(
@@ -1987,8 +1996,12 @@ fn generate_dungeon(floor: u32) -> Dungeon {
         }
     } else {
         if (2..ACT1_FLOORS).contains(&floor) && floor % 2 == 0 {
-            let (x, y) = farthest_room_center(&rooms, start);
-            enemies.push(scale_enemy_for_floor(elite_skeleton(x, y), floor));
+            let mut pos = farthest_room_center(&rooms, start);
+            if occupied.contains(&pos) {
+                pos = random_room_floor(&rooms, &mut rng, &occupied);
+            }
+            occupied.push(pos);
+            enemies.push(scale_enemy_for_floor(elite_skeleton(pos.0, pos.1), floor));
         }
         if floor == ACT1_FLOORS {
             enemies.push(scale_enemy_for_floor(bellkeeper(stairs.0, stairs.1), floor));
@@ -1998,7 +2011,8 @@ fn generate_dungeon(floor: u32) -> Dungeon {
     let chest_count = rng.gen_range(1..=3);
     let mut chests = Vec::new();
     for _ in 0..chest_count {
-        let (x, y) = random_room_floor(&rooms, &mut rng, start, stairs);
+        let (x, y) = random_room_floor(&rooms, &mut rng, &occupied);
+        occupied.push((x, y));
         chests.push(Chest {
             x,
             y,
@@ -2122,23 +2136,25 @@ fn farthest_room_center(rooms: &[Room], from: (i32, i32)) -> (i32, i32) {
         .unwrap_or((MAP_W - 3, MAP_H - 3))
 }
 
-fn random_room_floor(
-    rooms: &[Room],
-    rng: &mut impl Rng,
-    start: (i32, i32),
-    stairs: (i32, i32),
-) -> (i32, i32) {
-    for _ in 0..30 {
+fn random_room_floor(rooms: &[Room], rng: &mut impl Rng, occupied: &[(i32, i32)]) -> (i32, i32) {
+    for _ in 0..100 {
         let room = &rooms[rng.gen_range(0..rooms.len())];
         let pos = (
             rng.gen_range(room.x..room.x + room.w),
             rng.gen_range(room.y..room.y + room.h),
         );
-        if pos != start && pos != stairs {
+        if !occupied.contains(&pos) {
             return pos;
         }
     }
-    rooms.last().unwrap().center()
+    rooms
+        .iter()
+        .flat_map(|room| {
+            (room.y..room.y + room.h)
+                .flat_map(move |y| (room.x..room.x + room.w).map(move |x| (x, y)))
+        })
+        .find(|pos| !occupied.contains(pos))
+        .unwrap_or_else(|| rooms.last().unwrap().center())
 }
 
 fn dungeon_tile(d: &Dungeon, x: i32, y: i32) -> char {
@@ -4722,6 +4738,13 @@ mod tests {
                     .iter()
                     .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
             );
+            let mut occupied = std::collections::HashSet::new();
+            for enemy in &d.enemies {
+                assert!(occupied.insert((enemy.x, enemy.y)));
+            }
+            for chest in &d.chests {
+                assert!(occupied.insert((chest.x, chest.y)));
+            }
         }
 
         let floor2 = generate_dungeon(2);
