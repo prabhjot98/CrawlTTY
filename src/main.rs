@@ -589,8 +589,27 @@ fn load_or_create_character() -> Result<Character> {
 }
 
 fn save_character(character: &Character) -> Result<()> {
+    save_character_to_path(character, Path::new(SAVE_PATH))
+}
+
+fn save_character_to_path(character: &Character, save_path: &Path) -> Result<()> {
     let data = serde_json::to_string_pretty(character).context("failed to serialize save")?;
-    fs::write(SAVE_PATH, data).context("failed to write save")
+    let tmp_path = save_path.with_file_name(format!(
+        "{}.tmp",
+        save_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("save.json")
+    ));
+    {
+        let mut file =
+            fs::File::create(&tmp_path).context("failed to create temporary save file")?;
+        file.write_all(data.as_bytes())
+            .context("failed to write temporary save file")?;
+        file.sync_all()
+            .context("failed to flush temporary save file")?;
+    }
+    fs::rename(&tmp_path, save_path).context("failed to replace save file")
 }
 
 fn print_town(c: &Character) {
@@ -4411,6 +4430,24 @@ mod tests {
         assert_eq!(d.log_turn, 0);
         assert_eq!(d.log[0], "== No turn spent: Cleave ==");
         assert_eq!(d.log[1], "[WARN] No adjacent enemies for Cleave.");
+    }
+
+    #[test]
+    fn save_character_writes_atomically() {
+        let c = test_character();
+        let dir = env::temp_dir().join(format!("crawltty-save-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let save_path = dir.join("save.json");
+        let tmp_path = dir.join("save.json.tmp");
+
+        save_character_to_path(&c, &save_path).unwrap();
+
+        assert!(save_path.exists());
+        assert!(!tmp_path.exists());
+        let saved: Character =
+            serde_json::from_str(&fs::read_to_string(&save_path).unwrap()).unwrap();
+        assert_eq!(saved.name, c.name);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
