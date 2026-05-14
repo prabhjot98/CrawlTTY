@@ -4319,9 +4319,24 @@ fn prompt(label: &str) -> String {
     input.trim_end().to_string()
 }
 
+struct RawModeGuard;
+
+impl RawModeGuard {
+    fn new() -> io::Result<Self> {
+        enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+    }
+}
+
 fn read_key_char_nav() -> char {
-    enable_raw_mode().expect("failed to enable raw mode");
-    let key = loop {
+    let _raw_mode = RawModeGuard::new().expect("failed to enable raw mode");
+    loop {
         if let Event::Key(KeyEvent {
             code, modifiers, ..
         }) = event::read().expect("failed to read terminal event")
@@ -4340,14 +4355,12 @@ fn read_key_char_nav() -> char {
                 _ => {}
             }
         }
-    };
-    disable_raw_mode().expect("failed to disable raw mode");
-    key
+    }
 }
 
 fn read_key_char() -> char {
-    enable_raw_mode().expect("failed to enable raw mode");
-    let key = loop {
+    let _raw_mode = RawModeGuard::new().expect("failed to enable raw mode");
+    loop {
         if let Event::Key(KeyEvent {
             code, modifiers, ..
         }) = event::read().expect("failed to read terminal event")
@@ -4363,9 +4376,7 @@ fn read_key_char() -> char {
                 _ => {}
             }
         }
-    };
-    disable_raw_mode().expect("failed to disable raw mode");
-    key
+    }
 }
 
 fn pause(message: &str) {
