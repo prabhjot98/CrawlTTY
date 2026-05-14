@@ -2359,10 +2359,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
             '1' => took_turn = use_cleave(c),
             '2' => took_turn = use_shield_bash(c),
             '3' => took_turn = use_battle_cry(c),
-            'p' | 'P' => {
-                use_potion(c);
-                took_turn = true;
-            }
+            'p' | 'P' => took_turn = use_potion(c),
             'i' | 'I' => took_turn = inventory_screen(c),
             '\u{1b}' => {
                 c.active_dungeon = None;
@@ -3826,7 +3823,7 @@ fn use_stairs(c: &mut Character) {
     }
 }
 
-fn use_potion(c: &mut Character) {
+fn use_potion(c: &mut Character) -> bool {
     if let Some(index) = c
         .inventory
         .iter()
@@ -3843,12 +3840,14 @@ fn use_potion(c: &mut Character) {
                 heal_amount_text(heal)
             ),
         );
+        true
     } else {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
             "No lesser health potion available.",
         );
+        false
     }
 }
 
@@ -4977,7 +4976,7 @@ mod tests {
             .filter(|item| matches!(item.kind, ItemKind::HealthPotion))
             .count();
 
-        use_potion(&mut c);
+        assert!(use_potion(&mut c));
 
         let ending_potions = c
             .inventory
@@ -4988,7 +4987,11 @@ mod tests {
         assert_eq!(c.hp, 1 + lesser_potion_restore(c.max_hp()));
 
         c.hp = c.max_hp() - 1;
-        use_potion(&mut c);
+        assert!(use_potion(&mut c));
         assert_eq!(c.hp, c.max_hp());
+
+        c.inventory
+            .retain(|item| !matches!(item.kind, ItemKind::HealthPotion));
+        assert!(!use_potion(&mut c));
     }
 }
