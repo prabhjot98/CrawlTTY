@@ -3806,7 +3806,7 @@ fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
 }
 
 fn xp_required_for_next_level(current_level: u32) -> u32 {
-    40 * 2u32.pow(current_level - 1)
+    40u32.saturating_mul(2u32.saturating_pow(current_level.saturating_sub(1)))
 }
 
 fn auto_interact_tile(c: &mut Character) {
@@ -4499,6 +4499,8 @@ mod tests {
 
         assert_eq!(xp_required_for_next_level(1), 40);
         assert_eq!(xp_required_for_next_level(2), 80);
+        assert_eq!(xp_required_for_next_level(0), 40);
+        assert_eq!(xp_required_for_next_level(32), u32::MAX);
 
         let levels_gained = add_xp(&mut c, 39);
         assert!(levels_gained.is_empty());
