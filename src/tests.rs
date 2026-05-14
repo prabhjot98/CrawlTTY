@@ -368,6 +368,18 @@ fn higher_level_loot_has_higher_requirements_and_stats() {
 }
 
 #[test]
+fn boss_reward_loot_is_always_magic_or_rare_equipment() {
+    for _ in 0..100 {
+        let loot = random_equipment_loot(ACT1_FLOORS, true);
+        assert!(matches!(
+            loot.kind,
+            ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+        ));
+        assert!(matches!(loot.rarity, Rarity::Magic | Rarity::Rare));
+    }
+}
+
+#[test]
 fn floor_difficulty_is_doubled_across_act_one() {
     assert_eq!(floor_difficulty_multiplier(1), 2.0);
     assert_eq!(floor_difficulty_multiplier(ACT1_FLOORS), 4.0);

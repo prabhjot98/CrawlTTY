@@ -839,7 +839,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                     );
                 }
                 if was_boss {
-                    let loot = random_loot(d.floor, true);
+                    let loot = random_equipment_loot(d.floor, true);
                     let loot_name = colored_item_name(&loot);
                     c.inventory.push(loot);
                     log_event(
@@ -1210,7 +1210,7 @@ pub(crate) fn resolve_enemy_killed_by_effect(
     );
     push_level_up_logs(&mut d.log, &levels_gained);
     if was_boss {
-        let loot = random_loot(d.floor, true);
+        let loot = random_equipment_loot(d.floor, true);
         let loot_name = colored_item_name(&loot);
         c.inventory.push(loot);
         log_event(
@@ -1359,7 +1359,11 @@ pub(crate) fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
         return;
     }
     let floor = c.active_dungeon.as_ref().map(|d| d.floor).unwrap_or(1);
-    let loot = random_loot(floor, guaranteed_magic || rng.gen_bool(0.30));
+    let loot = if guaranteed_magic {
+        random_equipment_loot(floor, true)
+    } else {
+        random_loot(floor, rng.gen_bool(0.30))
+    };
     let name = colored_item_name(&loot);
     c.inventory.push(loot);
     if let Some(d) = c.active_dungeon.as_mut() {
@@ -1368,6 +1372,17 @@ pub(crate) fn maybe_drop_loot(c: &mut Character, guaranteed_magic: bool) {
 }
 
 pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
+    let mut rng = rand::thread_rng();
+    if rng.gen_range(0..5) == 4 {
+        if rng.gen_bool(0.5) {
+            return health_potion();
+        }
+        return mana_potion();
+    }
+    random_equipment_loot(floor, better)
+}
+
+pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
     let mut rng = rand::thread_rng();
     let rarity = if better {
         if rng.gen_bool(0.25) {
@@ -1385,7 +1400,7 @@ pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
     };
     let item_level = floor + rarity_bonus;
     let bonus = item_level as i32 - 1;
-    match rng.gen_range(0..5) {
+    match rng.gen_range(0..4) {
         0 => item_with_rarity(
             &loot_name(&rarity, "Iron Sword"),
             ItemKind::Weapon,
@@ -1413,7 +1428,7 @@ pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
             item_level,
             requirements(4 + item_level, 0, 0),
         ),
-        3 => item_with_rarity(
+        _ => item_with_rarity(
             &loot_name(&rarity, "Guard Shield"),
             ItemKind::Shield,
             45 + bonus as u32 * 15,
@@ -1422,13 +1437,6 @@ pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
             item_level,
             requirements(3 + item_level, 0, 0),
         ),
-        _ => {
-            if rng.gen_bool(0.5) {
-                health_potion()
-            } else {
-                mana_potion()
-            }
-        }
     }
 }
 
