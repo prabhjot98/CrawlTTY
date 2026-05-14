@@ -148,6 +148,31 @@ fn skill_rank_scaling_matches_design() {
 }
 
 #[test]
+fn skill_help_helpers_reflect_masteries() {
+    let mut c = test_character();
+
+    assert_eq!(cleave_target_help(&c), "up to 3 adjacent enemies");
+    assert_eq!(shield_bash_range_help(&c), "1 adjacent enemy");
+    assert_eq!(shield_bash_stun_turns(&c), 1);
+    assert_eq!(shield_bash_stun_help(&c), "1 turn");
+    assert_eq!(battle_cry_charge_count(&c), 5);
+
+    c.cleave_mastery = Some(SkillMastery::ReapingCleave);
+    c.shield_bash_mastery = Some(SkillMastery::LongBash);
+    c.battle_cry_mastery = Some(SkillMastery::WarpathCry);
+    assert_eq!(cleave_target_help(&c), "every adjacent enemy");
+    assert_eq!(
+        shield_bash_range_help(&c),
+        "1 enemy up to 2 tiles in a clear cardinal line"
+    );
+    assert_eq!(battle_cry_charge_count(&c), 7);
+
+    c.shield_bash_mastery = Some(SkillMastery::DazingBash);
+    assert_eq!(shield_bash_stun_turns(&c), 2);
+    assert_eq!(shield_bash_stun_help(&c), "2 turns");
+}
+
+#[test]
 fn battle_cry_charges_survive_movement_and_spend_on_attacks() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![rat(4, 2)]));

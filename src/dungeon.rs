@@ -229,40 +229,88 @@ fn print_dungeon_footer() {
 }
 
 fn print_skill_help(c: &Character) {
+    let cleave_line = format!(
+        "{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
+        c.cleave_rank,
+        cleave_target_help(c),
+        cleave_percent(c),
+        c.cleave_cooldown
+    );
+    let shield_bash_line = format!(
+        "{GREEN}2 Shield Bash r{}{RESET}: cost 6 mana, cd 3. Hit {} for {}% damage and stun {}. Ready in {}.",
+        c.shield_bash_rank,
+        shield_bash_range_help(c),
+        shield_bash_percent(c),
+        shield_bash_stun_help(c),
+        c.shield_bash_cooldown
+    );
+    let battle_cry_line = format!(
+        "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. Next {} attacks gain +{}% damage and enemies deal -10%, Second Wind r{} heals {}%. Ready in {}, charges {}.",
+        c.battle_cry_rank,
+        battle_cry_charge_count(c),
+        battle_cry_bonus_percent(c),
+        c.second_wind_rank,
+        second_wind_heal_percent_for_rank(c.second_wind_rank),
+        c.battle_cry_cooldown,
+        c.battle_cry_charges
+    );
+    let passives_line = format!(
+        "{GREEN}Passives:{RESET} Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
+        c.deep_cut_rank,
+        deep_cut_chance_for_rank(c.deep_cut_rank),
+        deep_cut_damage_for_rank(c.deep_cut_rank),
+        c.iron_guard_rank,
+        iron_guard_armor_bonus(c)
+    );
     print_above_footer(
         &[
-            &format!(
-                "{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit up to 3 enemies for {}% weapon damage. Ready in {}.",
-                c.cleave_rank,
-                cleave_percent(c),
-                c.cleave_cooldown
-            ),
-            &format!(
-                "{GREEN}2 Shield Bash r{}{RESET}: cost 6 mana, cd 3. Hit 1 enemy for {}% damage and stun 1 turn. Ready in {}.",
-                c.shield_bash_rank,
-                shield_bash_percent(c),
-                c.shield_bash_cooldown
-            ),
-            &format!(
-                "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. Next 5 attacks gain +{}% damage and enemies deal -10%, Second Wind r{} heals {}%. Ready in {}, charges {}.",
-                c.battle_cry_rank,
-                battle_cry_bonus_percent(c),
-                c.second_wind_rank,
-                second_wind_heal_percent_for_rank(c.second_wind_rank),
-                c.battle_cry_cooldown,
-                c.battle_cry_charges
-            ),
-            &format!(
-                "{GREEN}Passives:{RESET} Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
-                c.deep_cut_rank,
-                deep_cut_chance_for_rank(c.deep_cut_rank),
-                deep_cut_damage_for_rank(c.deep_cut_rank),
-                c.iron_guard_rank,
-                iron_guard_armor_bonus(c)
-            ),
+            &cleave_line,
+            &shield_bash_line,
+            &battle_cry_line,
+            &passives_line,
         ],
         2,
     );
+}
+
+fn cleave_target_help(c: &Character) -> &'static str {
+    if c.cleave_mastery == Some(SkillMastery::ReapingCleave) {
+        "every adjacent enemy"
+    } else {
+        "up to 3 adjacent enemies"
+    }
+}
+
+fn shield_bash_range_help(c: &Character) -> &'static str {
+    if c.shield_bash_mastery == Some(SkillMastery::LongBash) {
+        "1 enemy up to 2 tiles in a clear cardinal line"
+    } else {
+        "1 adjacent enemy"
+    }
+}
+
+fn shield_bash_stun_turns(c: &Character) -> u32 {
+    if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
+        2
+    } else {
+        1
+    }
+}
+
+fn shield_bash_stun_help(c: &Character) -> &'static str {
+    if shield_bash_stun_turns(c) == 2 {
+        "2 turns"
+    } else {
+        "1 turn"
+    }
+}
+
+fn battle_cry_charge_count(c: &Character) -> u32 {
+    if c.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
+        7
+    } else {
+        5
+    }
 }
 
 fn print_above_footer(lines: &[&str], footer_lines: u16) {
@@ -453,11 +501,7 @@ fn use_shield_bash(c: &mut Character) -> bool {
 }
 
 fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
-    let stun_turns = if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
-        2
-    } else {
-        1
-    };
+    let stun_turns = shield_bash_stun_turns(c);
     let Some(d) = c.active_dungeon.as_mut() else {
         return;
     };
@@ -492,11 +536,7 @@ fn use_battle_cry(c: &mut Character) -> bool {
         return false;
     }
     c.mana -= 8;
-    c.battle_cry_charges = if c.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
-        7
-    } else {
-        5
-    };
+    c.battle_cry_charges = battle_cry_charge_count(c);
     c.battle_cry_cooldown = 6;
     if c.battle_cry_mastery == Some(SkillMastery::RallyingCry) {
         let heal = (c.max_hp() / 5).max(1);
