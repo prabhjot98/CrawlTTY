@@ -128,6 +128,8 @@ struct Enemy {
     damage_max: i32,
     armor: i32,
     speed: i32,
+    #[serde(default)]
+    energy: i32,
     xp: u32,
     gold_min: u32,
     gold_max: u32,
@@ -2178,6 +2180,7 @@ fn enemy(
         damage_max,
         armor,
         speed,
+        energy: 10,
         xp,
         gold_min,
         gold_max,
@@ -3134,6 +3137,12 @@ fn enemy_turns(c: &mut Character) {
                 continue;
             }
         }
+        d.enemies[i].energy += d.enemies[i].speed.max(1);
+        let energy_threshold = enemy_action_energy_threshold(c);
+        if d.enemies[i].energy < energy_threshold {
+            continue;
+        }
+        d.enemies[i].energy -= energy_threshold;
         if d.enemies[i].stunned_turns > 0 {
             d.enemies[i].stunned_turns -= 1;
             log_event(
@@ -3191,6 +3200,10 @@ fn enemy_turns(c: &mut Character) {
     }
     d.enemies.retain(|e| e.hp > 0);
     c.active_dungeon = Some(d);
+}
+
+fn enemy_action_energy_threshold(c: &Character) -> i32 {
+    ((c.speed() as i32 + 1) / 2).max(1)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4838,6 +4851,33 @@ mod tests {
         let d = c.active_dungeon.as_ref().unwrap();
         assert!(d.enemies[0].guarding);
         assert_eq!(effective_enemy_armor(&d.enemies[0]), d.enemies[0].armor + 2);
+        assert!(d.log.iter().any(|line| line.contains("raises its shield")));
+    }
+
+    #[test]
+    fn enemy_energy_uses_speed_before_acting() {
+        let mut c = test_character();
+        let mut slow = boneguard(5, 2);
+        slow.energy = 0;
+        slow.speed = 1;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![slow]));
+
+        enemy_turns(&mut c);
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.enemies[0].energy, 1);
+        assert!(!d.enemies[0].guarding);
+        assert!(!d.log.iter().any(|line| line.contains("raises its shield")));
+
+        let mut fast = boneguard(5, 2);
+        fast.energy = 0;
+        fast.speed = enemy_action_energy_threshold(&c);
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![fast]));
+
+        enemy_turns(&mut c);
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert!(d.enemies[0].guarding);
         assert!(d.log.iter().any(|line| line.contains("raises its shield")));
     }
 
