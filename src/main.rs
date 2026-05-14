@@ -522,6 +522,7 @@ fn main() -> Result<()> {
 
     let mut character = load_or_create_character()?;
     save_character(&character)?;
+    let mut town_message = String::new();
 
     loop {
         if character.active_dungeon.is_some() {
@@ -531,6 +532,9 @@ fn main() -> Result<()> {
 
         clear_screen();
         print_town(&character);
+        if !town_message.is_empty() {
+            println!("{YELLOW}{town_message}{RESET}");
+        }
         println!("\n{BOLD}Town services{RESET}");
         println!("Use the footer commands below to choose a service.");
         print_footer(&[
@@ -542,12 +546,24 @@ fn main() -> Result<()> {
             ),
         ]);
         match read_key_char() {
-            'h' | 'H' => healer(&mut character),
-            'm' | 'M' => merchant(&mut character),
-            'b' | 'B' => blacksmith(&mut character),
-            's' | 'S' => stash_menu(&mut character),
-            't' | 'T' => quest_giver(&mut character),
-            'd' | 'D' => enter_dungeon(&mut character),
+            'h' | 'H' => {
+                healer(&mut character);
+                town_message = "Healed to full HP and mana.".to_string();
+            }
+            'm' | 'M' => {
+                merchant(&mut character);
+                town_message.clear();
+            }
+            'b' | 'B' => {
+                blacksmith(&mut character);
+                town_message.clear();
+            }
+            's' | 'S' => {
+                stash_menu(&mut character);
+                town_message.clear();
+            }
+            't' | 'T' => town_message = quest_giver(&mut character),
+            'd' | 'D' => town_message = enter_dungeon(&mut character),
             'i' | 'I' => {
                 inventory_screen(&mut character);
             }
@@ -817,51 +833,35 @@ fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
     }
 }
 
-fn quest_giver(c: &mut Character) {
-    clear_screen();
-    println!("{BOLD}{CYAN}Warden Mara{RESET}");
+fn quest_giver(c: &mut Character) -> String {
     if c.act2_completed {
-        println!("Mara studies a shard of clear black glass. It no longer sings.");
-        println!("\"Two curses broken. Hollow's Rest may yet become a home instead of a grave.\"");
-        pause("Campaign complete for now. More acts may come later.");
+        "Warden Mara: Two curses broken. Campaign complete for now. More acts may come later."
+            .to_string()
     } else if c.glass_tyrant_defeated {
-        println!("\"The wind changed. You shattered the mind in the glass.\"");
-        println!("Quest complete: Shatter the Glass Tyrant");
-        println!(
-            "Reward: {YELLOW}250 gold{RESET}, {MAGENTA}+2 skill points{RESET}, {CYAN}+3 attributes{RESET}, {GREEN}full heal{RESET}."
-        );
         c.gold += 250;
         c.unspent_skills += 2;
         c.unspent_attributes += 3;
         c.hp = c.max_hp();
         c.mana = c.max_mana();
         c.act2_completed = true;
-        pause("Act II complete. The Glass Wastes fall silent.");
+        "Quest complete: Shatter the Glass Tyrant. Reward: 250 gold, +2 skill points, +3 attributes, full heal."
+            .to_string()
     } else if c.act1_completed {
-        println!("Mara points north where marsh soil turns to glittering sand.");
-        println!(
-            "\"The bell woke something older. Cross the Glass Wastes, brave the mirage courts, and shatter the Glass Tyrant before it dreams us into statues.\""
-        );
-        println!("Objective: defeat the Glass Tyrant on floor {FINAL_FLOOR} of the Glass Wastes.");
-        pause("Quest accepted: Shatter the Glass Tyrant.");
+        format!(
+            "Quest accepted: Shatter the Glass Tyrant. Defeat it on floor {FINAL_FLOOR} of the Glass Wastes."
+        )
     } else if c.bellkeeper_defeated {
-        println!("\"The bells are silent. Hollow's Rest owes you its next dawn.\"");
-        println!("Quest complete: Silence the Bellkeeper");
-        println!(
-            "Reward: {YELLOW}100 gold{RESET}, {MAGENTA}+1 skill point{RESET}, {GREEN}full heal{RESET}, {CYAN}Act II unlocked{RESET}."
-        );
         c.gold += 100;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
         c.mana = c.max_mana();
         c.act1_completed = true;
-        pause("Act I complete. The road to the Glass Wastes is now open.");
+        "Quest complete: Silence the Bellkeeper. Reward: 100 gold, +1 skill point, full heal, Act II unlocked."
+            .to_string()
     } else {
-        println!(
-            "\"A cursed bell tolls beneath the crypt. Each ring wakes more dead. Descend, find the Bellkeeper, and end it.\""
-        );
-        println!("Objective: defeat the Bellkeeper on floor {ACT1_FLOORS} of the Hollow Crypts.");
-        pause("Quest accepted: Silence the Bellkeeper.");
+        format!(
+            "Quest accepted: Silence the Bellkeeper. Defeat it on floor {ACT1_FLOORS} of the Hollow Crypts."
+        )
     }
 }
 
@@ -1818,24 +1818,23 @@ fn second_wind_heal_amount(c: &Character) -> u32 {
     ((c.max_hp() * second_wind_heal_percent_for_rank(c.second_wind_rank)) / 100).max(1)
 }
 
-fn enter_dungeon(c: &mut Character) {
+fn enter_dungeon(c: &mut Character) -> String {
     if c.act2_completed {
-        pause("The Glass Wastes are conquered. Rest, trade, or start a new exile.");
-        return;
+        return "The Glass Wastes are conquered. Rest, trade, or start a new exile.".to_string();
     }
     if c.glass_tyrant_defeated {
-        pause("The Glass Tyrant is shattered. Return to Warden Mara (t) to complete Act II.");
-        return;
+        return "The Glass Tyrant is shattered. Return to Warden Mara (t) to complete Act II."
+            .to_string();
     }
     if c.act1_completed {
         c.active_dungeon = Some(generate_dungeon(ACT2_START_FLOOR));
-        return;
+        return String::new();
     }
     if c.bellkeeper_defeated {
-        pause("The Bellkeeper is dead. Return to Warden Mara (t) to complete Act I.");
-        return;
+        return "The Bellkeeper is dead. Return to Warden Mara (t) to complete Act I.".to_string();
     }
     c.active_dungeon = Some(generate_dungeon(1));
+    String::new()
 }
 
 #[derive(Clone)]
@@ -4342,11 +4341,6 @@ fn prompt(label: &str) -> String {
     input.trim_end().to_string()
 }
 
-fn pause(message: &str) {
-    println!("{YELLOW}{message}{RESET}");
-    print_footer(&[&format!("{BOLD}Continue:{RESET} press any key")]);
-    let _ = read_key_char();
-}
 fn clear_screen() {
     print!("\x1B[2J\x1B[1;1H");
     let _ = io::stdout().flush();
