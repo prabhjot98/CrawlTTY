@@ -588,6 +588,20 @@ fn cultist_shadow_bolt_requires_clear_cardinal_line() {
 }
 
 #[test]
+fn long_shield_bash_requires_clear_cardinal_line() {
+    let mut c = test_character();
+    c.shield_bash_mastery = Some(SkillMastery::LongBash);
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![skeleton(4, 2)]));
+
+    assert_eq!(shield_bash_target_index(&c, 2), Some(0));
+
+    let d = c.active_dungeon.as_mut().unwrap();
+    d.tiles[tile_index(3, 2)] = '#';
+
+    assert_eq!(shield_bash_target_index(&c, 2), None);
+}
+
+#[test]
 fn bellkeeper_phase_and_enrage_damage_follow_health_thresholds() {
     let mut boss = bellkeeper(5, 5);
     assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::Tolling);

@@ -526,6 +526,7 @@ fn shield_bash_target_index(c: &Character, range: i32) -> Option<usize> {
             e.hp > 0
                 && (e.x == d.player_x || e.y == d.player_y)
                 && (e.x - d.player_x).abs() + (e.y - d.player_y).abs() <= range
+                && clear_cardinal_line(d, d.player_x, d.player_y, e.x, e.y)
         })
         .min_by_key(|(_, e)| (e.x - d.player_x).abs() + (e.y - d.player_y).abs())
         .map(|(i, _)| i)
