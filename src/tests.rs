@@ -667,6 +667,14 @@ fn long_shield_bash_requires_clear_cardinal_line() {
 }
 
 #[test]
+fn shield_bash_only_stuns_after_surviving_hit() {
+    assert!(!shield_bash_outcome_stuns(DamageEnemyOutcome::Missed));
+    assert!(!shield_bash_outcome_stuns(DamageEnemyOutcome::Killed));
+    assert!(!shield_bash_outcome_stuns(DamageEnemyOutcome::BossDefeated));
+    assert!(shield_bash_outcome_stuns(DamageEnemyOutcome::Hit));
+}
+
+#[test]
 fn shield_bash_stun_only_applies_to_surviving_targets() {
     let mut c = test_character();
     c.shield_bash_mastery = Some(SkillMastery::DazingBash);
@@ -698,6 +706,10 @@ fn bellkeeper_phase_and_enrage_damage_follow_health_thresholds() {
     boss.hp = 15;
     assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::Enraged);
     assert_eq!(bellkeeper_enrage_damage_bonus(&boss), 2);
+
+    let mut tyrant = glass_tyrant(5, 5);
+    tyrant.hp = 1;
+    assert_eq!(bellkeeper_enrage_damage_bonus(&tyrant), 0);
 }
 
 #[test]
@@ -733,6 +745,22 @@ fn bellkeeper_wave_marks_map_tiles_and_damages_player_in_line() {
     assert!(d.bell_wave_tiles.contains(&(7, 5)));
     assert!(c.hp < c.max_hp());
     assert!(d.log.iter().any(|line| line.contains("bell wave hits")));
+}
+
+#[test]
+fn lethal_boss_special_stops_remaining_enemy_actions() {
+    let mut c = test_character();
+    c.hp = 1;
+    let mut d = open_test_dungeon(7, 5, vec![glass_tyrant(5, 5), skeleton(7, 6)]);
+    d.boss_turn_counter = 3;
+    c.active_dungeon = Some(d);
+
+    enemy_turns(&mut c);
+
+    assert_eq!(c.hp, 0);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(d.log.iter().any(|line| line.contains("prism burst cuts")));
+    assert!(!d.log.iter().any(|line| line.contains("Skeleton")));
 }
 
 #[test]

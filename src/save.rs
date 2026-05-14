@@ -65,10 +65,24 @@ pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) ->
 
 #[cfg(windows)]
 pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
-    if save_path.exists() {
-        fs::remove_file(save_path).context("failed to remove existing save file")?;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+
+    let tmp_wide: Vec<u16> = tmp_path.as_os_str().encode_wide().chain([0]).collect();
+    let save_wide: Vec<u16> = save_path.as_os_str().encode_wide().chain([0]).collect();
+    let result = unsafe {
+        MoveFileExW(
+            tmp_wide.as_ptr(),
+            save_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        return Err(io::Error::last_os_error()).context("failed to atomically replace save file");
     }
-    fs::rename(tmp_path, save_path).context("failed to move temporary save file")
+    Ok(())
 }
 
 #[cfg(not(windows))]

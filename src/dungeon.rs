@@ -505,9 +505,11 @@ pub(crate) fn use_shield_bash(c: &mut Character) -> bool {
     } else {
         shield_bash_multiplier(c)
     };
-    damage_enemy(c, index, multiplier, "shield bash");
+    let outcome = damage_enemy(c, index, multiplier, "shield bash");
     consume_battle_cry_charge(c);
-    apply_shield_bash_stun(c, index);
+    if shield_bash_outcome_stuns(outcome) {
+        apply_shield_bash_stun(c, index);
+    }
     true
 }
 
@@ -634,9 +636,27 @@ pub(crate) enum EnemyDeathCause<'a> {
     Effect { source: &'a str },
 }
 
-pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f32, verb: &str) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DamageEnemyOutcome {
+    NoTarget,
+    Missed,
+    Hit,
+    Killed,
+    BossDefeated,
+}
+
+pub(crate) fn shield_bash_outcome_stuns(outcome: DamageEnemyOutcome) -> bool {
+    outcome == DamageEnemyOutcome::Hit
+}
+
+pub(crate) fn damage_enemy(
+    c: &mut Character,
+    enemy_index: usize,
+    multiplier: f32,
+    verb: &str,
+) -> DamageEnemyOutcome {
     let Some(mut d) = c.active_dungeon.take() else {
-        return;
+        return DamageEnemyOutcome::NoTarget;
     };
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
@@ -649,13 +669,13 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
     let hit = hit_roll(c.hit_rating() as i32, 10);
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
         c.active_dungeon = Some(d);
-        return;
+        return DamageEnemyOutcome::NoTarget;
     }
     if !hit {
         let name = d.enemies[enemy_index].name.clone();
         log_event(&mut d.log, LogKind::Miss, format!("You miss {name}."));
         c.active_dungeon = Some(d);
-        return;
+        return DamageEnemyOutcome::Missed;
     }
 
     let mut raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
@@ -698,6 +718,9 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
         if !boss_defeated {
             maybe_drop_loot_in_dungeon(c, &mut d, false);
             c.active_dungeon = Some(d);
+            DamageEnemyOutcome::Killed
+        } else {
+            DamageEnemyOutcome::BossDefeated
         }
     } else {
         let name = d.enemies[enemy_index].name.clone();
@@ -713,6 +736,7 @@ pub(crate) fn damage_enemy(c: &mut Character, enemy_index: usize, multiplier: f3
             log_event(&mut d.log, LogKind::Status, message);
         }
         c.active_dungeon = Some(d);
+        DamageEnemyOutcome::Hit
     }
 }
 
@@ -908,10 +932,19 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             } else {
                 bellkeeper_specials(c, &mut d, i, &mut occupied);
             }
+            if c.hp == 0 {
+                c.active_dungeon = Some(d);
+                return;
+            }
         }
         let dist = (d.enemies[i].x - d.player_x).abs() + (d.enemies[i].y - d.player_y).abs();
         if dist == 1 {
-            if enemy_melee_attack(c, &mut d, i) {
+            let enemy_killed = enemy_melee_attack(c, &mut d, i);
+            if c.hp == 0 {
+                c.active_dungeon = Some(d);
+                return;
+            }
+            if enemy_killed {
                 if resolve_enemy_killed_by_effect(c, &mut d, i, "Spiked Guard") {
                     return;
                 }
@@ -926,6 +959,10 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             );
         } else if can_cultist_ranged_attack(&d, i) {
             cultist_shadow_bolt(c, &mut d, i);
+            if c.hp == 0 {
+                c.active_dungeon = Some(d);
+                return;
+            }
         } else if dist < 8 {
             let old = (d.enemies[i].x, d.enemies[i].y);
             let step_x = (d.player_x - d.enemies[i].x).signum();
@@ -1186,6 +1223,9 @@ pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index
             LogKind::Enemy,
             format!("{} hits you for {}.", enemy_name, damage_text(damage)),
         );
+        if c.hp == 0 {
+            return false;
+        }
         if c.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
             let thorn_damage = 2;
             d.enemies[enemy_index].hp -= thorn_damage;
@@ -1278,6 +1318,9 @@ pub(crate) fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_inde
                 damage_text(damage)
             ),
         );
+        if c.hp == 0 {
+            return;
+        }
         apply_vampiric_heal(d, enemy_index);
     } else {
         log_event(
@@ -1289,7 +1332,10 @@ pub(crate) fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_inde
 }
 
 pub(crate) fn bellkeeper_enrage_damage_bonus(enemy: &Enemy) -> i32 {
-    if enemy.is_boss && bellkeeper_phase(enemy) == BellkeeperPhase::Enraged {
+    if enemy.name == "Bellkeeper"
+        && enemy.is_boss
+        && bellkeeper_phase(enemy) == BellkeeperPhase::Enraged
+    {
         2
     } else {
         0
