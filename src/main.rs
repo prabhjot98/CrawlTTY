@@ -545,7 +545,9 @@ fn main() -> Result<()> {
             's' | 'S' => stash_menu(&mut character),
             't' | 'T' => quest_giver(&mut character),
             'd' | 'D' => enter_dungeon(&mut character),
-            'i' | 'I' => inventory_screen(&mut character),
+            'i' | 'I' => {
+                inventory_screen(&mut character);
+            }
             'a' | 'A' => spend_attributes(&mut character),
             'k' | 'K' => skill_tree_menu(&mut character),
             'q' | 'Q' => {
@@ -2361,7 +2363,7 @@ fn dungeon_loop(c: &mut Character) -> Result<()> {
                 use_potion(c);
                 took_turn = true;
             }
-            'i' | 'I' => inventory_screen(c),
+            'i' | 'I' => took_turn = inventory_screen(c),
             '\u{1b}' => {
                 c.active_dungeon = None;
                 save_character(c)?;
@@ -3869,7 +3871,7 @@ fn check_death(c: &mut Character) {
     }
 }
 
-fn inventory_screen(c: &mut Character) {
+fn inventory_screen(c: &mut Character) -> bool {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
@@ -3904,17 +3906,41 @@ fn inventory_screen(c: &mut Character) {
             "{BOLD}Inventory:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=equip/use  {RED}x{RESET}=drop selected  {RED}Esc{RESET}=back"
         )]);
         match read_key_char_nav() {
-            '\u{1b}' => break,
+            '\u{1b}' => return false,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
                 if selected + 1 < c.inventory.len() {
                     selected += 1;
                 }
             }
-            'x' | 'X' => message = drop_selected_inventory_item(c, selected),
-            '\n' => message = equip_or_use_inventory_item(c, selected),
+            'x' | 'X' => {
+                message = drop_selected_inventory_item(c, selected);
+                if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
+                    log_inventory_action(c, &message);
+                    return true;
+                }
+            }
+            '\n' => {
+                message = equip_or_use_inventory_item(c, selected);
+                if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
+                    log_inventory_action(c, &message);
+                    return true;
+                }
+            }
             _ => message = "Unknown inventory command.".to_string(),
         }
+    }
+}
+
+fn inventory_action_spends_turn(message: &str) -> bool {
+    message.starts_with("Equipped ")
+        || message.starts_with("Used ")
+        || message.starts_with("Dropped ")
+}
+
+fn log_inventory_action(c: &mut Character, message: &str) {
+    if let Some(d) = c.active_dungeon.as_mut() {
+        log_event(&mut d.log, LogKind::Info, message);
     }
 }
 
@@ -4571,6 +4597,17 @@ mod tests {
                 .iter()
                 .any(|item| item.name.starts_with("Rusted Sword"))
         );
+    }
+
+    #[test]
+    fn successful_inventory_actions_spend_dungeon_turns() {
+        assert!(inventory_action_spends_turn("Equipped Crude Axe."));
+        assert!(inventory_action_spends_turn(
+            "Used a lesser health potion and restored 6 HP."
+        ));
+        assert!(inventory_action_spends_turn("Dropped Rusted Sword."));
+        assert!(!inventory_action_spends_turn("No item in that slot."));
+        assert!(!inventory_action_spends_turn("Unknown inventory command."));
     }
 
     #[test]
