@@ -618,6 +618,29 @@ fn long_shield_bash_requires_clear_cardinal_line() {
 }
 
 #[test]
+fn shield_bash_stun_only_applies_to_surviving_targets() {
+    let mut c = test_character();
+    c.shield_bash_mastery = Some(SkillMastery::DazingBash);
+    let mut dead = skeleton(3, 2);
+    dead.hp = 0;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![dead, skeleton(4, 2)]));
+
+    apply_shield_bash_stun(&mut c, 0);
+    apply_shield_bash_stun(&mut c, 1);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.enemies[0].stunned_turns, 0);
+    assert_eq!(d.enemies[1].stunned_turns, 2);
+    assert_eq!(
+        d.log
+            .iter()
+            .filter(|line| line.contains("Shield Bash stuns"))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn bellkeeper_phase_and_enrage_damage_follow_health_thresholds() {
     let mut boss = bellkeeper(5, 5);
     assert_eq!(bellkeeper_phase(&boss), BellkeeperPhase::Tolling);

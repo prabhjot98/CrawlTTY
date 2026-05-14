@@ -448,18 +448,27 @@ fn use_shield_bash(c: &mut Character) -> bool {
     };
     damage_enemy(c, index, multiplier, "shield bash");
     consume_battle_cry_charge(c);
-    if let Some(d) = c.active_dungeon.as_mut() {
-        if let Some(enemy) = d.enemies.get_mut(index) {
-            let stun_turns = if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
-                2
-            } else {
-                1
-            };
-            enemy.stunned_turns = enemy.stunned_turns.max(stun_turns);
-        }
-        log_event(&mut d.log, LogKind::Status, "Shield Bash stuns the enemy.");
-    }
+    apply_shield_bash_stun(c, index);
     true
+}
+
+fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
+    let stun_turns = if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
+        2
+    } else {
+        1
+    };
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return;
+    };
+    let Some(enemy) = d.enemies.get_mut(enemy_index) else {
+        return;
+    };
+    if enemy.hp <= 0 {
+        return;
+    }
+    enemy.stunned_turns = enemy.stunned_turns.max(stun_turns);
+    log_event(&mut d.log, LogKind::Status, "Shield Bash stuns the enemy.");
 }
 
 fn use_battle_cry(c: &mut Character) -> bool {
