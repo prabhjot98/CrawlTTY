@@ -67,7 +67,7 @@ pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) ->
 pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
-        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
     };
 
     let tmp_wide: Vec<u16> = tmp_path.as_os_str().encode_wide().chain([0]).collect();
