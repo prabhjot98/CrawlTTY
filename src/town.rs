@@ -32,9 +32,25 @@ pub(crate) fn quest_giver(c: &mut Character) -> String {
     }
 }
 
-pub(crate) fn healer(c: &mut Character) {
+pub(crate) const TOWN_FULL_HEAL_MESSAGE: &str = "You were fully healed.";
+
+pub(crate) fn full_heal(c: &mut Character) {
     c.hp = c.max_hp();
     c.mana = c.max_mana();
+}
+
+pub(crate) fn append_pending_town_message(c: &mut Character, message: &str) {
+    if c.pending_town_message.is_empty() {
+        c.pending_town_message = message.to_string();
+    } else {
+        c.pending_town_message.push(' ');
+        c.pending_town_message.push_str(message);
+    }
+}
+
+pub(crate) fn full_heal_on_town_return(c: &mut Character) {
+    full_heal(c);
+    append_pending_town_message(c, TOWN_FULL_HEAL_MESSAGE);
 }
 
 pub(crate) fn merchant(c: &mut Character) {

@@ -51,10 +51,10 @@ fn main() -> Result<()> {
             dungeon_loop(&mut character)?;
             if !character.pending_town_message.is_empty() {
                 town_message = std::mem::take(&mut character.pending_town_message);
-                save_character(&character)?;
             } else {
                 town_message.clear();
             }
+            save_character(&character)?;
             continue;
         }
 
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
         println!("Use the footer commands below to choose a service.");
         print_footer(&[
             &format!(
-                "{BOLD}Town:{RESET} {GREEN}h{RESET}=healer  {GREEN}m{RESET}=merchant  {GREEN}b{RESET}=blacksmith  {GREEN}s{RESET}=stash  {GREEN}t{RESET}=quest  {GREEN}d{RESET}=dungeon"
+                "{BOLD}Town:{RESET} {GREEN}m{RESET}=merchant  {GREEN}b{RESET}=blacksmith  {GREEN}s{RESET}=stash  {GREEN}t{RESET}=quest  {GREEN}d{RESET}=dungeon"
             ),
             &format!(
                 "{GREEN}i{RESET}=inventory  {GREEN}a{RESET}=attributes  {GREEN}k{RESET}=skill tree  {RED}q{RESET}=save+quit"
@@ -81,10 +81,6 @@ fn main() -> Result<()> {
             }
         };
         match key {
-            'h' | 'H' => {
-                healer(&mut character);
-                town_message = "Healed to full HP and mana.".to_string();
-            }
             'm' | 'M' => {
                 merchant(&mut character);
                 town_message.clear();

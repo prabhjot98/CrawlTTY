@@ -828,8 +828,11 @@ fn bellkeeper_bleed_death_completes_boss_fight_even_with_mobs_left() {
     assert!(c.active_dungeon.is_none());
     assert_eq!(c.battle_cry_charges, 0);
     assert_eq!(c.second_wind_shield, 0);
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
     assert!(c.pending_town_message.contains("Defeated Bellkeeper"));
     assert!(c.pending_town_message.contains("Boss reward"));
+    assert!(c.pending_town_message.contains(TOWN_FULL_HEAL_MESSAGE));
 }
 
 #[test]
@@ -873,6 +876,20 @@ fn softcore_death_clears_dungeon_and_combat_state() {
     assert_eq!(c.battle_cry_charges, 0);
     assert_eq!(c.second_wind_shield, 0);
     assert!(c.pending_town_message.contains("returned to town"));
+    assert!(c.pending_town_message.contains(TOWN_FULL_HEAL_MESSAGE));
+}
+
+#[test]
+fn returning_to_town_restores_hp_and_mana_and_reports_it() {
+    let mut c = test_character();
+    c.hp = 1;
+    c.mana = 0;
+
+    full_heal_on_town_return(&mut c);
+
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
+    assert_eq!(c.pending_town_message, TOWN_FULL_HEAL_MESSAGE);
 }
 
 #[test]

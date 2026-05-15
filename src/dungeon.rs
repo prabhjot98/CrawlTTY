@@ -48,6 +48,7 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
             'i' | 'I' => took_turn = inventory_screen(c),
             '\u{1b}' => {
                 leave_dungeon(c);
+                full_heal_on_town_return(c);
                 save_character(c)?;
                 break;
             }
@@ -880,6 +881,7 @@ pub(crate) fn resolve_enemy_death(
             xp_reward_text(xp),
             gold_reward_text(gold)
         );
+        full_heal_on_town_return(c);
         clear_combat_state(c);
         return true;
     }
@@ -1729,14 +1731,13 @@ pub(crate) fn check_death(c: &mut Character) {
     match c.death_mode {
         DeathMode::Softcore => {
             let penalty = c.gold / 10;
-            c.hp = c.max_hp();
-            c.mana = c.max_mana();
             c.gold = c.gold.saturating_sub(penalty);
             leave_dungeon(c);
             c.pending_town_message = format!(
                 "You died and returned to town. Lost {}.",
                 gold_reward_text(penalty)
             );
+            full_heal_on_town_return(c);
         }
         DeathMode::Hardcore => {
             let _ = fs::remove_file(SAVE_PATH);

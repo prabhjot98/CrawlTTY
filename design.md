@@ -610,7 +610,7 @@ Boss room rules:
 
 The full hub can eventually include:
 
-- Healer
+- Automatic full heal when returning to town
 - Blacksmith
 - Merchant
 - Stash
@@ -622,7 +622,7 @@ The full hub can eventually include:
 
 The first playable version should include:
 
-- Healer: restores health and mana in town.
+- Return-to-town healing: restores health and mana when the player comes back to town and displays a full-heal message.
 - Merchant: sells potions and basic gear, buys unwanted items.
 - Blacksmith: sells weapons/armor and can repair gear if durability is added later.
 - Stash: stores extra items between dungeon runs.
@@ -868,7 +868,7 @@ The Ironbound starts with:
 - 2 lesser health potions
 - 1 lesser mana potion
 
-Mana does not regenerate during dungeon exploration. Mana is restored by drinking mana potions, such as lesser mana potions, or resting/healing in town.
+Mana does not regenerate during dungeon exploration. Mana is restored by drinking mana potions, such as lesser mana potions, or by returning to town.
 
 Starting equipment is picked automatically based on class. The player does not choose a starting weapon in the MVP.
 
@@ -1027,7 +1027,7 @@ design.md
 - Create/load character.
 - Support Softcore/Hardcore choice.
 - Show player stats, gold, inventory, and equipment.
-- Add healer, merchant, blacksmith, stash, and dungeon entrance menus.
+- Add merchant, blacksmith, stash, dungeon entrance menus, and automatic full healing on town return.
 - Add lesser health potions, lesser mana potions, starter gear, buying, selling, and stash storage.
 - Auto-save after every action and load on startup.
 
@@ -1079,7 +1079,7 @@ design.md
 
 ## Resolved MVP Scope Decisions
 
-- MVP town services are healer, merchant, blacksmith, stash, and dungeon entrance.
+- MVP town services are merchant, blacksmith, stash, and dungeon entrance; returning to town fully restores health and mana.
 - First Ironbound skills are Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, and Second Wind.
 - Floor 1 enemies are rats and skeletons.
 - Floor 2 enemies are skeletons, cultists, and the first elite enemy.
@@ -1102,7 +1102,7 @@ design.md
 - The player starts with 2 lesser health potions and 1 lesser mana potion.
 - MVP includes both lesser health potions and lesser mana potions.
 - Lesser potions restore 15% of maximum health or mana.
-- Mana only restores from mana potions or in town.
+- Mana only restores from mana potions or by returning to town.
 - Starting weapon and gear are automatically picked based on class.
 - The MVP main objective is to kill the Bellkeeper.
 - Killing the Bellkeeper rewards a guaranteed random magic weapon or armor item and a large XP reward.
