@@ -51,6 +51,43 @@ fn dungeon_log_labels_failed_commands_as_no_turn_spent() {
 }
 
 #[test]
+fn valid_dungeon_command_clears_recent_unknown_command_logs() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    for _ in 0..2 {
+        let before = current_dungeon_log_len(&c);
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            UNKNOWN_DUNGEON_COMMAND_MESSAGE,
+        );
+        mark_latest_log_group(&mut c, before, false, "Command");
+    }
+
+    clear_recent_unknown_dungeon_commands(&mut c);
+
+    assert!(c.active_dungeon.as_ref().unwrap().log.is_empty());
+}
+
+#[test]
+fn clearing_unknown_dungeon_command_keeps_other_recent_warnings() {
+    let mut log = vec![
+        "== No turn spent: Cleave ==".to_string(),
+        "[WARN] No adjacent enemies for Cleave.".to_string(),
+    ];
+
+    assert!(!remove_latest_unknown_dungeon_command(&mut log));
+    assert_eq!(
+        log,
+        vec![
+            "== No turn spent: Cleave ==".to_string(),
+            "[WARN] No adjacent enemies for Cleave.".to_string(),
+        ]
+    );
+}
+
+#[test]
 fn save_character_writes_atomically() {
     let c = test_character();
     let dir = env::temp_dir().join(format!("crawltty-save-test-{}", std::process::id()));

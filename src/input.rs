@@ -30,7 +30,10 @@ pub(crate) fn read_key_char() -> Result<char> {
 
 pub(crate) fn read_key_char_nav_or_message(message: &mut String) -> Option<char> {
     match read_key_char_nav() {
-        Ok(key) => Some(key),
+        Ok(key) => {
+            message.clear();
+            Some(key)
+        }
         Err(err) => {
             *message = format!("Input error: {err:#}");
             None
@@ -40,7 +43,10 @@ pub(crate) fn read_key_char_nav_or_message(message: &mut String) -> Option<char>
 
 pub(crate) fn read_key_char_or_message(message: &mut String) -> Option<char> {
     match read_key_char() {
-        Ok(key) => Some(key),
+        Ok(key) => {
+            message.clear();
+            Some(key)
+        }
         Err(err) => {
             *message = format!("Input error: {err:#}");
             None

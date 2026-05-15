@@ -1,5 +1,8 @@
 use crate::*;
 
+pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
+pub(crate) const UNKNOWN_DUNGEON_COMMAND_LOG_LINE: &str = "[WARN] Unknown dungeon command.";
+
 pub(crate) fn clear_combat_state(c: &mut Character) {
     c.cleave_cooldown = 0;
     c.shield_bash_cooldown = 0;
@@ -26,6 +29,9 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
                 return Err(err);
             }
         };
+        if is_known_dungeon_command(key) {
+            clear_recent_unknown_dungeon_commands(c);
+        }
         let before_floor = current_dungeon_floor(c);
         let before_log_len = current_dungeon_log_len(c);
         let action_label = dungeon_action_label(key);
@@ -47,7 +53,7 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
             }
             _ => {
                 if let Some(d) = c.active_dungeon.as_mut() {
-                    log_event(&mut d.log, LogKind::Warn, "Unknown dungeon command.");
+                    log_event(&mut d.log, LogKind::Warn, UNKNOWN_DUNGEON_COMMAND_MESSAGE);
                 }
             }
         }
@@ -135,6 +141,57 @@ pub(crate) fn dungeon_action_label(key: char) -> &'static str {
         '3' => "Battle Cry",
         'p' | 'P' => "Drink potion",
         _ => "Command",
+    }
+}
+
+pub(crate) fn is_known_dungeon_command(key: char) -> bool {
+    matches!(
+        key,
+        'w' | 'W'
+            | 's'
+            | 'S'
+            | 'a'
+            | 'A'
+            | 'd'
+            | 'D'
+            | '1'
+            | '2'
+            | '3'
+            | 'p'
+            | 'P'
+            | 'i'
+            | 'I'
+            | '\u{1b}'
+    )
+}
+
+pub(crate) fn clear_recent_unknown_dungeon_commands(c: &mut Character) {
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return;
+    };
+    while remove_latest_unknown_dungeon_command(&mut d.log) {}
+}
+
+pub(crate) fn remove_latest_unknown_dungeon_command(log: &mut Vec<String>) -> bool {
+    let Some(header_index) = log.iter().rposition(|line| is_log_header(line)) else {
+        if log
+            .last()
+            .is_some_and(|line| line == UNKNOWN_DUNGEON_COMMAND_LOG_LINE)
+        {
+            log.pop();
+            return true;
+        }
+        return false;
+    };
+
+    if log.len() == header_index + 2
+        && log[header_index] == "== No turn spent: Command =="
+        && log[header_index + 1] == UNKNOWN_DUNGEON_COMMAND_LOG_LINE
+    {
+        log.truncate(header_index);
+        true
+    } else {
+        false
     }
 }
 
