@@ -537,7 +537,7 @@ fn enemy_turn_resolution_skips_changed_or_closed_dungeons() {
 }
 
 #[test]
-fn stairs_advance_floors_but_final_floor_requires_boss() {
+fn stairs_require_clear_floor_before_advancing() {
     let mut c = test_character();
     c.active_dungeon = Some(generate_dungeon(1));
     {
@@ -546,8 +546,32 @@ fn stairs_advance_floors_but_final_floor_requires_boss() {
         d.player_y = d.stairs_y;
     }
     use_stairs(&mut c);
-    assert_eq!(c.active_dungeon.as_ref().unwrap().floor, 2);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.floor, 1);
+    assert!(d.log.iter().any(|line| line.contains("monsters remain")));
 
+    c.active_dungeon.as_mut().unwrap().enemies.clear();
+    use_stairs(&mut c);
+    assert_eq!(c.active_dungeon.as_ref().unwrap().floor, 2);
+}
+
+#[test]
+fn returning_to_town_requires_clear_floor() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![rat(4, 2)]));
+
+    assert!(!try_leave_dungeon_for_town(&mut c));
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(d.log.iter().any(|line| line.contains("1 monster remains")));
+
+    c.active_dungeon.as_mut().unwrap().enemies[0].hp = 0;
+    assert!(try_leave_dungeon_for_town(&mut c));
+    assert!(c.active_dungeon.is_none());
+}
+
+#[test]
+fn boss_floors_report_remaining_monsters_before_leaving() {
+    let mut c = test_character();
     c.active_dungeon = Some(generate_dungeon(ACT1_FLOORS));
     {
         let d = c.active_dungeon.as_mut().unwrap();
@@ -557,7 +581,7 @@ fn stairs_advance_floors_but_final_floor_requires_boss() {
     use_stairs(&mut c);
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.floor, ACT1_FLOORS);
-    assert!(d.log.iter().any(|line| line.contains("Bellkeeper blocks")));
+    assert!(d.log.iter().any(|line| line.contains("monsters remain")));
 
     c.active_dungeon = Some(generate_dungeon(FINAL_FLOOR));
     {
@@ -568,11 +592,7 @@ fn stairs_advance_floors_but_final_floor_requires_boss() {
     use_stairs(&mut c);
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.floor, FINAL_FLOOR);
-    assert!(
-        d.log
-            .iter()
-            .any(|line| line.contains("Glass Tyrant blocks"))
-    );
+    assert!(d.log.iter().any(|line| line.contains("monsters remain")));
 }
 
 #[test]

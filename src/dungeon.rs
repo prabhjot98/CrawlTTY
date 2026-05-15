@@ -16,6 +16,47 @@ pub(crate) fn leave_dungeon(c: &mut Character) {
     c.active_dungeon = None;
 }
 
+pub(crate) fn living_monster_count(d: &Dungeon) -> usize {
+    d.enemies.iter().filter(|enemy| enemy.hp > 0).count()
+}
+
+pub(crate) fn monsters_remaining_message(remaining: usize) -> String {
+    let monster_text = if remaining == 1 {
+        "monster remains"
+    } else {
+        "monsters remain"
+    };
+    format!("{remaining} {monster_text} on this floor. Defeat all monsters before leaving.")
+}
+
+pub(crate) fn can_leave_dungeon_floor(d: &mut Dungeon) -> bool {
+    let remaining = living_monster_count(d);
+    if remaining == 0 {
+        return true;
+    }
+
+    log_event(
+        &mut d.log,
+        LogKind::Warn,
+        monsters_remaining_message(remaining),
+    );
+    false
+}
+
+pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
+    {
+        let Some(d) = c.active_dungeon.as_mut() else {
+            return false;
+        };
+        if !can_leave_dungeon_floor(d) {
+            return false;
+        }
+    }
+
+    leave_dungeon(c);
+    true
+}
+
 pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
     loop {
         clear_screen();
@@ -47,10 +88,11 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
             'p' | 'P' => took_turn = use_potion(c),
             'i' | 'I' => took_turn = inventory_screen(c),
             '\u{1b}' => {
-                leave_dungeon(c);
-                full_heal_on_town_return(c);
-                save_character(c)?;
-                break;
+                if try_leave_dungeon_for_town(c) {
+                    full_heal_on_town_return(c);
+                    save_character(c)?;
+                    break;
+                }
             }
             _ => {
                 if let Some(d) = c.active_dungeon.as_mut() {
@@ -1661,10 +1703,12 @@ pub(crate) fn open_chest_on_player(c: &mut Character) {
 pub(crate) fn use_stairs(c: &mut Character) {
     let floor;
     {
-        let d = c.active_dungeon.as_ref().unwrap();
+        let d = c.active_dungeon.as_mut().unwrap();
         if d.player_x != d.stairs_x || d.player_y != d.stairs_y {
-            let d = c.active_dungeon.as_mut().unwrap();
             log_event(&mut d.log, LogKind::Warn, "You are not standing on stairs.");
+            return;
+        }
+        if !can_leave_dungeon_floor(d) {
             return;
         }
         floor = d.floor;
