@@ -313,11 +313,10 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
     equip_or_use_inventory_item(&mut c, index);
 
     assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
-    assert!(
-        c.inventory
-            .iter()
-            .any(|item| item.name.starts_with("Rusted Sword"))
-    );
+    assert!(c
+        .inventory
+        .iter()
+        .any(|item| item.name.starts_with("Rusted Sword")));
 }
 
 #[test]
@@ -356,11 +355,9 @@ fn item_requirements_gate_equipping() {
     );
 
     assert!(!can_equip_item(&c, &high_level_axe));
-    assert!(
-        unmet_requirements_message(&c, &high_level_axe)
-            .unwrap()
-            .contains("STR")
-    );
+    assert!(unmet_requirements_message(&c, &high_level_axe)
+        .unwrap()
+        .contains("STR"));
 }
 
 #[test]
@@ -431,11 +428,10 @@ fn dungeon_generation_obeys_floor_content_rules() {
         assert_eq!(dungeon_tile(&d, d.stairs_x, d.stairs_y), '.');
         assert!((1..=3).contains(&d.chests.len()));
         assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
-        assert!(
-            d.chests
-                .iter()
-                .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.')
-        );
+        assert!(d
+            .chests
+            .iter()
+            .all(|ch| dungeon_tile(&d, ch.x, ch.y) == '.'));
         let mut occupied = std::collections::HashSet::new();
         for enemy in &d.enemies {
             assert!(occupied.insert((enemy.x, enemy.y)));
@@ -453,12 +449,10 @@ fn dungeon_generation_obeys_floor_content_rules() {
     assert!(!floor9.enemies.iter().any(|e| e.is_boss));
 
     let boss_floor = generate_dungeon(ACT1_FLOORS);
-    assert!(
-        boss_floor
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Bellkeeper")
-    );
+    assert!(boss_floor
+        .enemies
+        .iter()
+        .any(|e| e.is_boss && e.name == "Bellkeeper"));
 
     for floor in ACT2_START_FLOOR..=FINAL_FLOOR {
         let d = generate_dungeon(floor);
@@ -468,19 +462,15 @@ fn dungeon_generation_obeys_floor_content_rules() {
         assert!(d.enemies.iter().all(|e| dungeon_tile(&d, e.x, e.y) == '.'));
     }
     let act2_mid = generate_dungeon(ACT2_START_FLOOR + 2);
-    assert!(
-        act2_mid
-            .enemies
-            .iter()
-            .any(|e| e.name.contains("Glass Wraith"))
-    );
+    assert!(act2_mid
+        .enemies
+        .iter()
+        .any(|e| e.name.contains("Glass Wraith")));
     let act2_boss_floor = generate_dungeon(FINAL_FLOOR);
-    assert!(
-        act2_boss_floor
-            .enemies
-            .iter()
-            .any(|e| e.is_boss && e.name == "Glass Tyrant")
-    );
+    assert!(act2_boss_floor
+        .enemies
+        .iter()
+        .any(|e| e.is_boss && e.name == "Glass Tyrant"));
 }
 
 #[test]
@@ -531,11 +521,10 @@ fn stairs_advance_floors_but_final_floor_requires_boss() {
     use_stairs(&mut c);
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.floor, FINAL_FLOOR);
-    assert!(
-        d.log
-            .iter()
-            .any(|line| line.contains("Glass Tyrant blocks"))
-    );
+    assert!(d
+        .log
+        .iter()
+        .any(|line| line.contains("Glass Tyrant blocks")));
 }
 
 #[test]
@@ -738,11 +727,10 @@ fn bellkeeper_summons_skeletons_with_cap() {
         .filter(|e| e.name == "Summoned Skeleton")
         .count();
     assert_eq!(summons, 3);
-    assert!(
-        d.log
-            .iter()
-            .any(|line| line.contains("skeleton claws free"))
-    );
+    assert!(d
+        .log
+        .iter()
+        .any(|line| line.contains("skeleton claws free")));
 }
 
 #[test]
