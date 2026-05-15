@@ -9,7 +9,7 @@ After every completed code or documentation change in this repository:
    - This runs `cargo fmt` first, then `cargo test`, then `cargo check`.
 2. Review `git status --short` and `git diff` after the workflow. If `cargo fmt` changed files, include those changes in the same commit.
 3. Make the final git commit only after the formatter and validation have successfully run. Never commit first and then run `cargo fmt` afterward.
-4. Do not use `git commit --no-verify`. The project pre-commit hook enforces `cargo fmt --check`, `cargo test`, and `cargo check`.
+4. Do not use `git commit --no-verify`. The project pre-commit hook enforces `cargo fmt --check`, `cargo test`, and `cargo check`. If `git config --get core.hooksPath` is not `.githooks`, run `git config --local core.hooksPath .githooks` before committing.
 5. Commit the change before starting the next task.
 6. Use a concise, descriptive commit message.
 
