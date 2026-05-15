@@ -1,5 +1,18 @@
 use crate::*;
 
+pub(crate) fn clear_combat_state(c: &mut Character) {
+    c.cleave_cooldown = 0;
+    c.shield_bash_cooldown = 0;
+    c.battle_cry_cooldown = 0;
+    c.battle_cry_charges = 0;
+    c.second_wind_shield = 0;
+}
+
+pub(crate) fn leave_dungeon(c: &mut Character) {
+    clear_combat_state(c);
+    c.active_dungeon = None;
+}
+
 pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
     loop {
         clear_screen();
@@ -28,7 +41,7 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
             'p' | 'P' => took_turn = use_potion(c),
             'i' | 'I' => took_turn = inventory_screen(c),
             '\u{1b}' => {
-                c.active_dungeon = None;
+                leave_dungeon(c);
                 save_character(c)?;
                 break;
             }
@@ -792,6 +805,25 @@ pub(crate) fn resolve_enemy_death(
             format!("Boss reward dropped: {loot_name}."),
         );
         complete_boss_fight_in_dungeon(c, &name);
+        let level_summary = if levels_gained.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " Level up: reached level {}.",
+                levels_gained.last().copied().unwrap_or(c.level)
+            )
+        };
+        let quest_hint = if name == "Glass Tyrant" {
+            "Return to Warden Mara (t) to complete Act II."
+        } else {
+            "Return to Warden Mara (t) to complete Act I."
+        };
+        c.pending_town_message = format!(
+            "Defeated {name}! +{}, +{}. Boss reward: {loot_name}.{level_summary} {quest_hint}",
+            xp_reward_text(xp),
+            gold_reward_text(gold)
+        );
+        clear_combat_state(c);
         return true;
     }
     false
@@ -1639,10 +1671,15 @@ pub(crate) fn check_death(c: &mut Character) {
     }
     match c.death_mode {
         DeathMode::Softcore => {
+            let penalty = c.gold / 10;
             c.hp = c.max_hp();
             c.mana = c.max_mana();
-            c.gold = c.gold.saturating_sub(c.gold / 10);
-            c.active_dungeon = None;
+            c.gold = c.gold.saturating_sub(penalty);
+            leave_dungeon(c);
+            c.pending_town_message = format!(
+                "You died and returned to town. Lost {}.",
+                gold_reward_text(penalty)
+            );
         }
         DeathMode::Hardcore => {
             let _ = fs::remove_file(SAVE_PATH);

@@ -237,6 +237,8 @@ pub(crate) struct Character {
     pub(crate) second_wind_mastery: Option<SkillMastery>,
     #[serde(default)]
     pub(crate) second_wind_shield: u32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(crate) pending_town_message: String,
 }
 
 pub(crate) fn default_skill_rank() -> u32 {
@@ -298,6 +300,7 @@ impl Character {
             iron_guard_mastery: None,
             second_wind_mastery: None,
             second_wind_shield: 0,
+            pending_town_message: String::new(),
         }
     }
 

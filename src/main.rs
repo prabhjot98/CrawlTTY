@@ -43,12 +43,18 @@ fn main() -> Result<()> {
     }
 
     let mut character = load_or_create_character()?;
+    let mut town_message = std::mem::take(&mut character.pending_town_message);
     save_character(&character)?;
-    let mut town_message = String::new();
 
     loop {
         if character.active_dungeon.is_some() {
             dungeon_loop(&mut character)?;
+            if !character.pending_town_message.is_empty() {
+                town_message = std::mem::take(&mut character.pending_town_message);
+                save_character(&character)?;
+            } else {
+                town_message.clear();
+            }
             continue;
         }
 

@@ -46,21 +46,23 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
                 }
             }
             'x' | 'X' => {
-                message = drop_selected_inventory_item(c, selected);
-                if inventory_action_spends_turn(&message) {
+                let result = drop_selected_inventory_item(c, selected);
+                message = result.message;
+                if result.spent_turn {
                     append_autosave_status(c, &mut message);
                 }
-                if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
+                if c.active_dungeon.is_some() && result.spent_turn {
                     log_inventory_action(c, &message);
                     return true;
                 }
             }
             '\n' => {
-                message = equip_or_use_inventory_item(c, selected);
-                if inventory_action_spends_turn(&message) {
+                let result = equip_or_use_inventory_item(c, selected);
+                message = result.message;
+                if result.spent_turn {
                     append_autosave_status(c, &mut message);
                 }
-                if c.active_dungeon.is_some() && inventory_action_spends_turn(&message) {
+                if c.active_dungeon.is_some() && result.spent_turn {
                     log_inventory_action(c, &message);
                     return true;
                 }
@@ -70,10 +72,26 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
     }
 }
 
-pub(crate) fn inventory_action_spends_turn(message: &str) -> bool {
-    message.starts_with("Equipped ")
-        || message.starts_with("Used ")
-        || message.starts_with("Dropped ")
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InventoryActionResult {
+    pub(crate) message: String,
+    pub(crate) spent_turn: bool,
+}
+
+impl InventoryActionResult {
+    pub(crate) fn spent(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            spent_turn: true,
+        }
+    }
+
+    pub(crate) fn free(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            spent_turn: false,
+        }
+    }
 }
 
 pub(crate) fn log_inventory_action(c: &mut Character, message: &str) {
@@ -190,14 +208,17 @@ pub(crate) fn clamp_selection(selected: &mut usize, total: usize) {
     }
 }
 
-pub(crate) fn drop_selected_inventory_item(c: &mut Character, index: usize) -> String {
+pub(crate) fn drop_selected_inventory_item(
+    c: &mut Character,
+    index: usize,
+) -> InventoryActionResult {
     if c.inventory.is_empty() {
-        "Inventory is empty.".to_string()
+        InventoryActionResult::free("Inventory is empty.")
     } else if index >= c.inventory.len() {
-        "No item selected.".to_string()
+        InventoryActionResult::free("No item selected.")
     } else {
         let item = c.inventory.remove(index);
-        format!("Dropped {}.", item.name)
+        InventoryActionResult::spent(format!("Dropped {}.", item.name))
     }
 }
 
@@ -360,9 +381,12 @@ pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<S
     Some(format!("Requires {}.", missing.join(", ")))
 }
 
-pub(crate) fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> String {
+pub(crate) fn equip_or_use_inventory_item(
+    c: &mut Character,
+    index: usize,
+) -> InventoryActionResult {
     if index >= c.inventory.len() {
-        return "No item in that slot.".to_string();
+        return InventoryActionResult::free("No item in that slot.");
     }
     let selected = c.inventory.remove(index);
     if matches!(
@@ -371,7 +395,7 @@ pub(crate) fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> St
     ) {
         if let Some(message) = unmet_requirements_message(c, &selected) {
             c.inventory.insert(index, selected);
-            return message;
+            return InventoryActionResult::free(message);
         }
     }
     match selected.kind {
@@ -379,41 +403,45 @@ pub(crate) fn equip_or_use_inventory_item(c: &mut Character, index: usize) -> St
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
             c.inventory.push(old);
-            format!("Equipped {name}.")
+            InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Armor => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_armor, selected);
             c.inventory.push(old);
-            format!("Equipped {name}.")
+            InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Shield => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_shield, selected);
             c.inventory.push(old);
-            format!("Equipped {name}.")
+            InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::HealthPotion => {
             if c.hp >= c.max_hp() {
                 c.inventory.insert(index, selected);
-                return "HP is already full.".to_string();
+                return InventoryActionResult::free("HP is already full.");
             }
             let heal = lesser_potion_restore(c.max_hp());
             let before = c.hp;
             c.hp = (c.hp + heal).min(c.max_hp());
             let restored = c.hp - before;
-            format!("Used a lesser health potion and restored {restored} HP.")
+            InventoryActionResult::spent(format!(
+                "Used a lesser health potion and restored {restored} HP."
+            ))
         }
         ItemKind::ManaPotion => {
             if c.mana >= c.max_mana() {
                 c.inventory.insert(index, selected);
-                return "Mana is already full.".to_string();
+                return InventoryActionResult::free("Mana is already full.");
             }
             let restore = lesser_potion_restore(c.max_mana());
             let before = c.mana;
             c.mana = (c.mana + restore).min(c.max_mana());
             let restored = c.mana - before;
-            format!("Used a lesser mana potion and restored {restored} mana.")
+            InventoryActionResult::spent(format!(
+                "Used a lesser mana potion and restored {restored} mana."
+            ))
         }
     }
 }

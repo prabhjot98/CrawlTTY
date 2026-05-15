@@ -204,14 +204,14 @@ pub(crate) fn push_level_up_logs(log: &mut Vec<String>, levels_gained: &[u32]) {
     }
 }
 
-pub(crate) fn prompt(label: &str) -> String {
+pub(crate) fn prompt(label: &str) -> Result<String> {
     print!("{label}");
-    io::stdout().flush().expect("failed to flush stdout");
+    io::stdout().flush().context("failed to flush stdout")?;
     let mut input = String::new();
     io::stdin()
         .read_line(&mut input)
-        .expect("failed to read input");
-    input.trim_end().to_string()
+        .context("failed to read input")?;
+    Ok(input.trim_end().to_string())
 }
 
 pub(crate) fn clear_screen() {

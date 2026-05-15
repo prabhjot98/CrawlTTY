@@ -322,13 +322,24 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
 
 #[test]
 fn successful_inventory_actions_spend_dungeon_turns() {
-    assert!(inventory_action_spends_turn("Equipped Crude Axe."));
-    assert!(inventory_action_spends_turn(
-        "Used a lesser health potion and restored 6 HP."
-    ));
-    assert!(inventory_action_spends_turn("Dropped Rusted Sword."));
-    assert!(!inventory_action_spends_turn("No item in that slot."));
-    assert!(!inventory_action_spends_turn("Unknown inventory command."));
+    let mut c = test_character();
+    c.inventory.push(crude_axe());
+    let axe_index = c.inventory.len() - 1;
+    assert!(equip_or_use_inventory_item(&mut c, axe_index).spent_turn);
+
+    c.hp = 1;
+    let potion_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::HealthPotion))
+        .unwrap();
+    assert!(equip_or_use_inventory_item(&mut c, potion_index).spent_turn);
+
+    c.inventory.push(rusted_sword());
+    let sword_index = c.inventory.len() - 1;
+    assert!(drop_selected_inventory_item(&mut c, sword_index).spent_turn);
+    assert!(!equip_or_use_inventory_item(&mut c, usize::MAX).spent_turn);
+    assert!(!drop_selected_inventory_item(&mut c, usize::MAX).spent_turn);
 }
 
 #[test]
@@ -770,12 +781,61 @@ fn bellkeeper_bleed_death_completes_boss_fight_even_with_mobs_left() {
     boss.bleed_turns = 1;
     boss.bleed_damage = 2;
     let mut c = test_character();
+    c.battle_cry_charges = 3;
+    c.second_wind_shield = 5;
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]));
 
     enemy_turns(&mut c);
 
     assert!(c.bellkeeper_defeated);
     assert!(c.active_dungeon.is_none());
+    assert_eq!(c.battle_cry_charges, 0);
+    assert_eq!(c.second_wind_shield, 0);
+    assert!(c.pending_town_message.contains("Defeated Bellkeeper"));
+    assert!(c.pending_town_message.contains("Boss reward"));
+}
+
+#[test]
+fn entering_dungeon_clears_stale_combat_state() {
+    let mut c = test_character();
+    c.cleave_cooldown = 1;
+    c.shield_bash_cooldown = 2;
+    c.battle_cry_cooldown = 3;
+    c.battle_cry_charges = 4;
+    c.second_wind_shield = 5;
+    c.pending_town_message = "old news".to_string();
+
+    assert_eq!(enter_dungeon(&mut c), "");
+
+    assert!(c.active_dungeon.is_some());
+    assert_eq!(c.cleave_cooldown, 0);
+    assert_eq!(c.shield_bash_cooldown, 0);
+    assert_eq!(c.battle_cry_cooldown, 0);
+    assert_eq!(c.battle_cry_charges, 0);
+    assert_eq!(c.second_wind_shield, 0);
+    assert!(c.pending_town_message.is_empty());
+}
+
+#[test]
+fn softcore_death_clears_dungeon_and_combat_state() {
+    let mut c = test_character();
+    c.hp = 0;
+    c.gold = 100;
+    c.cleave_cooldown = 1;
+    c.battle_cry_charges = 4;
+    c.second_wind_shield = 5;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    check_death(&mut c);
+
+    assert!(c.active_dungeon.is_none());
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
+    assert_eq!(c.gold, 90);
+    assert_eq!(c.cleave_cooldown, 0);
+    assert_eq!(c.battle_cry_charges, 0);
+    assert_eq!(c.second_wind_shield, 0);
+    assert!(c.pending_town_message.contains("returned to town"));
 }
 
 #[test]
@@ -794,6 +854,7 @@ fn spiked_guard_boss_kill_completes_boss_fight() {
 
     assert!(c.bellkeeper_defeated);
     assert!(d.log.iter().any(|line| line.contains("Spiked Guard")));
+    assert!(c.pending_town_message.contains("Defeated Bellkeeper"));
 }
 
 #[test]
@@ -852,10 +913,9 @@ fn inventory_potions_restore_actual_amount_and_do_not_waste_at_full() {
         .unwrap();
     let starting_items = c.inventory.len();
 
-    assert_eq!(
-        equip_or_use_inventory_item(&mut c, health_index),
-        "HP is already full."
-    );
+    let result = equip_or_use_inventory_item(&mut c, health_index);
+    assert_eq!(result.message, "HP is already full.");
+    assert!(!result.spent_turn);
     assert_eq!(c.inventory.len(), starting_items);
 
     c.hp = c.max_hp() - 1;
@@ -864,28 +924,31 @@ fn inventory_potions_restore_actual_amount_and_do_not_waste_at_full() {
         .iter()
         .position(|item| matches!(item.kind, ItemKind::HealthPotion))
         .unwrap();
+    let result = equip_or_use_inventory_item(&mut c, health_index);
     assert_eq!(
-        equip_or_use_inventory_item(&mut c, health_index),
+        result.message,
         "Used a lesser health potion and restored 1 HP."
     );
+    assert!(result.spent_turn);
 
     let mana_index = c
         .inventory
         .iter()
         .position(|item| matches!(item.kind, ItemKind::ManaPotion))
         .unwrap();
-    assert_eq!(
-        equip_or_use_inventory_item(&mut c, mana_index),
-        "Mana is already full."
-    );
+    let result = equip_or_use_inventory_item(&mut c, mana_index);
+    assert_eq!(result.message, "Mana is already full.");
+    assert!(!result.spent_turn);
     c.mana = c.max_mana() - 1;
     let mana_index = c
         .inventory
         .iter()
         .position(|item| matches!(item.kind, ItemKind::ManaPotion))
         .unwrap();
+    let result = equip_or_use_inventory_item(&mut c, mana_index);
     assert_eq!(
-        equip_or_use_inventory_item(&mut c, mana_index),
+        result.message,
         "Used a lesser mana potion and restored 1 mana."
     );
+    assert!(result.spent_turn);
 }

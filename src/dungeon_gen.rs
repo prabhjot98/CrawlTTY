@@ -9,12 +9,16 @@ pub(crate) fn enter_dungeon(c: &mut Character) -> String {
             .to_string();
     }
     if c.act1_completed {
+        clear_combat_state(c);
+        c.pending_town_message.clear();
         c.active_dungeon = Some(generate_dungeon(ACT2_START_FLOOR));
         return String::new();
     }
     if c.bellkeeper_defeated {
         return "The Bellkeeper is dead. Return to Warden Mara (t) to complete Act I.".to_string();
     }
+    clear_combat_state(c);
+    c.pending_town_message.clear();
     c.active_dungeon = Some(generate_dungeon(1));
     String::new()
 }

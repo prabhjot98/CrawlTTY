@@ -7,7 +7,7 @@ pub(crate) fn load_or_create_character() -> Result<Character> {
     }
     println!("CrawlTTY");
     println!("ASCII terminal action RPG prototype");
-    let name = prompt("Character name: ");
+    let name = prompt("Character name: ")?;
     println!("{BOLD}Choose death mode:{RESET}");
     println!("{GREEN}Softcore{RESET}: death returns you to town.");
     println!("{RED}Hardcore{RESET}: death permanently ends the character.");
@@ -87,5 +87,15 @@ pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
 
 #[cfg(not(windows))]
 pub(crate) fn replace_file(tmp_path: &Path, save_path: &Path) -> Result<()> {
-    fs::rename(tmp_path, save_path).context("failed to move temporary save file")
+    fs::rename(tmp_path, save_path).context("failed to move temporary save file")?;
+    if let Some(parent) = save_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::File::open(parent)
+            .context("failed to open save directory for syncing")?
+            .sync_all()
+            .context("failed to sync save directory")?;
+    }
+    Ok(())
 }
