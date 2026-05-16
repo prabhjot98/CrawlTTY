@@ -464,6 +464,7 @@ Current direction:
 - The player bag starts at `4 x 4` and caps at `8 x 8`.
 - Bag expansion comes from the Quartermaster project chain: Storehouse Shelves (`200` gold, `5 x 4`), Pack Hooks (`350` gold, `5 x 5`), Oilcloth Satchel (`500` gold, `6 x 5`), Quartermaster Ledger (`700` gold, `6 x 6`), Reinforced Pack (`950` gold, `7 x 6`), Stitched Pockets (`1200` gold, `7 x 7`), Deep Rucksack (`1500` gold, `8 x 7`), and Exile's Trunk (`1900` gold, `8 x 8`).
 - The stash is also a grid, starts at `8 x 8`, and uses the same selected-item detail panel pattern.
+- Stash transfers require destination capacity. Moving an item into a full inventory or stash grid fails with `No room in destination.` and leaves both grids unchanged.
 - Future storage expansion beyond the first `8 x 8` bag should use tabs rather than one larger grid.
 - Ratatui should be used for inventory, stash, and ground-loot picker screens whenever possible. If a new inventory-adjacent screen cannot use ratatui, the implementation should explain the blocker before using a legacy ANSI fallback.
 
@@ -732,7 +733,7 @@ Socket roll odds:
 - Magic gear: 20% chance for 1 socket, 5% chance for 2 sockets
 - Rare gear: 25% chance for 1 socket, 10% chance for 2 sockets
 
-The Socket Bench town project unlocks free gem insertion, removal, and replacement in town. Removing a gem returns it to inventory. Replacing a gem returns the old gem to inventory and inserts the selected new gem.
+The Socket Bench town project unlocks free gem insertion, removal, and replacement in town. Removing a gem returns it to inventory. Replacing a gem returns the old gem to inventory and inserts the selected new gem. Removing a socketed gem requires one free bag cell; if the bag is full, the action fails and the gem remains socketed. Replacing a socketed gem also preserves the replaced gem in the bag; if the bag cannot accept it, the replacement fails without changing the socket.
 
 ### Gems
 
@@ -1004,7 +1005,7 @@ Other MVP items:
 
 ### MVP Equipment Interaction
 
-The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory when capacity allows. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
+The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory when capacity allows; equipping replacement gear fails without consuming an action when the bag cannot accept the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
 
 Loot should feel rewarding:
 
