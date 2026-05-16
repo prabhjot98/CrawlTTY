@@ -797,7 +797,7 @@ pub(crate) fn damage_enemy(
         return DamageEnemyOutcome::Missed;
     }
 
-    let critical = crit_roll(c.equipped_weapon.crit_chance);
+    let critical = crit_roll(player_crit_chance(c));
     let mut raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
     if d.enemies[enemy_index].vulnerable_turns > 0 {
         raw += 2;
@@ -1553,6 +1553,14 @@ pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
 pub(crate) fn crit_roll(crit_chance: u32) -> bool {
     let chance = (crit_chance.min(100) as f64) / 100.0;
     rand::thread_rng().gen_bool(chance)
+}
+
+pub(crate) fn player_crit_chance(c: &Character) -> u32 {
+    let battle_cry_bonus = if c.battle_cry_charges > 0 { 5 } else { 0 };
+    c.equipped_weapon
+        .crit_chance
+        .saturating_add(battle_cry_bonus)
+        .min(100)
 }
 
 pub(crate) fn maybe_drop_loot_in_dungeon(

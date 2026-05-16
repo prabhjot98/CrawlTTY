@@ -1029,6 +1029,20 @@ fn crit_roll_handles_extreme_chances() {
 }
 
 #[test]
+fn battle_cry_adds_flat_crit_chance_to_equipped_weapon() {
+    let mut c = test_character();
+    c.equipped_weapon.crit_chance = 8;
+
+    assert_eq!(player_crit_chance(&c), 8);
+
+    c.battle_cry_charges = 1;
+    assert_eq!(player_crit_chance(&c), 13);
+
+    c.equipped_weapon.crit_chance = 98;
+    assert_eq!(player_crit_chance(&c), 100);
+}
+
+#[test]
 fn critical_damage_enemy_doubles_post_armor_damage_and_logs_hit() {
     for _ in 0..200 {
         let mut c = critical_combat_test_character();
