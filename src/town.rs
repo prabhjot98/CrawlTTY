@@ -1089,14 +1089,8 @@ pub(crate) fn render_stash_screen(
     .block(Block::default().borders(Borders::ALL).title("Stash"));
     frame.render_widget(title, layout[0]);
 
-    let body = Layout::horizontal([
-        Constraint::Min(24),
-        Constraint::Min(24),
-        Constraint::Length(38),
-    ])
-    .split(layout[1]);
-    render_item_grid(frame, &c.inventory, inv_selected, body[0], "Inventory");
-    render_item_grid(frame, &c.stash, stash_selected, body[1], "Stash");
+    let inventory_title = stash_grid_title("Inventory", side == StashSide::Inventory);
+    let stash_title = stash_grid_title("Stash", side == StashSide::Stash);
     let selected_item = match side {
         StashSide::Inventory => c.inventory.get(inv_selected),
         StashSide::Stash => c.stash.get(stash_selected),
@@ -1105,11 +1099,31 @@ pub(crate) fn render_stash_screen(
         StashSide::Inventory => (&c.inventory, "Inventory"),
         StashSide::Stash => (&c.stash, "Stash"),
     };
-    frame.render_widget(
-        Paragraph::new(selected_item_detail_lines(c, grid, label, selected_item))
-            .block(Block::default().borders(Borders::ALL).title("Details")),
-        body[2],
-    );
+
+    if frame.area().width >= 100 {
+        let body = Layout::horizontal([
+            Constraint::Length(24),
+            Constraint::Min(34),
+            Constraint::Length(38),
+        ])
+        .split(layout[1]);
+        render_item_grid(frame, &c.inventory, inv_selected, body[0], &inventory_title);
+        render_item_grid(frame, &c.stash, stash_selected, body[1], &stash_title);
+        render_stash_details(frame, c, grid, label, selected_item, body[2]);
+    } else {
+        let body = Layout::vertical([Constraint::Length(10), Constraint::Min(3)]).split(layout[1]);
+        let grids = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(body[0]);
+        render_item_grid(
+            frame,
+            &c.inventory,
+            inv_selected,
+            grids[0],
+            &inventory_title,
+        );
+        render_item_grid(frame, &c.stash, stash_selected, grids[1], &stash_title);
+        render_stash_details(frame, c, grid, label, selected_item, body[1]);
+    }
 
     let commands = "Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back";
     let footer = if message.is_empty() {
@@ -1121,6 +1135,29 @@ pub(crate) fn render_stash_screen(
         Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
         layout[2],
     );
+}
+
+fn render_stash_details(
+    frame: &mut Frame,
+    c: &Character,
+    grid: &ItemGrid,
+    label: &str,
+    selected_item: Option<&Item>,
+    area: Rect,
+) {
+    frame.render_widget(
+        Paragraph::new(selected_item_detail_lines(c, grid, label, selected_item))
+            .block(Block::default().borders(Borders::ALL).title("Details")),
+        area,
+    );
+}
+
+fn stash_grid_title(title: &str, active: bool) -> String {
+    if active {
+        format!("{title} *")
+    } else {
+        title.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -1138,8 +1175,16 @@ pub(crate) fn stash_screen_text_for_test(
         c.stash.len(),
         c.stash.capacity()
     )];
-    append_grid_text_for_test(&mut lines, "Inventory", &c.inventory);
-    append_grid_text_for_test(&mut lines, "Stash", &c.stash);
+    append_grid_text_for_test(
+        &mut lines,
+        &stash_grid_title("Inventory", side == StashSide::Inventory),
+        &c.inventory,
+    );
+    append_grid_text_for_test(
+        &mut lines,
+        &stash_grid_title("Stash", side == StashSide::Stash),
+        &c.stash,
+    );
 
     let selected_item = match side {
         StashSide::Inventory => c.inventory.get(inv_selected),

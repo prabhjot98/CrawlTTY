@@ -273,7 +273,31 @@ fn stash_render_lines_include_both_grid_capacities() {
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
+    assert!(rendered.contains("Inventory *"));
     assert!(rendered.contains("Tab=switch"));
+}
+
+#[test]
+fn stash_render_80_columns_shows_both_grids_details_message_and_commands() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_stash_screen(frame, &c, StashSide::Stash, 0, 0, "Stored item."))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
+    assert!(rendered.contains("Inventory"));
+    assert!(rendered.contains("Stash *"));
+    assert!(rendered.contains("[H]"));
+    assert!(rendered.contains("[M]"));
+    assert!(rendered.contains("[.] [.] [.] [.] [.] [.] [.] [.]"));
+    assert!(rendered.contains("Empty cell"));
+    assert!(rendered.contains("Stored item."));
+    assert!(rendered.contains("Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back"));
 }
 
 #[test]
