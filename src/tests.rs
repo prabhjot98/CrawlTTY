@@ -4,6 +4,24 @@ fn test_character() -> Character {
     Character::new("Tester".to_string(), DeathMode::Softcore)
 }
 
+fn critical_combat_test_character() -> Character {
+    let mut c = test_character();
+    c.strength = 0;
+    c.equipped_weapon.damage_min = 10;
+    c.equipped_weapon.damage_max = 10;
+    c.equipped_weapon.crit_chance = 100;
+    c
+}
+
+fn armored_training_dummy(x: i32, y: i32) -> Enemy {
+    let mut enemy = skeleton(x, y);
+    enemy.name = "Armored Dummy".to_string();
+    enemy.hp = 30;
+    enemy.max_hp = 30;
+    enemy.armor = 3;
+    enemy
+}
+
 fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dungeon {
     Dungeon {
         floor: 2,
@@ -990,6 +1008,54 @@ fn crit_roll_handles_extreme_chances() {
         assert!(crit_roll(100));
         assert!(crit_roll(250));
     }
+}
+
+#[test]
+fn critical_damage_enemy_doubles_post_armor_damage_and_logs_hit() {
+    for _ in 0..200 {
+        let mut c = critical_combat_test_character();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+        if damage_enemy(&mut c, 0, 1.0, "hit") == DamageEnemyOutcome::Missed {
+            continue;
+        }
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.enemies[0].hp, 16);
+        assert!(d.log.iter().any(|line| {
+            line.contains("Critical hit! You hit Armored Dummy") && line.contains(&damage_text(14))
+        }));
+        return;
+    }
+
+    panic!("forced-crit damage_enemy test missed every attack");
+}
+
+#[test]
+fn critical_cleave_uses_shared_damage_path() {
+    for _ in 0..200 {
+        let mut c = critical_combat_test_character();
+        c.cleave_rank = 3;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+        assert!(use_cleave(&mut c));
+        let d = c.active_dungeon.as_ref().unwrap();
+        if d.log
+            .iter()
+            .any(|line| line.contains("You miss Armored Dummy"))
+        {
+            continue;
+        }
+
+        assert_eq!(d.enemies[0].hp, 16);
+        assert!(d.log.iter().any(|line| {
+            line.contains("Critical hit! You cleave Armored Dummy")
+                && line.contains(&damage_text(14))
+        }));
+        return;
+    }
+
+    panic!("forced-crit cleave test missed every attack");
 }
 
 #[test]
