@@ -33,6 +33,18 @@ fn armored_training_dummy(x: i32, y: i32) -> Enemy {
     enemy
 }
 
+fn one_hp_test_boss(x: i32, y: i32) -> Enemy {
+    enemy(
+        "Test Boss",
+        'B',
+        x,
+        y,
+        enemy_stats(1, 0, 0, 0, 10),
+        enemy_rewards(10, 1, 1),
+        true,
+    )
+}
+
 fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dungeon {
     Dungeon {
         floor: 2,
@@ -225,6 +237,51 @@ fn rogue_builders_grant_combo_points_and_cap_at_five() {
 }
 
 #[test]
+fn poisoned_target_empowers_backstab_multiplier() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert_eq!(backstab_multiplier_for_target(&c, 0), 0.90);
+
+    c.active_dungeon.as_mut().unwrap().enemies[0].poison_turns = 2;
+    assert_eq!(backstab_multiplier_for_target(&c, 0), 1.20);
+
+    c.active_dungeon.as_mut().unwrap().enemies[0].poison_turns = 0;
+    c.rogue.empowered_backstab_turns = 1;
+    assert_eq!(backstab_multiplier_for_target(&c, 0), 1.20);
+}
+
+#[test]
+fn backstab_boss_kill_leaves_combo_cleared() {
+    for _ in 0..200 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.dexterity = 1000;
+        c.equipped_weapon.damage_min = 20;
+        c.equipped_weapon.damage_max = 20;
+        c.equipped_weapon.crit_chance = 0;
+        c.rogue.combo_points = 4;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![one_hp_test_boss(3, 2)]));
+
+        assert!(use_backstab(&mut c));
+        if c.pending_town_message.contains("Defeated Test Boss") {
+            assert_eq!(c.rogue.combo_points, 0);
+            return;
+        }
+    }
+
+    panic!("backstab boss cleanup test missed every attack");
+}
+
+#[test]
 fn eviscerate_requires_and_spends_combo_points() {
     let enemy = armored_training_dummy(3, 2);
     let mut c = Character::new(
@@ -291,6 +348,39 @@ fn eviscerate_poison_payoff_can_kill_and_award_rewards() {
     let d = c.active_dungeon.as_ref().unwrap();
     assert!(d.enemies[0].hp <= 0 || d.enemies.is_empty());
     assert!(c.xp >= 10);
+}
+
+#[test]
+fn eviscerate_retained_boss_dungeon_leaves_smoke_protection_cleared() {
+    for _ in 0..200 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        fill_inventory_to_capacity(&mut c);
+        c.dexterity = 1000;
+        c.strength = 0;
+        c.equipped_weapon.damage_min = 1;
+        c.equipped_weapon.damage_max = 1;
+        c.equipped_weapon.crit_chance = 0;
+        c.rogue.combo_points = 5;
+        c.rogue.energy = ROGUE_MAX_ENERGY;
+        let mut boss = one_hp_test_boss(3, 2);
+        boss.hp = 7;
+        boss.max_hp = 7;
+        boss.poison_turns = 3;
+        boss.poison_damage = 1;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss]));
+
+        assert!(use_eviscerate(&mut c));
+        if c.pending_town_message.contains("Defeated Test Boss") {
+            assert_eq!(c.rogue.smoke_protection_turns, 0);
+            return;
+        }
+    }
+
+    panic!("eviscerate boss cleanup test missed every attack");
 }
 
 #[test]

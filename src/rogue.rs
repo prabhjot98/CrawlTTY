@@ -28,6 +28,19 @@ pub(crate) fn backstab_multiplier(c: &Character) -> f32 {
     }
 }
 
+pub(crate) fn backstab_multiplier_for_target(c: &Character, enemy_index: usize) -> f32 {
+    let target_poisoned = c
+        .active_dungeon
+        .as_ref()
+        .and_then(|d| d.enemies.get(enemy_index))
+        .is_some_and(|enemy| enemy.poison_turns > 0);
+    if target_poisoned {
+        1.20
+    } else {
+        backstab_multiplier(c)
+    }
+}
+
 pub(crate) fn venom_edge_multiplier(_c: &Character) -> f32 {
     0.70
 }
@@ -71,16 +84,22 @@ pub(crate) fn damage_enemy_with_rogue_effect(
     enemy_index: usize,
     source: &'static str,
     damage: i32,
-) {
+) -> DamageEnemyOutcome {
     let Some(mut d) = c.active_dungeon.take() else {
-        return;
+        return DamageEnemyOutcome::NoTarget;
     };
     let ground_items_before_death = d.ground_items.len();
+    let mut outcome = DamageEnemyOutcome::NoTarget;
     let mut killed = false;
     if let Some(enemy) = d.enemies.get_mut(enemy_index) {
         if enemy.hp > 0 {
             enemy.hp -= damage;
             killed = enemy.hp <= 0;
+            outcome = if killed {
+                DamageEnemyOutcome::Killed
+            } else {
+                DamageEnemyOutcome::Hit
+            };
             log_event(
                 &mut d.log,
                 LogKind::Hit,
@@ -94,9 +113,10 @@ pub(crate) fn damage_enemy_with_rogue_effect(
     }
     if killed && resolve_enemy_death(c, &mut d, enemy_index, EnemyDeathCause::Effect { source }) {
         finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
-        return;
+        return DamageEnemyOutcome::BossDefeated;
     }
     c.active_dungeon = Some(d);
+    outcome
 }
 
 pub(crate) fn use_backstab(c: &mut Character) -> bool {
@@ -108,8 +128,11 @@ pub(crate) fn use_backstab(c: &mut Character) -> bool {
         c.restore_rogue_energy(BACKSTAB_COST);
         return false;
     };
-    let multiplier = backstab_multiplier(c);
-    damage_enemy(c, index, multiplier, "backstab");
+    let multiplier = backstab_multiplier_for_target(c, index);
+    let outcome = damage_enemy(c, index, multiplier, "backstab");
+    if outcome == DamageEnemyOutcome::BossDefeated {
+        return true;
+    }
     add_rogue_combo_point(c);
     c.rogue.empowered_backstab_turns = 0;
     true
@@ -124,7 +147,10 @@ pub(crate) fn use_venom_edge(c: &mut Character) -> bool {
         c.restore_rogue_energy(VENOM_EDGE_COST);
         return false;
     };
-    damage_enemy(c, index, venom_edge_multiplier(c), "venom edge");
+    let outcome = damage_enemy(c, index, venom_edge_multiplier(c), "venom edge");
+    if outcome == DamageEnemyOutcome::BossDefeated {
+        return true;
+    }
     let poison_damage = poison_damage_for_rank(c.rogue.venom_edge_rank);
     if let Some(enemy) = c
         .active_dungeon
@@ -155,7 +181,10 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
         return false;
     };
     let multiplier = eviscerate_multiplier_for_points(points);
-    damage_enemy(c, index, multiplier, "eviscerate");
+    let outcome = damage_enemy(c, index, multiplier, "eviscerate");
+    if outcome == DamageEnemyOutcome::BossDefeated {
+        return true;
+    }
     c.rogue.combo_points = 0;
     let poison_bonus = {
         let Some(d) = c.active_dungeon.as_mut() else {
@@ -172,7 +201,11 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
         }
     };
     if let Some(bonus) = poison_bonus {
-        damage_enemy_with_rogue_effect(c, index, "Eviscerate poison", bonus);
+        if damage_enemy_with_rogue_effect(c, index, "Eviscerate poison", bonus)
+            == DamageEnemyOutcome::BossDefeated
+        {
+            return true;
+        }
     }
     if c.rogue.slip_away_rank > 0 {
         c.rogue.smoke_protection_turns = c.rogue.smoke_protection_turns.max(1);
