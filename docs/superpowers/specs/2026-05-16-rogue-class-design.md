@@ -200,6 +200,8 @@ Character creation should allow:
 
 The chosen class sets starting attributes, resource model, skill state, and starting gear.
 
+Rogue UI work should use the existing ratatui screen patterns. Do not add new raw terminal or legacy `println!` screens for class selection, Rogue skill help, Rogue skill tree details, or Rogue-specific combat feedback. Non-interactive process messages may remain plain stdout, matching the rest of the project.
+
 Dungeon UI should be class-aware:
 
 - Warrior still shows mana and Warrior skills.
@@ -235,4 +237,3 @@ Tests should cover:
 - Smoke Step moves to valid cardinal destinations and enables empowered Backstab.
 - Rogue skill hotkeys are shown in dungeon help.
 - Warrior skill behavior remains covered by existing tests.
-
