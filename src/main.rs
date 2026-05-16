@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     }
 
     let mut character = load_or_create_character()?;
-    let mut town_message = std::mem::take(&mut character.pending_town_message);
+    let mut town_message = take_startup_town_message(&mut character);
     save_character(&character)?;
 
     {
@@ -62,6 +62,14 @@ fn main() -> Result<()> {
 
     println!("Saved. Goodbye.");
     Ok(())
+}
+
+fn take_startup_town_message(character: &mut Character) -> String {
+    if character.active_dungeon.is_some() {
+        String::new()
+    } else {
+        std::mem::take(&mut character.pending_town_message)
+    }
 }
 
 fn run_game(

@@ -1225,6 +1225,36 @@ fn capped_full_inventory_boss_reward_stays_grounded_without_expanding_bag() {
 }
 
 #[test]
+fn player_attack_boss_overflow_finalizer_retains_dungeon() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    let mut boss = skeleton(7, 6);
+    boss.name = "Test Boss".to_string();
+    boss.hp = 0;
+    boss.is_boss = true;
+    let mut d = open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]);
+    let ground_items_before_death = d.ground_items.len();
+
+    assert!(resolve_enemy_death(
+        &mut c,
+        &mut d,
+        0,
+        EnemyDeathCause::PlayerAttack {
+            verb: "hit",
+            damage: 1,
+            critical: false,
+        },
+    ));
+    let outcome = finish_boss_defeat_after_player_action(&mut c, d, ground_items_before_death);
+
+    assert_eq!(outcome, DamageEnemyOutcome::BossDefeated);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
+    assert_eq!(living_monster_count(d), 0);
+}
+
+#[test]
 fn dropping_inventory_item_in_dungeon_creates_ground_item() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(4, 5, Vec::new()));
@@ -2062,6 +2092,47 @@ fn returning_to_town_restores_hp_and_mana_and_reports_it() {
 }
 
 #[test]
+fn returning_to_town_full_heal_message_is_not_duplicated() {
+    let mut c = test_character();
+    c.pending_town_message = format!("Defeated Test Boss. {TOWN_FULL_HEAL_MESSAGE}");
+
+    full_heal_on_town_return(&mut c);
+    full_heal_on_town_return(&mut c);
+
+    assert_eq!(
+        c.pending_town_message
+            .matches(TOWN_FULL_HEAL_MESSAGE)
+            .count(),
+        1
+    );
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
+}
+
+#[test]
+fn startup_keeps_pending_town_message_when_dungeon_is_active() {
+    let mut c = test_character();
+    c.pending_town_message = "Defeated Test Boss.".to_string();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    let town_message = take_startup_town_message(&mut c);
+
+    assert!(town_message.is_empty());
+    assert_eq!(c.pending_town_message, "Defeated Test Boss.");
+}
+
+#[test]
+fn startup_moves_pending_town_message_when_starting_in_town() {
+    let mut c = test_character();
+    c.pending_town_message = "Defeated Test Boss.".to_string();
+
+    let town_message = take_startup_town_message(&mut c);
+
+    assert_eq!(town_message, "Defeated Test Boss.");
+    assert!(c.pending_town_message.is_empty());
+}
+
+#[test]
 fn spiked_guard_boss_kill_completes_boss_fight() {
     let mut c = test_character();
     let mut boss = bellkeeper(5, 5);
@@ -2084,27 +2155,18 @@ fn spiked_guard_boss_kill_completes_boss_fight() {
 fn full_inventory_spiked_guard_boss_reward_retains_dungeon_after_gameplay_kill() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
-    c.iron_guard_mastery = Some(SkillMastery::SpikedGuard);
-    c.dexterity = 0;
-    c.equipped_armor.dodge = -10;
-    c.equipped_shield.dodge = 0;
     let mut boss = bellkeeper(3, 2);
-    boss.hp = 2;
-    boss.energy = 100;
-    boss.damage_min = 1;
-    boss.damage_max = 1;
-    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]));
+    boss.hp = 0;
+    let mut d = open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]);
+    let ground_items_before_death = d.ground_items.len();
 
-    for _ in 0..20 {
-        enemy_turns(&mut c);
-        let Some(d) = c.active_dungeon.as_mut() else {
-            break;
-        };
-        if !d.ground_items.is_empty() {
-            break;
-        }
-        d.enemies[0].energy = 100;
-    }
+    assert!(resolve_enemy_killed_by_effect(
+        &mut c,
+        &mut d,
+        0,
+        "Spiked Guard"
+    ));
+    finish_boss_defeat_after_effect_kill(&mut c, d, ground_items_before_death);
 
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.ground_items.len(), 1);

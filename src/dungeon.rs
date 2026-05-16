@@ -932,11 +932,8 @@ pub(crate) fn damage_enemy(
             maybe_drop_loot_in_dungeon(c, &mut d, enemy_index, false);
             c.active_dungeon = Some(d);
             DamageEnemyOutcome::Killed
-        } else if boss_death_added_ground_loot(&d, ground_items_before_death) {
-            retain_boss_overflow_dungeon(c, d);
-            DamageEnemyOutcome::BossDefeated
         } else {
-            DamageEnemyOutcome::BossDefeated
+            finish_boss_defeat_after_player_action(c, d, ground_items_before_death)
         }
     } else {
         let name = d.enemies[enemy_index].name.clone();
@@ -1163,9 +1160,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             if d.enemies[i].hp <= 0 {
                 let ground_items_before_death = d.ground_items.len();
                 if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Bleed) {
-                    if boss_death_added_ground_loot(&d, ground_items_before_death) {
-                        retain_boss_overflow_dungeon(c, d);
-                    }
+                    finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
                     return;
                 }
                 continue;
@@ -1207,9 +1202,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             if enemy_killed {
                 let ground_items_before_death = d.ground_items.len();
                 if resolve_enemy_killed_by_effect(c, &mut d, i, "Spiked Guard") {
-                    if boss_death_added_ground_loot(&d, ground_items_before_death) {
-                        retain_boss_overflow_dungeon(c, d);
-                    }
+                    finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
                     return;
                 }
                 continue;
@@ -1752,6 +1745,25 @@ fn add_loot_to_inventory_or_ground(
 
 fn boss_death_added_ground_loot(d: &Dungeon, ground_items_before_death: usize) -> bool {
     d.ground_items.len() > ground_items_before_death
+}
+
+pub(crate) fn finish_boss_defeat_after_player_action(
+    c: &mut Character,
+    d: Dungeon,
+    ground_items_before_death: usize,
+) -> DamageEnemyOutcome {
+    finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
+    DamageEnemyOutcome::BossDefeated
+}
+
+pub(crate) fn finish_boss_defeat_after_effect_kill(
+    c: &mut Character,
+    d: Dungeon,
+    ground_items_before_death: usize,
+) {
+    if boss_death_added_ground_loot(&d, ground_items_before_death) {
+        retain_boss_overflow_dungeon(c, d);
+    }
 }
 
 fn retain_boss_overflow_dungeon(c: &mut Character, mut d: Dungeon) {

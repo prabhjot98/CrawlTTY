@@ -50,7 +50,9 @@ pub(crate) fn append_pending_town_message(c: &mut Character, message: &str) {
 
 pub(crate) fn full_heal_on_town_return(c: &mut Character) {
     full_heal(c);
-    append_pending_town_message(c, TOWN_FULL_HEAL_MESSAGE);
+    if !c.pending_town_message.contains(TOWN_FULL_HEAL_MESSAGE) {
+        append_pending_town_message(c, TOWN_FULL_HEAL_MESSAGE);
+    }
 }
 
 pub(crate) fn merchant(c: &mut Character) {
