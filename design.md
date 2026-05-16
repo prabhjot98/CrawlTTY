@@ -704,22 +704,65 @@ Durability and repairs should **not** exist in the MVP. The blacksmith should se
 ### Crafting Ideas
 
 - Upgrade item rarity
-- Add socket
-- Insert rune/gem
+- Insert or remove rune/gem
 - Reroll modifiers
 - Combine materials into consumables
 
 ## Sockets, Gems, and Runes
 
+### Sockets
+
+Sockets are found on dropped weapons, armor, and shields. Starter gear, vendor gear, and other fixed basic items do not roll sockets. The blacksmith cannot add sockets.
+
+Socket roll odds:
+
+- Common gear: 10% chance for 1 socket
+- Magic gear: 20% chance for 1 socket, 5% chance for 2 sockets
+- Rare gear: 25% chance for 1 socket, 10% chance for 2 sockets
+
+The Socket Bench town project unlocks free gem insertion, removal, and replacement in town. Removing a gem returns it to inventory. Replacing a gem returns the old gem to inventory and inserts the selected new gem.
+
 ### Gems
 
-Add simple stat bonuses:
+Gems are normal inventory items found as rare dungeon drops. Each gem type grants exactly one flat stat, and gems are slot-agnostic: any gem can go into any socketed weapon, armor, or shield. Gems are drop-only and cannot be upgraded or combined.
 
-- Ruby: fire damage or health
-- Sapphire: frost damage or mana
-- Emerald: poison damage or dexterity
-- Topaz: shock damage or gold find
-- Diamond: resistance or armor
+Gem tiers:
+
+- Chipped: common early gem tier
+- Flawed: uncommon improved gem tier
+- Pristine: rare best gem tier for the first socket system
+
+Gem tier weights:
+
+- 80% Chipped
+- 17% Flawed
+- 3% Pristine
+
+Gem stat bonuses:
+
+| Gem        | Stat          | Chipped | Flawed | Pristine |
+| ---------- | ------------- | ------: | -----: | -------: |
+| Ruby       | Max HP        |      +5 |    +10 |      +20 |
+| Sapphire   | Max mana      |      +3 |     +6 |      +12 |
+| Garnet     | Strength      |      +1 |     +2 |       +3 |
+| Emerald    | Dexterity     |      +1 |     +2 |       +3 |
+| Amethyst   | Intelligence  |      +1 |     +2 |       +3 |
+| Quartz     | Hit rating    |      +3 |     +6 |      +10 |
+| Jade       | Dodge rating  |      +2 |     +4 |       +8 |
+| Onyx       | Armor         |      +1 |     +2 |       +3 |
+| Citrine    | Speed         |      +2 |     +4 |       +7 |
+| Topaz      | Crit chance   |     +1% |    +2% |      +4% |
+| Opal       | Gold found    |     +5% |   +10% |     +20% |
+| Bloodstone | Weapon damage |      +1 |     +2 |       +3 |
+
+Gem drop rules:
+
+- Gems start dropping on floor 3.
+- Enemy loot has a 2% chance to be a gem.
+- Chests have a 6% chance to include a gem.
+- Elites have a 5% chance to drop a gem.
+- Bosses have a 25% chance to drop a gem.
+- Gems can drop before Socket Bench is unlocked, but cannot be inserted, removed, or replaced until the project is complete.
 
 ### Runes
 
