@@ -1643,46 +1643,113 @@ pub(crate) fn spend_attributes(
     c: &mut Character,
     terminal: &mut ratatui::DefaultTerminal,
 ) -> Result<()> {
+    let mut selected = 0usize;
     let mut message = String::new();
     loop {
+        clamp_selection(&mut selected, ATTRIBUTE_CHOICES.len());
         terminal
-            .draw(|frame| render_spend_attributes_screen(frame, c, &message))
+            .draw(|frame| render_spend_attributes_screen(frame, c, selected, &message))
             .context("failed to draw attributes")?;
-        let key = match read_ui_input()? {
+        let key = match read_ui_input_nav()? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
         };
         message.clear();
         match key {
-            '1' if c.unspent_attributes > 0 => {
-                c.strength += 1;
-                c.unspent_attributes -= 1;
-                c.hp += 5;
-                message = "Spent 1 attribute on Strength.".to_string();
-                append_autosave_status(c, &mut message);
-            }
-            '2' if c.unspent_attributes > 0 => {
-                c.dexterity += 1;
-                c.unspent_attributes -= 1;
-                message = "Spent 1 attribute on Dexterity.".to_string();
-                append_autosave_status(c, &mut message);
-            }
-            '3' if c.unspent_attributes > 0 => {
-                c.intelligence += 1;
-                c.unspent_attributes -= 1;
-                c.mana += 5;
-                message = "Spent 1 attribute on Intelligence.".to_string();
-                append_autosave_status(c, &mut message);
-            }
-            '1' | '2' | '3' => message = "No unspent attribute points.".to_string(),
             '\u{1b}' => break,
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < ATTRIBUTE_CHOICES.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => message = spend_attribute_choice(c, ATTRIBUTE_CHOICES[selected]),
+            key @ ('1' | '2' | '3') => {
+                selected = key.to_digit(10).unwrap() as usize - 1;
+                message = spend_attribute_choice(c, ATTRIBUTE_CHOICES[selected]);
+            }
             _ => message = "Unknown attribute command.".to_string(),
         }
     }
     Ok(())
 }
 
-pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, message: &str) {
+#[derive(Clone, Copy)]
+enum AttributeChoice {
+    Strength,
+    Dexterity,
+    Intelligence,
+}
+
+const ATTRIBUTE_CHOICES: [AttributeChoice; 3] = [
+    AttributeChoice::Strength,
+    AttributeChoice::Dexterity,
+    AttributeChoice::Intelligence,
+];
+
+impl AttributeChoice {
+    fn name(self) -> &'static str {
+        match self {
+            AttributeChoice::Strength => "Strength",
+            AttributeChoice::Dexterity => "Dexterity",
+            AttributeChoice::Intelligence => "Intelligence",
+        }
+    }
+
+    fn color(self) -> Color {
+        match self {
+            AttributeChoice::Strength => Color::Red,
+            AttributeChoice::Dexterity => Color::Green,
+            AttributeChoice::Intelligence => Color::Blue,
+        }
+    }
+
+    fn current_value(self, c: &Character) -> u32 {
+        match self {
+            AttributeChoice::Strength => c.strength,
+            AttributeChoice::Dexterity => c.dexterity,
+            AttributeChoice::Intelligence => c.intelligence,
+        }
+    }
+
+    fn benefit(self) -> &'static str {
+        match self {
+            AttributeChoice::Strength => "+5 max HP",
+            AttributeChoice::Dexterity => "+5 hit, +5 speed",
+            AttributeChoice::Intelligence => "+5 max mana",
+        }
+    }
+}
+
+fn spend_attribute_choice(c: &mut Character, choice: AttributeChoice) -> String {
+    if c.unspent_attributes == 0 {
+        return "No unspent attribute points.".to_string();
+    }
+
+    match choice {
+        AttributeChoice::Strength => {
+            c.strength += 1;
+            c.hp += 5;
+        }
+        AttributeChoice::Dexterity => c.dexterity += 1,
+        AttributeChoice::Intelligence => {
+            c.intelligence += 1;
+            c.mana += 5;
+        }
+    }
+    c.unspent_attributes -= 1;
+
+    let mut message = format!("Spent 1 attribute on {}.", choice.name());
+    append_autosave_status(c, &mut message);
+    message
+}
+
+pub(crate) fn render_spend_attributes_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
     let mut lines = vec![
         Line::styled(
             format!("Spend Attributes ({} left)", c.unspent_attributes),
@@ -1691,22 +1758,13 @@ pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, m
                 .add_modifier(Modifier::BOLD),
         ),
         Line::from(""),
-        plain_line(format!(
-            "1) Strength {} -> {} (+5 max HP)",
-            c.strength,
-            c.strength + 1
-        )),
-        plain_line(format!(
-            "2) Dexterity {} -> {} (+5 hit, +5 speed)",
-            c.dexterity,
-            c.dexterity + 1
-        )),
-        plain_line(format!(
-            "3) Intelligence {} -> {} (+5 max mana)",
-            c.intelligence,
-            c.intelligence + 1
-        )),
     ];
+    lines.extend(
+        ATTRIBUTE_CHOICES
+            .iter()
+            .enumerate()
+            .map(|(index, choice)| attribute_choice_line(index, *choice, selected == index, c)),
+    );
     if c.unspent_attributes == 0 {
         lines.push(Line::from(""));
         lines.push(plain_line("No unspent attribute points."));
@@ -1717,6 +1775,39 @@ pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, m
         "Attributes",
         lines,
         message,
-        "Attributes: 1=Strength  2=Dexterity  3=Intelligence  Esc=back",
+        "Attributes: W/S or arrows=select  Enter=spend  1-3=spend  Esc=back",
     );
+}
+
+fn attribute_choice_line(
+    index: usize,
+    choice: AttributeChoice,
+    selected: bool,
+    c: &Character,
+) -> Line<'static> {
+    let marker_style = if selected {
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    let attribute_style = if selected {
+        Style::default()
+            .fg(choice.color())
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(choice.color())
+    };
+    let current = choice.current_value(c);
+    Line::from(vec![
+        Span::styled(if selected { "> " } else { "  " }, marker_style),
+        Span::raw(format!("{}) ", index + 1)),
+        Span::styled(choice.name().to_string(), attribute_style),
+        Span::raw(format!(
+            " {current} -> {} ({})",
+            current + 1,
+            choice.benefit()
+        )),
+    ])
 }
