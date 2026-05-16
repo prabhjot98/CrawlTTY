@@ -436,6 +436,23 @@ fn removing_hp_or_mana_gem_clamps_current_resources() {
 }
 
 #[test]
+fn removing_socketed_gem_requires_bag_capacity() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::SocketBench);
+    c.equipped_weapon.sockets = vec![Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))];
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+
+    let message = remove_gem_from_equipped(&mut c, UpgradeSlot::Weapon, 0);
+
+    assert_eq!(message, "Need one free bag cell to remove socketed gem.");
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(
+        c.equipped_weapon.sockets[0],
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))
+    );
+}
+
+#[test]
 fn socket_bench_rejects_gem_items_with_incomplete_metadata() {
     let mut c = test_character();
     complete_project_for_test(&mut c, TownProject::SocketBench);
@@ -811,18 +828,17 @@ fn stash_move_selected_moves_requested_item_immediately() {
 }
 
 #[test]
-fn stash_move_selected_restores_item_when_destination_is_full() {
-    let mut inventory = ItemGrid::new(2, 2, vec![health_potion(), mana_potion()]);
-    let mut stash = ItemGrid::new(1, 1, vec![crude_axe()]);
+fn stash_move_requires_destination_capacity() {
+    let mut inventory = ItemGrid::new(2, 1, vec![health_potion()]);
+    let mut stash = ItemGrid::new(1, 1, vec![mana_potion()]);
 
-    let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
+    let message = move_selected(&mut inventory, &mut stash, 0, "Stored");
 
     assert_eq!(message, "No room in destination.");
-    assert_eq!(inventory.len(), 2);
+    assert_eq!(inventory.len(), 1);
     assert_eq!(stash.len(), 1);
     assert!(matches!(inventory[0].kind, ItemKind::HealthPotion));
-    assert!(matches!(inventory[1].kind, ItemKind::ManaPotion));
-    assert!(matches!(stash[0].kind, ItemKind::Weapon));
+    assert!(matches!(stash[0].kind, ItemKind::ManaPotion));
 }
 
 #[test]
@@ -981,6 +997,19 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
             .iter()
             .any(|item| item.name.starts_with("Rusted Sword"))
     );
+}
+
+#[test]
+fn equipping_when_bag_is_full_keeps_selected_item_if_old_gear_cannot_fit() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(1, 1, vec![crude_axe()]);
+
+    let result = equip_or_use_inventory_item(&mut c, 0);
+
+    assert_eq!(result.message, "Need one free bag cell to swap equipment.");
+    assert!(!result.spent_turn);
+    assert!(c.equipped_weapon.name.starts_with("Rusted Sword"));
+    assert!(c.inventory[0].name.starts_with("Crude Axe"));
 }
 
 #[test]

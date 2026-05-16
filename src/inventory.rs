@@ -443,8 +443,16 @@ pub(crate) fn equip_or_use_inventory_item(
     c: &mut Character,
     index: usize,
 ) -> InventoryActionResult {
-    if index >= c.inventory.len() {
+    let selected = c.inventory.get(index).cloned();
+    let Some(selected) = selected else {
         return InventoryActionResult::free("No item in that slot.");
+    };
+    if matches!(
+        selected.kind,
+        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+    ) && !c.inventory.has_space()
+    {
+        return InventoryActionResult::free("Need one free bag cell to swap equipment.");
     }
     let selected = c.inventory.remove(index);
     if matches!(
@@ -460,21 +468,33 @@ pub(crate) fn equip_or_use_inventory_item(
         ItemKind::Weapon => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
-            c.inventory.push(old);
+            if !c.inventory.push(old.clone()) {
+                let selected = std::mem::replace(&mut c.equipped_weapon, old);
+                c.inventory.insert(index, selected);
+                return InventoryActionResult::free("Need one free bag cell to swap equipment.");
+            }
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Armor => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_armor, selected);
-            c.inventory.push(old);
+            if !c.inventory.push(old.clone()) {
+                let selected = std::mem::replace(&mut c.equipped_armor, old);
+                c.inventory.insert(index, selected);
+                return InventoryActionResult::free("Need one free bag cell to swap equipment.");
+            }
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Shield => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_shield, selected);
-            c.inventory.push(old);
+            if !c.inventory.push(old.clone()) {
+                let selected = std::mem::replace(&mut c.equipped_shield, old);
+                c.inventory.insert(index, selected);
+                return InventoryActionResult::free("Need one free bag cell to swap equipment.");
+            }
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }

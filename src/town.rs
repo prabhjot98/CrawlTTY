@@ -519,12 +519,17 @@ fn remove_gem_from_target(
     let Some(gem_socket) = socket else {
         return "That socket is already empty.".to_string();
     };
+    if !c.inventory.has_space() {
+        return "Need one free bag cell to remove socketed gem.".to_string();
+    }
     let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
     if let Some(socket) = target_socket_mut(c, target, socket_index) {
         *socket = None;
     }
-    c.inventory
+    let added = c
+        .inventory
         .push(gem_item(gem_socket.gem_kind, gem_socket.gem_tier));
+    debug_assert!(added);
     clamp_resources_to_current_max(c);
     format!(
         "Removed {} from {}.",
@@ -552,9 +557,14 @@ fn replace_gem_in_target(
         return gem_inventory_error(c, inventory_index).to_string();
     };
     let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
-    c.inventory.remove(inventory_index);
-    c.inventory
-        .push(gem_item(old_gem.gem_kind, old_gem.gem_tier));
+    let new_gem = c.inventory.remove(inventory_index);
+    if !c
+        .inventory
+        .push(gem_item(old_gem.gem_kind, old_gem.gem_tier))
+    {
+        let _ = c.inventory.insert(inventory_index, new_gem);
+        return "No room in inventory for replaced gem.".to_string();
+    }
     let adjusted_target = adjust_target_after_inventory_remove(target, inventory_index);
     if let Some(socket) = target_socket_mut(c, adjusted_target, socket_index) {
         *socket = Some(GemSocket::filled(new_kind, new_tier));
