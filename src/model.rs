@@ -272,6 +272,10 @@ impl ItemGrid {
         self.items.iter()
     }
 
+    pub(crate) fn as_slice(&self) -> &[Item] {
+        &self.items
+    }
+
     #[allow(dead_code)]
     pub(crate) fn clear(&mut self) {
         self.items.clear();
@@ -283,20 +287,6 @@ impl ItemGrid {
         F: FnMut(&Item) -> bool,
     {
         self.items.retain(f);
-    }
-}
-
-impl std::ops::Deref for ItemGrid {
-    type Target = Vec<Item>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.items
-    }
-}
-
-impl std::ops::DerefMut for ItemGrid {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.items
     }
 }
 

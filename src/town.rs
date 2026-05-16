@@ -1028,7 +1028,7 @@ pub(crate) fn stash_menu(c: &mut Character) {
         let visible_rows = (inventory_visible_rows(12) / 2).max(4);
         print_stash_column(
             "Inventory",
-            &c.inventory,
+            c.inventory.as_slice(),
             inv_selected,
             side == StashSide::Inventory,
             visible_rows,
@@ -1036,7 +1036,7 @@ pub(crate) fn stash_menu(c: &mut Character) {
         println!();
         print_stash_column(
             "Stash",
-            &c.stash,
+            c.stash.as_slice(),
             stash_selected,
             side == StashSide::Stash,
             visible_rows,
@@ -1098,8 +1098,8 @@ impl StashSide {
 }
 
 pub(crate) fn move_selected(
-    from: &mut Vec<Item>,
-    to: &mut Vec<Item>,
+    from: &mut ItemGrid,
+    to: &mut ItemGrid,
     index: usize,
     verb: &str,
 ) -> String {
@@ -1110,8 +1110,12 @@ pub(crate) fn move_selected(
     } else {
         let item = from.remove(index);
         let msg = format!("{} {}.", verb, item.name);
-        to.push(item);
-        msg
+        if let Err(item) = to.try_push(item) {
+            let _ = from.insert(index, item);
+            "No room in destination.".to_string()
+        } else {
+            msg
+        }
     }
 }
 

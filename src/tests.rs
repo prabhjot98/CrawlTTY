@@ -738,8 +738,8 @@ fn cursor_helpers_keep_selection_in_bounds_without_pages() {
 
 #[test]
 fn stash_move_selected_moves_requested_item_immediately() {
-    let mut inventory = vec![health_potion(), mana_potion(), crude_axe()];
-    let mut stash = Vec::new();
+    let mut inventory = ItemGrid::new(4, 4, vec![health_potion(), mana_potion(), crude_axe()]);
+    let mut stash = ItemGrid::new(8, 8, Vec::new());
 
     let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
 
@@ -749,6 +749,21 @@ fn stash_move_selected_moves_requested_item_immediately() {
     assert!(matches!(stash[0].kind, ItemKind::ManaPotion));
     assert!(matches!(inventory[0].kind, ItemKind::HealthPotion));
     assert!(matches!(inventory[1].kind, ItemKind::Weapon));
+}
+
+#[test]
+fn stash_move_selected_restores_item_when_destination_is_full() {
+    let mut inventory = ItemGrid::new(2, 2, vec![health_potion(), mana_potion()]);
+    let mut stash = ItemGrid::new(1, 1, vec![crude_axe(), rusted_sword()]);
+
+    let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
+
+    assert_eq!(message, "No room in destination.");
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(stash.len(), 1);
+    assert!(matches!(inventory[0].kind, ItemKind::HealthPotion));
+    assert!(matches!(inventory[1].kind, ItemKind::ManaPotion));
+    assert!(matches!(stash[0].kind, ItemKind::Weapon));
 }
 
 #[test]
