@@ -462,7 +462,7 @@ Current direction:
 - The bag auto-compacts after pickups, drops, equips, selling, salvaging, stash transfers, and item use.
 - Empty cells remain visible so capacity is clear.
 - The player bag starts at `4 x 4` and caps at `8 x 8`.
-- Bag expansion comes from Quartermaster town projects, including the Storehouse Shelves project line.
+- Bag expansion comes from the Quartermaster project chain: Storehouse Shelves (`200` gold, `5 x 4`), Pack Hooks (`350` gold, `5 x 5`), Oilcloth Satchel (`500` gold, `6 x 5`), Quartermaster Ledger (`700` gold, `6 x 6`), Reinforced Pack (`950` gold, `7 x 6`), Stitched Pockets (`1200` gold, `7 x 7`), Deep Rucksack (`1500` gold, `8 x 7`), and Exile's Trunk (`1900` gold, `8 x 8`).
 - The stash is also a grid, starts at `8 x 8`, and uses the same selected-item detail panel pattern.
 - Future storage expansion beyond the first `8 x 8` bag should use tabs rather than one larger grid.
 - Ratatui should be used for inventory, stash, and ground-loot picker screens whenever possible. If a new inventory-adjacent screen cannot use ratatui, the implementation should explain the blocker before using a legacy ANSI fallback.

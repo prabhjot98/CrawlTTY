@@ -492,6 +492,59 @@ fn town_project_availability_uses_completion_and_quest_gates() {
 }
 
 #[test]
+fn bag_dimensions_follow_quartermaster_project_chain() {
+    let mut c = test_character();
+
+    assert_eq!(bag_dimensions(&c), (4, 4));
+
+    complete_project_for_test(&mut c, TownProject::StorehouseShelves);
+    assert_eq!(bag_dimensions(&c), (5, 4));
+
+    complete_project_for_test(&mut c, TownProject::PackHooks);
+    assert_eq!(bag_dimensions(&c), (5, 5));
+
+    complete_project_for_test(&mut c, TownProject::OilclothSatchel);
+    assert_eq!(bag_dimensions(&c), (6, 5));
+
+    complete_project_for_test(&mut c, TownProject::QuartermasterLedger);
+    assert_eq!(bag_dimensions(&c), (6, 6));
+
+    complete_project_for_test(&mut c, TownProject::ReinforcedPack);
+    assert_eq!(bag_dimensions(&c), (7, 6));
+
+    complete_project_for_test(&mut c, TownProject::StitchedPockets);
+    assert_eq!(bag_dimensions(&c), (7, 7));
+
+    complete_project_for_test(&mut c, TownProject::DeepRucksack);
+    assert_eq!(bag_dimensions(&c), (8, 7));
+
+    complete_project_for_test(&mut c, TownProject::ExilesTrunk);
+    assert_eq!(bag_dimensions(&c), (8, 8));
+}
+
+#[test]
+fn completing_bag_project_resizes_inventory_grid() {
+    let mut c = test_character();
+    c.gold = 200;
+
+    let message = complete_town_project(&mut c, TownProject::StorehouseShelves);
+
+    assert_eq!(message, "Completed project: Storehouse Shelves.");
+    assert_eq!((c.inventory.columns, c.inventory.rows), (5, 4));
+    assert_eq!(c.inventory.capacity(), 20);
+}
+
+#[test]
+fn bag_project_chain_locks_until_previous_upgrade_is_complete() {
+    let c = test_character();
+
+    assert_eq!(
+        town_project_availability(&c, TownProject::PackHooks),
+        ProjectAvailability::Locked("Requires Storehouse Shelves.")
+    );
+}
+
+#[test]
 fn town_project_status_text_describes_available_locked_and_completed_projects() {
     let mut c = test_character();
 

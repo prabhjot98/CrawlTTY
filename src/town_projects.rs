@@ -43,7 +43,56 @@ pub(crate) const TOWN_PROJECTS: &[TownProjectDefinition] = &[
         group: "Quartermaster",
         name: "Storehouse Shelves",
         cost: 200,
-        benefit: "Expand town storage infrastructure.",
+        benefit: "Expand the bag to 5 x 4.",
+    },
+    TownProjectDefinition {
+        project: TownProject::PackHooks,
+        group: "Quartermaster",
+        name: "Pack Hooks",
+        cost: 350,
+        benefit: "Expand the bag to 5 x 5.",
+    },
+    TownProjectDefinition {
+        project: TownProject::OilclothSatchel,
+        group: "Quartermaster",
+        name: "Oilcloth Satchel",
+        cost: 500,
+        benefit: "Expand the bag to 6 x 5.",
+    },
+    TownProjectDefinition {
+        project: TownProject::QuartermasterLedger,
+        group: "Quartermaster",
+        name: "Quartermaster Ledger",
+        cost: 700,
+        benefit: "Expand the bag to 6 x 6.",
+    },
+    TownProjectDefinition {
+        project: TownProject::ReinforcedPack,
+        group: "Quartermaster",
+        name: "Reinforced Pack",
+        cost: 950,
+        benefit: "Expand the bag to 7 x 6.",
+    },
+    TownProjectDefinition {
+        project: TownProject::StitchedPockets,
+        group: "Quartermaster",
+        name: "Stitched Pockets",
+        cost: 1200,
+        benefit: "Expand the bag to 7 x 7.",
+    },
+    TownProjectDefinition {
+        project: TownProject::DeepRucksack,
+        group: "Quartermaster",
+        name: "Deep Rucksack",
+        cost: 1500,
+        benefit: "Expand the bag to 8 x 7.",
+    },
+    TownProjectDefinition {
+        project: TownProject::ExilesTrunk,
+        group: "Quartermaster",
+        name: "Exile's Trunk",
+        cost: 1900,
+        benefit: "Expand the bag to 8 x 8.",
     },
     TownProjectDefinition {
         project: TownProject::HireAppraiser,
@@ -79,6 +128,61 @@ pub(crate) fn has_completed_project(c: &Character, project: TownProject) -> bool
     c.completed_town_projects.contains(&project)
 }
 
+pub(crate) fn bag_dimensions(c: &Character) -> (u16, u16) {
+    let mut dimensions = (STARTING_BAG_COLUMNS, STARTING_BAG_ROWS);
+    for (project, upgraded) in BAG_UPGRADE_PROJECTS {
+        if has_completed_project(c, *project) {
+            dimensions = *upgraded;
+        }
+    }
+    dimensions
+}
+
+pub(crate) const BAG_UPGRADE_PROJECTS: &[(TownProject, (u16, u16))] = &[
+    (TownProject::StorehouseShelves, (5, 4)),
+    (TownProject::PackHooks, (5, 5)),
+    (TownProject::OilclothSatchel, (6, 5)),
+    (TownProject::QuartermasterLedger, (6, 6)),
+    (TownProject::ReinforcedPack, (7, 6)),
+    (TownProject::StitchedPockets, (7, 7)),
+    (TownProject::DeepRucksack, (8, 7)),
+    (TownProject::ExilesTrunk, (8, 8)),
+];
+
+fn previous_bag_project(project: TownProject) -> Option<TownProject> {
+    let index = BAG_UPGRADE_PROJECTS
+        .iter()
+        .position(|(candidate, _)| *candidate == project)?;
+    index
+        .checked_sub(1)
+        .map(|previous| BAG_UPGRADE_PROJECTS[previous].0)
+}
+
+fn is_bag_upgrade_project(project: TownProject) -> bool {
+    BAG_UPGRADE_PROJECTS
+        .iter()
+        .any(|(candidate, _)| *candidate == project)
+}
+
+fn resize_bag_for_projects(c: &mut Character) {
+    let (columns, rows) = bag_dimensions(c);
+    c.inventory.columns = columns;
+    c.inventory.rows = rows;
+}
+
+fn bag_project_lock_reason(project: TownProject) -> Option<&'static str> {
+    match project {
+        TownProject::PackHooks => Some("Requires Storehouse Shelves."),
+        TownProject::OilclothSatchel => Some("Requires Pack Hooks."),
+        TownProject::QuartermasterLedger => Some("Requires Oilcloth Satchel."),
+        TownProject::ReinforcedPack => Some("Requires Quartermaster Ledger."),
+        TownProject::StitchedPockets => Some("Requires Reinforced Pack."),
+        TownProject::DeepRucksack => Some("Requires Stitched Pockets."),
+        TownProject::ExilesTrunk => Some("Requires Deep Rucksack."),
+        _ => None,
+    }
+}
+
 pub(crate) fn town_project_availability(
     c: &Character,
     project: TownProject,
@@ -87,9 +191,27 @@ pub(crate) fn town_project_availability(
         return ProjectAvailability::Completed;
     }
     match project {
-        TownProject::RebuildForge | TownProject::StorehouseShelves | TownProject::HireAppraiser => {
-            ProjectAvailability::Available
+        TownProject::StorehouseShelves
+        | TownProject::PackHooks
+        | TownProject::OilclothSatchel
+        | TownProject::QuartermasterLedger
+        | TownProject::ReinforcedPack
+        | TownProject::StitchedPockets
+        | TownProject::DeepRucksack
+        | TownProject::ExilesTrunk => {
+            if let Some(previous) = previous_bag_project(project) {
+                if has_completed_project(c, previous) {
+                    ProjectAvailability::Available
+                } else {
+                    ProjectAvailability::Locked(
+                        bag_project_lock_reason(project).expect("bag project has lock reason"),
+                    )
+                }
+            } else {
+                ProjectAvailability::Available
+            }
         }
+        TownProject::RebuildForge | TownProject::HireAppraiser => ProjectAvailability::Available,
         TownProject::ReinforcedAnvil => {
             if has_completed_project(c, TownProject::RebuildForge) {
                 ProjectAvailability::Available
@@ -160,6 +282,9 @@ pub(crate) fn complete_town_project(c: &mut Character, project: TownProject) -> 
     }
     c.gold -= definition.cost;
     c.completed_town_projects.push(project);
+    if is_bag_upgrade_project(project) {
+        resize_bag_for_projects(c);
+    }
     format!("Completed project: {}.", definition.name)
 }
 
@@ -167,5 +292,8 @@ pub(crate) fn complete_town_project(c: &mut Character, project: TownProject) -> 
 pub(crate) fn complete_project_for_test(c: &mut Character, project: TownProject) {
     if !has_completed_project(c, project) {
         c.completed_town_projects.push(project);
+        if is_bag_upgrade_project(project) {
+            resize_bag_for_projects(c);
+        }
     }
 }
