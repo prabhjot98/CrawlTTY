@@ -223,10 +223,6 @@ fn town_quest_line(c: &Character) -> Line<'static> {
     }
 }
 
-pub(crate) fn colored_stat(label: &str, value: impl std::fmt::Display, color: &str) -> String {
-    format!("{color}{label} {value}{RESET}")
-}
-
 pub(crate) fn gold_text(value: u32) -> String {
     format!("{YELLOW}Gold {value}{RESET}")
 }
@@ -234,18 +230,6 @@ pub(crate) fn gold_text(value: u32) -> String {
 #[cfg(test)]
 pub(crate) fn xp_text(current: u32, needed: u32) -> String {
     format!("{MAGENTA}XP {current}/{needed}{RESET}")
-}
-
-pub(crate) fn dodge_text(value: u32) -> String {
-    colored_stat("Dodge", value, GREEN)
-}
-
-pub(crate) fn speed_text(value: u32) -> String {
-    colored_stat("Speed", value, YELLOW)
-}
-
-pub(crate) fn armor_text(value: i32) -> String {
-    colored_stat("Armor", value, WHITE)
 }
 
 pub(crate) fn unspent_skills_text(value: u32) -> String {

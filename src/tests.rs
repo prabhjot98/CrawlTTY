@@ -77,6 +77,12 @@ fn dungeon_log_labels_failed_commands_as_no_turn_spent() {
 }
 
 #[test]
+fn dungeon_action_label_names_inventory_commands() {
+    assert_eq!(dungeon_action_label('i'), "Inventory");
+    assert_eq!(dungeon_action_label('I'), "Inventory");
+}
+
+#[test]
 fn valid_dungeon_command_clears_recent_unknown_command_logs() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));

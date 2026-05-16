@@ -449,6 +449,7 @@ pub(crate) fn dungeon_action_label(key: char) -> &'static str {
         '3' => "Battle Cry",
         'p' | 'P' => "Drink potion",
         'g' | 'G' => "Pick up",
+        'i' | 'I' => "Inventory",
         _ => "Command",
     }
 }
