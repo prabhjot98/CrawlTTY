@@ -418,18 +418,21 @@ pub(crate) fn equip_or_use_inventory_item(
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
             c.inventory.push(old);
+            clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Armor => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_armor, selected);
             c.inventory.push(old);
+            clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Shield => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_shield, selected);
             c.inventory.push(old);
+            clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::HealthPotion => {
@@ -463,4 +466,9 @@ pub(crate) fn equip_or_use_inventory_item(
             InventoryActionResult::free("Use the Socket Bench to socket gems.")
         }
     }
+}
+
+fn clamp_current_resources(c: &mut Character) {
+    c.hp = c.hp.min(c.max_hp());
+    c.mana = c.mana.min(c.max_mana());
 }

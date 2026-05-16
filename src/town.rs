@@ -305,6 +305,9 @@ pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String 
     let Some(kind) = shard_kind(&c.inventory[index]) else {
         return "Only weapons, armor, and shields can be salvaged.".to_string();
     };
+    if c.inventory[index].sockets.iter().any(Option::is_some) {
+        return "Remove socketed gems before salvaging this item.".to_string();
+    }
     let item = c.inventory.remove(index);
     let amount = salvage_shard_yield(c, &item);
     add_shards(c, kind, amount);

@@ -657,6 +657,27 @@ fn blacksmith_salvage_converts_gear_to_type_shards() {
 }
 
 #[test]
+fn salvage_rejects_carried_gear_with_filled_sockets() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    c.inventory.clear();
+    let mut axe = crude_axe();
+    axe.sockets = vec![Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))];
+    c.inventory.push(axe);
+
+    assert_eq!(
+        salvage_inventory_item(&mut c, 0),
+        "Remove socketed gems before salvaging this item."
+    );
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(c.weapon_shards, 0);
+    assert_eq!(
+        c.inventory[0].sockets[0],
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))
+    );
+}
+
+#[test]
 fn blacksmith_upgrades_equipped_gear_with_shards_only_after_forge_project() {
     let mut c = test_character();
     c.weapon_shards = 2;
@@ -773,6 +794,34 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
         c.inventory
             .iter()
             .any(|item| item.name.starts_with("Rusted Sword"))
+    );
+}
+
+#[test]
+fn equipping_replacement_gear_clamps_hp_and_mana_after_socket_bonus_loss() {
+    let mut c = test_character();
+    c.equipped_armor.sockets = vec![
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Pristine)),
+        Some(GemSocket::filled(GemKind::Sapphire, GemTier::Pristine)),
+    ];
+    c.hp = c.max_hp();
+    c.mana = c.max_mana();
+    let socketed_max_hp = c.max_hp();
+    let socketed_max_mana = c.max_mana();
+    c.inventory.clear();
+    c.inventory.push(cloth_tunic());
+
+    let result = equip_or_use_inventory_item(&mut c, 0);
+
+    assert!(result.spent_turn);
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
+    assert!(c.max_hp() < socketed_max_hp);
+    assert!(c.max_mana() < socketed_max_mana);
+    assert!(
+        c.inventory
+            .iter()
+            .any(|item| item.sockets.iter().any(Option::is_some))
     );
 }
 
