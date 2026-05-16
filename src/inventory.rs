@@ -15,7 +15,10 @@ pub(crate) fn inventory_screen(
         terminal
             .draw(|frame| render_inventory_screen(frame, c, selected, &message))
             .context("failed to draw inventory")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => return Ok(false),

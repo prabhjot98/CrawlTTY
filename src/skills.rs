@@ -13,7 +13,10 @@ pub(crate) fn skill_tree_menu(
         terminal
             .draw(|frame| render_skill_tree_screen(frame, c, &message))
             .context("failed to draw skill tree")?;
-        let key = read_key_char()?;
+        let key = match read_ui_input()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '1' => {
@@ -442,7 +445,11 @@ pub(crate) fn mastery_menu(
             .draw(|frame| render_mastery_screen(frame, c, skill, &message))
             .context("failed to draw mastery menu")?;
         let options = mastery_options(c, skill);
-        match read_key_char()? {
+        let key = match read_ui_input()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
+        match key {
             key @ ('1' | '2' | '3') => {
                 let index = key.to_digit(10).unwrap() as usize - 1;
                 let mastery = options[index].0;

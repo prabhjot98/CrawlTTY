@@ -125,7 +125,10 @@ pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTermina
         terminal
             .draw(|frame| render_merchant_screen(frame, c, selected, &message))
             .context("failed to draw merchant")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -208,7 +211,10 @@ pub(crate) fn blacksmith(c: &mut Character, terminal: &mut ratatui::DefaultTermi
         terminal
             .draw(|frame| render_blacksmith_screen(frame, c, selected, &message))
             .context("failed to draw blacksmith")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -312,7 +318,10 @@ pub(crate) fn town_projects_menu(
         terminal
             .draw(|frame| render_town_projects_screen(frame, c, selected, &message))
             .context("failed to draw town projects")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -382,7 +391,10 @@ pub(crate) fn salvage_screen(
         terminal
             .draw(|frame| render_salvage_screen(frame, c, selected, &message))
             .context("failed to draw salvage")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -883,7 +895,10 @@ pub(crate) fn socket_bench_screen(
                 render_socket_bench_screen(frame, c, selected_item, selected_socket, &message)
             })
             .context("failed to draw socket bench")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -1016,7 +1031,10 @@ fn filled_socket_action_screen(
                 )
             })
             .context("failed to draw filled socket action")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => return Ok(String::new()),
@@ -1139,7 +1157,10 @@ fn gem_picker_screen(
         terminal
             .draw(|frame| render_gem_picker_screen(frame, c, selected, &message))
             .context("failed to draw gem picker")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => return Ok(None),
@@ -1215,7 +1236,10 @@ pub(crate) fn sell_item_screen(
         terminal
             .draw(|frame| render_sell_items_screen(frame, c, selected, &message))
             .context("failed to draw sell items")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => break,
@@ -1296,7 +1320,10 @@ pub(crate) fn stash_menu(c: &mut Character, terminal: &mut ratatui::DefaultTermi
                 render_stash_screen(frame, c, side, inv_selected, stash_selected, &message)
             })
             .context("failed to draw stash")?;
-        let key = read_key_char_nav()?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => return Ok(()),
@@ -1533,7 +1560,10 @@ pub(crate) fn spend_attributes(
         terminal
             .draw(|frame| render_spend_attributes_screen(frame, c, &message))
             .context("failed to draw attributes")?;
-        let key = read_key_char()?;
+        let key = match read_ui_input()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '1' if c.unspent_attributes > 0 => {

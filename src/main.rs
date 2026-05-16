@@ -22,7 +22,9 @@ mod ui;
 
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
-use input::{read_key_char, read_key_char_nav, set_ratatui_owns_raw_mode};
+#[cfg(test)]
+pub(crate) use input::terminal_event_to_input;
+pub(crate) use input::{UiInput, read_ui_input, read_ui_input_nav, set_ratatui_owns_raw_mode};
 pub(crate) use inventory::*;
 pub(crate) use items::*;
 pub(crate) use model::*;
@@ -88,8 +90,9 @@ fn run_game(
         terminal
             .draw(|frame| render_town(frame, character, town_message))
             .context("failed to draw town")?;
-        let key = match read_key_char() {
-            Ok(key) => key,
+        let key = match read_ui_input() {
+            Ok(UiInput::Key(key)) => key,
+            Ok(UiInput::Redraw) => continue,
             Err(err) => {
                 save_character(character)?;
                 return Err(err);

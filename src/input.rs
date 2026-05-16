@@ -10,6 +10,12 @@ use std::{
 
 static RATATUI_OWNS_RAW_MODE: AtomicBool = AtomicBool::new(false);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum UiInput {
+    Key(char),
+    Redraw,
+}
+
 pub(crate) fn set_ratatui_owns_raw_mode(owns_raw_mode: bool) {
     RATATUI_OWNS_RAW_MODE.store(owns_raw_mode, Ordering::Relaxed);
 }
@@ -29,40 +35,53 @@ impl Drop for RawModeGuard {
     }
 }
 
-pub(crate) fn read_key_char_nav() -> Result<char> {
-    read_key_char_with_navigation(true)
+pub(crate) fn read_ui_input_nav() -> Result<UiInput> {
+    read_ui_input_with_navigation(true)
 }
 
-pub(crate) fn read_key_char() -> Result<char> {
-    read_key_char_with_navigation(false)
+pub(crate) fn read_ui_input() -> Result<UiInput> {
+    read_ui_input_with_navigation(false)
 }
 
-fn read_key_char_with_navigation(navigation: bool) -> Result<char> {
+fn read_ui_input_with_navigation(navigation: bool) -> Result<UiInput> {
     let _raw_mode = if RATATUI_OWNS_RAW_MODE.load(Ordering::Relaxed) {
         None
     } else {
         Some(RawModeGuard::new().context("failed to enable raw mode")?)
     };
     loop {
-        if let Event::Key(KeyEvent {
+        if let Some(input) = terminal_event_to_input(
+            event::read().context("failed to read terminal event")?,
+            navigation,
+        )? {
+            return Ok(input);
+        }
+    }
+}
+
+pub(crate) fn terminal_event_to_input(event: Event, navigation: bool) -> Result<Option<UiInput>> {
+    match event {
+        Event::Resize(_, _) => Ok(Some(UiInput::Redraw)),
+        Event::Key(KeyEvent {
             code, modifiers, ..
-        }) = event::read().context("failed to read terminal event")?
-        {
+        }) => {
             if modifiers.contains(KeyModifiers::CONTROL) && matches!(code, KeyCode::Char('c')) {
                 return Err(anyhow!("input interrupted"));
             }
-            match code {
-                KeyCode::Char(c) => return Ok(c),
-                KeyCode::Backspace => return Ok('\u{8}'),
-                KeyCode::Esc => return Ok('\u{1b}'),
-                KeyCode::Enter => return Ok('\n'),
-                KeyCode::Tab => return Ok('\t'),
-                KeyCode::Up if navigation => return Ok('w'),
-                KeyCode::Down if navigation => return Ok('s'),
-                KeyCode::Left if navigation => return Ok('a'),
-                KeyCode::Right if navigation => return Ok('d'),
-                _ => {}
-            }
+            let key = match code {
+                KeyCode::Char(c) => Some(c),
+                KeyCode::Backspace => Some('\u{8}'),
+                KeyCode::Esc => Some('\u{1b}'),
+                KeyCode::Enter => Some('\n'),
+                KeyCode::Tab => Some('\t'),
+                KeyCode::Up if navigation => Some('w'),
+                KeyCode::Down if navigation => Some('s'),
+                KeyCode::Left if navigation => Some('a'),
+                KeyCode::Right if navigation => Some('d'),
+                _ => None,
+            };
+            Ok(key.map(UiInput::Key))
         }
+        _ => Ok(None),
     }
 }

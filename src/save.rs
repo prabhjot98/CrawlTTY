@@ -52,7 +52,10 @@ fn create_character(
         terminal
             .draw(|frame| render_character_creation_screen(frame, &name, death_mode, &message))
             .context("failed to draw character creation")?;
-        let key = read_key_char()?;
+        let key = match read_ui_input()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         match key {
             '\n' => {
                 if name.trim().is_empty() {

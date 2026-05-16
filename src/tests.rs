@@ -83,6 +83,16 @@ fn dungeon_action_label_names_inventory_commands() {
 }
 
 #[test]
+fn terminal_resize_event_requests_redraw() {
+    use crossterm::event::Event;
+
+    assert_eq!(
+        terminal_event_to_input(Event::Resize(120, 40), true).unwrap(),
+        Some(UiInput::Redraw)
+    );
+}
+
+#[test]
 fn valid_dungeon_command_clears_recent_unknown_command_logs() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));

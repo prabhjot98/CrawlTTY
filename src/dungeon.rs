@@ -69,8 +69,9 @@ pub(crate) fn dungeon_loop(
         terminal
             .draw(|frame| render_dungeon(frame, c))
             .context("failed to draw dungeon")?;
-        let key = match read_key_char() {
-            Ok(key) => key,
+        let key = match read_ui_input() {
+            Ok(UiInput::Key(key)) => key,
+            Ok(UiInput::Redraw) => continue,
             Err(err) => {
                 save_character(c)?;
                 return Err(err);
@@ -1855,7 +1856,10 @@ pub(crate) fn ground_loot_picker(
         terminal
             .draw(|frame| render_ground_loot_picker(frame, c, selected, &message))
             .context("failed to draw ground loot picker")?;
-        let key = read_key_char()?;
+        let key = match read_ui_input()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
         message.clear();
         match key {
             '\u{1b}' => return Ok(false),
