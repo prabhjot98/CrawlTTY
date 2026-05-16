@@ -338,7 +338,8 @@ Tree rules:
 
 - Player gains 1 skill point per level.
 - Each skill can have 3-5 ranks.
-- Some skills require 1-2 points in earlier skills.
+- Passive skills require rank 2 in their branch's active starter: Deep Cut requires Cleave, Iron Guard requires Shield Bash, and Second Wind requires Battle Cry.
+- The skill tree displays locked passive prerequisites inline under the starter skill with a lock marker and current rank progress, and repeats the same unlock progress in the selected passive's detail pane.
 - The player should be able to specialize in one branch or mix branches.
 - The MVP should include enough skills to make leveling choices interesting, even if not every skill has advanced animations or effects at first.
 
