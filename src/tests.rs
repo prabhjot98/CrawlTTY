@@ -560,16 +560,23 @@ fn skill_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
     let mut c = test_character();
-    c.cleave_rank = 5;
+    c.cleave_rank = 4;
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
 
     terminal
-        .draw(|frame| render_skill_tree_screen(frame, &c, ""))
+        .draw(|frame| render_skill_tree_screen(frame, &c, 0, ""))
         .unwrap();
     let skill_tree = backend_text(&terminal);
     assert!(skill_tree.contains("Ironbound Skill Tree"));
     assert!(skill_tree.contains("Cleave"));
+    assert!(skill_tree.contains("> Cleave"));
+    assert!(skill_tree.contains("Current Skill"));
+    assert!(skill_tree.contains("Improved Skill"));
+    assert!(skill_tree.contains("Next rank 5"));
+    assert!(skill_tree.contains("W/S or arrows=select"));
+    assert!(skill_tree.contains("Enter=upgrade/mastery"));
 
+    c.cleave_rank = 5;
     terminal
         .draw(|frame| render_mastery_screen(frame, &c, "Cleave", ""))
         .unwrap();
