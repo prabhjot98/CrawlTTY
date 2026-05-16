@@ -465,6 +465,7 @@ fn stash_move_selected_moves_requested_item_immediately() {
 #[test]
 fn blacksmith_salvage_converts_gear_to_type_shards() {
     let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
     c.inventory.clear();
     c.inventory.push(crude_axe());
     c.inventory.push(health_potion());
@@ -479,41 +480,107 @@ fn blacksmith_salvage_converts_gear_to_type_shards() {
 }
 
 #[test]
-fn blacksmith_upgrades_equipped_gear_with_shards_and_gold() {
+fn blacksmith_upgrades_equipped_gear_with_shards_only_after_forge_project() {
     let mut c = test_character();
     c.weapon_shards = 2;
     c.armor_shards = 2;
     c.shield_shards = 2;
-    c.gold = 100;
+    c.gold = 0;
+
+    assert_eq!(
+        upgrade_equipped_message(&mut c, UpgradeSlot::Weapon),
+        "Rebuild the Forge before upgrading gear."
+    );
+
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
 
     let weapon_message = upgrade_equipped_message(&mut c, UpgradeSlot::Weapon);
-    assert!(weapon_message.contains("+1"));
-    assert_eq!(c.equipped_weapon.upgrade_level, 1);
     assert_eq!(
-        (c.equipped_weapon.damage_min, c.equipped_weapon.damage_max),
-        (4, 6)
+        weapon_message,
+        "Upgraded Rusted Sword (3-5 dmg, STR F, DEX F) to +1."
     );
+    assert_eq!(c.equipped_weapon.upgrade_level, 1);
+    assert_eq!(c.equipped_weapon.damage_min, 4);
+    assert_eq!(c.equipped_weapon.damage_max, 6);
     assert_eq!(c.weapon_shards, 0);
-    assert_eq!(c.gold, 75);
+    assert_eq!(c.gold, 0);
 
     let armor_message = upgrade_equipped_message(&mut c, UpgradeSlot::Armor);
-    assert!(armor_message.contains("+1"));
-    assert_eq!(c.equipped_armor.upgrade_level, 1);
+    assert_eq!(armor_message, "Upgraded Cloth Tunic (+1 armor) to +1.");
     assert_eq!(c.equipped_armor.armor, 2);
 
     let shield_message = upgrade_equipped_message(&mut c, UpgradeSlot::Shield);
-    assert!(shield_message.contains("+1"));
-    assert_eq!(c.equipped_shield.upgrade_level, 1);
+    assert_eq!(
+        shield_message,
+        "Upgraded Worn Shield (+1 armor, +2 dodge) to +1."
+    );
     assert_eq!(c.equipped_shield.armor, 2);
 }
 
 #[test]
 fn blacksmith_upgrade_cost_scales_with_upgrade_level() {
-    let mut item = crude_axe();
-    assert_eq!(upgrade_cost(&item), (2, 25));
+    let mut item = rusted_sword();
+    assert_eq!(upgrade_cost(&item), 2);
     upgrade_item(&mut item);
-    assert_eq!(upgrade_cost(&item), (4, 50));
-    assert_eq!(salvage_shard_yield(&item), 2);
+    assert_eq!(upgrade_cost(&item), 4);
+}
+
+#[test]
+fn salvage_requires_forge_and_reinforced_anvil_adds_one_shard() {
+    let mut c = test_character();
+    c.inventory.push(crude_axe());
+
+    assert_eq!(
+        salvage_inventory_item(&mut c, 0),
+        "Rebuild the Forge before salvaging gear."
+    );
+    assert_eq!(c.weapon_shards, 0);
+
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    let health_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::HealthPotion))
+        .unwrap();
+    assert_eq!(
+        salvage_inventory_item(&mut c, health_index),
+        "Only weapons, armor, and shields can be salvaged."
+    );
+
+    let axe_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::Weapon))
+        .unwrap();
+    assert_eq!(
+        salvage_inventory_item(&mut c, axe_index),
+        "Salvaged Crude Axe (4-6 dmg, STR F) into 1 weapon shard(s)."
+    );
+    assert_eq!(c.weapon_shards, 1);
+
+    c.inventory.push(crude_axe());
+    complete_project_for_test(&mut c, TownProject::ReinforcedAnvil);
+    let axe_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::Weapon))
+        .unwrap();
+    assert_eq!(
+        salvage_inventory_item(&mut c, axe_index),
+        "Salvaged Crude Axe (4-6 dmg, STR F) into 2 weapon shard(s)."
+    );
+    assert_eq!(c.weapon_shards, 3);
+}
+
+#[test]
+fn appraiser_project_improves_sell_value() {
+    let mut c = test_character();
+    let item = crude_axe();
+
+    assert_eq!(sell_value(&c, &item), 15);
+
+    complete_project_for_test(&mut c, TownProject::HireAppraiser);
+    assert_eq!(sell_value(&c, &item), 18);
 }
 
 #[test]

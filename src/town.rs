@@ -56,16 +56,12 @@ pub(crate) fn full_heal_on_town_return(c: &mut Character) {
 pub(crate) fn merchant(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
-    let options = [
-        format!("Buy Lesser Health Potion - {HEALTH_POTION_COST} gold"),
-        format!("Buy Lesser Mana Potion - {MANA_POTION_COST} gold"),
-        "Sell items".to_string(),
-    ];
+    let options = ["Sell items"];
     loop {
         clamp_selection(&mut selected, options.len());
         clear_screen();
         println!("{BOLD}{YELLOW}Merchant{RESET} - {}", gold_text(c.gold));
-        println!("Selling gives 25% of item value.");
+        println!("Gold funds town projects. Sell unwanted items here.");
         if !message.is_empty() {
             println!("{YELLOW}{message}{RESET}");
         }
@@ -96,15 +92,7 @@ pub(crate) fn merchant(c: &mut Character) {
                 }
             }
             '\n' => match selected {
-                0 => {
-                    message = buy_item_message(c, health_potion());
-                    append_autosave_status(c, &mut message);
-                }
-                1 => {
-                    message = buy_item_message(c, mana_potion());
-                    append_autosave_status(c, &mut message);
-                }
-                2 => sell_item_screen(c),
+                0 => sell_item_screen(c),
                 _ => {}
             },
             _ => message = "Unknown merchant command.".to_string(),
@@ -116,9 +104,6 @@ pub(crate) fn blacksmith(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
-        "Buy Crude Axe - 60 gold",
-        "Buy Battered Mail - 55 gold",
-        "Buy Worn Shield - 40 gold",
         "Salvage carried gear for shards",
         "Sharpen equipped weapon",
         "Reinforce equipped armor",
@@ -135,7 +120,7 @@ pub(crate) fn blacksmith(c: &mut Character) {
             shard_text("shield", c.shield_shards)
         );
         println!(
-            "No durability or repairs. Salvage gear into type shards, then spend shards + gold to upgrade equipped gear."
+            "Town projects unlock smith services. Salvage gear into type shards, then spend shards to upgrade equipped gear."
         );
         if !message.is_empty() {
             println!("{YELLOW}{message}{RESET}");
@@ -170,28 +155,16 @@ pub(crate) fn blacksmith(c: &mut Character) {
                 }
             }
             '\n' => match selected {
-                0 => {
-                    message = buy_item_message(c, crude_axe());
-                    append_autosave_status(c, &mut message);
-                }
+                0 => salvage_screen(c),
                 1 => {
-                    message = buy_item_message(c, battered_mail());
-                    append_autosave_status(c, &mut message);
-                }
-                2 => {
-                    message = buy_item_message(c, worn_shield());
-                    append_autosave_status(c, &mut message);
-                }
-                3 => salvage_screen(c),
-                4 => {
                     message = upgrade_equipped_message(c, UpgradeSlot::Weapon);
                     append_autosave_status(c, &mut message);
                 }
-                5 => {
+                2 => {
                     message = upgrade_equipped_message(c, UpgradeSlot::Armor);
                     append_autosave_status(c, &mut message);
                 }
-                6 => {
+                3 => {
                     message = upgrade_equipped_message(c, UpgradeSlot::Shield);
                     append_autosave_status(c, &mut message);
                 }
@@ -251,16 +224,6 @@ pub(crate) fn town_projects_menu(c: &mut Character) {
     }
 }
 
-pub(crate) fn buy_item_message(c: &mut Character, item: Item) -> String {
-    if c.gold < item.value {
-        return "Not enough gold.".to_string();
-    }
-    c.gold -= item.value;
-    let message = format!("Bought {}.", item.name);
-    c.inventory.push(item);
-    message
-}
-
 #[derive(Clone, Copy)]
 pub(crate) enum UpgradeSlot {
     Weapon,
@@ -293,7 +256,7 @@ pub(crate) fn salvage_screen(c: &mut Character) {
             if let Some(kind) = shard_kind(&c.inventory[selected]) {
                 println!(
                     "Salvage yield: {} {} shard(s)",
-                    salvage_shard_yield(&c.inventory[selected]),
+                    salvage_shard_yield(c, &c.inventory[selected]),
                     shard_name(kind)
                 );
             } else {
@@ -324,6 +287,9 @@ pub(crate) fn salvage_screen(c: &mut Character) {
 }
 
 pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
+    if !has_completed_project(c, TownProject::RebuildForge) {
+        return "Rebuild the Forge before salvaging gear.".to_string();
+    }
     if index >= c.inventory.len() {
         return "No item selected.".to_string();
     }
@@ -331,7 +297,7 @@ pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String 
         return "Only weapons, armor, and shields can be salvaged.".to_string();
     };
     let item = c.inventory.remove(index);
-    let amount = salvage_shard_yield(&item);
+    let amount = salvage_shard_yield(c, &item);
     add_shards(c, kind, amount);
     format!(
         "Salvaged {} into {} {} shard(s).",
@@ -341,21 +307,24 @@ pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String 
     )
 }
 
-pub(crate) fn salvage_shard_yield(item: &Item) -> u32 {
+pub(crate) fn salvage_shard_yield(c: &Character, item: &Item) -> u32 {
     let rarity_bonus = match item.rarity {
         Rarity::Common => 1,
         Rarity::Magic => 2,
         Rarity::Rare => 3,
     };
-    rarity_bonus + item.upgrade_level
+    let anvil_bonus = u32::from(has_completed_project(c, TownProject::ReinforcedAnvil));
+    rarity_bonus + item.upgrade_level + anvil_bonus
 }
 
 pub(crate) fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> String {
-    let (cost_shards, cost_gold, kind, item_name) = {
+    if !has_completed_project(c, TownProject::RebuildForge) {
+        return "Rebuild the Forge before upgrading gear.".to_string();
+    }
+    let (cost_shards, kind, item_name) = {
         let item = equipped_item(c, slot);
         let kind = shard_kind(item).expect("equipped gear has shard kind");
-        let (cost_shards, cost_gold) = upgrade_cost(item);
-        (cost_shards, cost_gold, kind, item.name.clone())
+        (upgrade_cost(item), kind, item.name.clone())
     };
     if shard_count(c, kind) < cost_shards {
         return format!(
@@ -365,19 +334,14 @@ pub(crate) fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> 
             item_name
         );
     }
-    if c.gold < cost_gold {
-        return format!("Need {cost_gold} gold to upgrade {item_name}.");
-    }
     spend_shards(c, kind, cost_shards);
-    c.gold -= cost_gold;
     let item = equipped_item_mut(c, slot);
     upgrade_item(item);
     format!("Upgraded {} to +{}.", item.name, item.upgrade_level)
 }
 
-pub(crate) fn upgrade_cost(item: &Item) -> (u32, u32) {
-    let next = item.upgrade_level + 1;
-    (next * 2, next * 25)
+pub(crate) fn upgrade_cost(item: &Item) -> u32 {
+    (item.upgrade_level + 1) * 2
 }
 
 pub(crate) fn upgrade_item(item: &mut Item) {
@@ -455,6 +419,15 @@ pub(crate) fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
     }
 }
 
+pub(crate) fn sell_value(c: &Character, item: &Item) -> u32 {
+    let percent = if has_completed_project(c, TownProject::HireAppraiser) {
+        30
+    } else {
+        25
+    };
+    item.value.saturating_mul(percent) / 100
+}
+
 pub(crate) fn sell_item_screen(c: &mut Character) {
     let mut selected = 0usize;
     let mut message = String::new();
@@ -472,7 +445,7 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
             let item = &c.inventory[selected];
             println!();
             println!("Selected: {}", item_summary(item));
-            println!("Sell value: {YELLOW}{} gold{RESET}", item.value / 4);
+            println!("Sell value: {YELLOW}{} gold{RESET}", sell_value(c, item));
         }
         print_footer(&[&format!(
             "{BOLD}Sell:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=sell  {RED}Esc{RESET}=back"
@@ -494,7 +467,7 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
                     continue;
                 }
                 let item = c.inventory.remove(selected);
-                let sell_value = item.value / 4;
+                let sell_value = sell_value(c, &item);
                 c.gold += sell_value;
                 message = format!("Sold {} for {} gold.", item.name, sell_value);
                 append_autosave_status(c, &mut message);
