@@ -1,11 +1,14 @@
 # Agent Instructions
 
 At the start of every conversation in this repository:
-- Work directly on `main`.
-- Do not create or use git worktrees for repository tasks unless the user explicitly asks for one.
-- Before making code or documentation changes, check that the current checkout is on `main`. If it is not, switch to `main` when the working tree is clean.
-- If the checkout cannot be switched to `main` because of uncommitted changes, an existing worktree checkout, conflicts, or another blocker, explain the blocker clearly before making changes.
-- Do all repo inspection, edits, verification, staging, and commits on `main`.
+- Treat `main` as the integration branch, not the working branch.
+- Before making code or documentation changes, check that the repository has a clean `main` checkout available. If the current checkout is not `main`, switch to `main` when the working tree is clean.
+- If `main` cannot be checked out or is not clean because of uncommitted changes, an existing worktree checkout, conflicts, or another blocker, explain the blocker clearly before making changes.
+- Create a dedicated git worktree for the task from `main`, using a concise branch name with the `codex/` prefix unless the user requests another name.
+- Do all repo inspection, edits, verification, staging, and task commits inside that task worktree.
+- After the task worktree commit is complete and verified, merge the task branch back into `main`.
+- Do not make task changes directly on `main` except to perform the final merge from a verified task branch.
+- After a successful merge, remove the task worktree when practical and leave `main` checked out.
 
 Whenever you make a code change in a git repository:
 - Run appropriate verification when practical.
@@ -20,14 +23,16 @@ Whenever you make a code change in a git repository:
 
 After every completed code or documentation change in this repository:
 
-1. Run the required pre-commit workflow before staging/committing:
+1. In the task worktree, run the required pre-commit workflow before staging/committing:
    - `scripts/agent-commit-guard.sh --fix`
    - This runs `cargo fmt` first, then `cargo test`, then `cargo check`.
 2. Review `git status --short` and `git diff` after the workflow. If `cargo fmt` changed files, include those changes in the same commit.
-3. Make the final git commit only after the formatter and validation have successfully run. Never commit first and then run `cargo fmt` afterward.
+3. Make the task worktree commit only after the formatter and validation have successfully run. Never commit first and then run `cargo fmt` afterward.
 4. Do not use `git commit --no-verify`. The project pre-commit hook enforces `cargo fmt --check`, `cargo test`, and `cargo check`. If `git config --get core.hooksPath` is not `.githooks`, run `git config --local core.hooksPath .githooks` before committing.
-5. Commit the change before starting the next task.
-6. Use a concise, descriptive commit message.
+5. Switch back to `main`, merge the task branch, and verify `main` now contains the task commit.
+6. Remove the task worktree after the merge when practical.
+7. Commit and merge the change before starting the next task.
+8. Use a concise, descriptive commit message.
 
 ## UI interaction rule
 
