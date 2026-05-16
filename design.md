@@ -225,7 +225,7 @@ Example skills:
 
 ### 4. Rogue
 
-A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. Smoke Step spends Energy to dash 1-2 cardinal tiles to an open destination, briefly improves defense, and enables an empowered Backstab.
+A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. Smoke Step spends Energy to dash 1-2 cardinal tiles along a clear path to an open destination, briefly improves defense, and enables an empowered Backstab on the next player action.
 
 Possible builds:
 

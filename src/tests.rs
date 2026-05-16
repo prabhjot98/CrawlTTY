@@ -583,7 +583,49 @@ fn smoke_step_moves_and_enables_empowered_backstab() {
     assert_eq!((d.player_x, d.player_y), (4, 2));
     assert_eq!(c.rogue.smoke_step_cooldown, 4);
     assert_eq!(c.rogue.smoke_protection_turns, 1);
+    tick_player_effects(&mut c);
     assert_eq!(c.rogue.empowered_backstab_turns, 1);
+    assert_eq!(backstab_multiplier(&c), 1.20);
+}
+
+#[test]
+fn smoke_step_rejects_two_tile_path_blocked_by_wall_or_enemy() {
+    let mut wall_blocked = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let mut wall_dungeon = open_test_dungeon(2, 2, Vec::new());
+    wall_dungeon.tiles[tile_index(3, 2)] = '#';
+    wall_blocked.active_dungeon = Some(wall_dungeon);
+
+    assert!(!try_smoke_step(&mut wall_blocked, 2, 0));
+    let d = wall_blocked.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (2, 2));
+
+    let mut enemy_blocked = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    enemy_blocked.active_dungeon =
+        Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+    assert!(!try_smoke_step(&mut enemy_blocked, 2, 0));
+    let d = enemy_blocked.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (2, 2));
+}
+
+#[test]
+fn smoke_step_direction_skips_blocked_intervening_tile() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+    assert_eq!(smoke_step_direction(&c), Some((0, 2)));
 }
 
 #[test]

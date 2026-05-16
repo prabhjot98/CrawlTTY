@@ -232,10 +232,7 @@ pub(crate) fn try_smoke_step(c: &mut Character, dx: i32, dy: i32) -> bool {
         };
         let nx = d.player_x + dx;
         let ny = d.player_y + dy;
-        let blocked = dungeon_tile(d, nx, ny) == '#'
-            || d.enemies
-                .iter()
-                .any(|enemy| enemy.hp > 0 && enemy.x == nx && enemy.y == ny);
+        let blocked = !smoke_step_path_is_clear(d, dx, dy);
         (nx, ny, blocked)
     };
     if blocked {
@@ -257,7 +254,7 @@ pub(crate) fn try_smoke_step(c: &mut Character, dx: i32, dy: i32) -> bool {
     d.player_y = ny;
     c.rogue.smoke_step_cooldown = SMOKE_STEP_COOLDOWN;
     c.rogue.smoke_protection_turns = 1;
-    c.rogue.empowered_backstab_turns = 1;
+    c.rogue.empowered_backstab_turns = c.rogue.empowered_backstab_turns.max(2);
     log_event(&mut d.log, LogKind::Status, "You vanish through smoke.");
     true
 }
@@ -274,15 +271,9 @@ pub(crate) fn smoke_step_direction(c: &Character) -> Option<(i32, i32)> {
         (0, 1),
         (0, -1),
     ];
-    directions.into_iter().find(|(dx, dy)| {
-        let nx = d.player_x + dx;
-        let ny = d.player_y + dy;
-        dungeon_tile(d, nx, ny) != '#'
-            && !d
-                .enemies
-                .iter()
-                .any(|enemy| enemy.hp > 0 && enemy.x == nx && enemy.y == ny)
-    })
+    directions
+        .into_iter()
+        .find(|&(dx, dy)| smoke_step_path_is_clear(d, dx, dy))
 }
 
 pub(crate) fn use_smoke_step(c: &mut Character) -> bool {
@@ -291,6 +282,22 @@ pub(crate) fn use_smoke_step(c: &mut Character) -> bool {
         return false;
     };
     try_smoke_step(c, dx, dy)
+}
+
+fn smoke_step_path_is_clear(d: &Dungeon, dx: i32, dy: i32) -> bool {
+    let step_x = dx.signum();
+    let step_y = dy.signum();
+    let steps = dx.abs().max(dy.abs());
+
+    (1..=steps).all(|step| {
+        let x = d.player_x + (step_x * step);
+        let y = d.player_y + (step_y * step);
+        dungeon_tile(d, x, y) != '#'
+            && !d
+                .enemies
+                .iter()
+                .any(|enemy| enemy.hp > 0 && enemy.x == x && enemy.y == y)
+    })
 }
 
 fn log_rogue_warning(c: &mut Character, message: &str) {
