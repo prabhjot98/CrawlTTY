@@ -57,25 +57,34 @@ fn create_character() -> Result<Character> {
 
 pub(crate) fn load_character_from_path(save_path: &Path) -> Result<LoadedSave> {
     let data = fs::read_to_string(save_path).context("failed to read save file")?;
-    let header: SaveHeader = serde_json::from_str(&data).context("failed to parse save file")?;
+    let header: SaveHeader = match serde_json::from_str(&data) {
+        Ok(header) => header,
+        Err(err) => {
+            return reset_save_with_warning(save_path, bad_save_warning("unknown", &err));
+        }
+    };
     let save_version = header
         .save_version
         .as_deref()
         .unwrap_or(LEGACY_SAVE_VERSION);
     if save_major_version_changed(save_version, SAVE_VERSION) {
-        fs::remove_file(save_path).context("failed to reset incompatible save file")?;
-        return Ok(LoadedSave::Reset {
-            warning: incompatible_save_warning(save_version, SAVE_VERSION),
-        });
+        return reset_save_with_warning(
+            save_path,
+            incompatible_save_warning(save_version, SAVE_VERSION),
+        );
     }
 
     if header.save_version.is_some() {
-        let save: SaveFile = serde_json::from_str(&data).context("failed to parse save file")?;
-        return Ok(LoadedSave::Loaded(Box::new(save.character)));
+        return match serde_json::from_str::<SaveFile>(&data) {
+            Ok(save) => Ok(LoadedSave::Loaded(Box::new(save.character))),
+            Err(err) => reset_save_with_warning(save_path, bad_save_warning(save_version, &err)),
+        };
     }
 
-    let character = serde_json::from_str(&data).context("failed to parse legacy save file")?;
-    Ok(LoadedSave::Loaded(Box::new(character)))
+    match serde_json::from_str::<Character>(&data) {
+        Ok(character) => Ok(LoadedSave::Loaded(Box::new(character))),
+        Err(err) => reset_save_with_warning(save_path, bad_save_warning(save_version, &err)),
+    }
 }
 
 pub(crate) fn save_major_version_changed(save_version: &str, game_version: &str) -> bool {
@@ -86,9 +95,20 @@ fn parse_major_version(version: &str) -> Option<u64> {
     version.split('.').next()?.parse().ok()
 }
 
+fn reset_save_with_warning(save_path: &Path, warning: String) -> Result<LoadedSave> {
+    fs::remove_file(save_path).context("failed to reset save file")?;
+    Ok(LoadedSave::Reset { warning })
+}
+
 fn incompatible_save_warning(save_version: &str, game_version: &str) -> String {
     format!(
         "Warning: save version {save_version} is incompatible with game version {game_version}. The existing save was reset."
+    )
+}
+
+fn bad_save_warning(save_version: &str, err: &serde_json::Error) -> String {
+    format!(
+        "Warning: save version {save_version} could not be loaded ({err}). The existing save was reset."
     )
 }
 

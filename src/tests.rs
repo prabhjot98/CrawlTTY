@@ -198,6 +198,68 @@ fn save_minor_version_mismatch_loads_existing_character() {
 }
 
 #[test]
+fn bad_legacy_save_resets_instead_of_erroring() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-bad-legacy-save-reset-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    fs::write(
+        &save_path,
+        serde_json::json!({
+            "name": "Broken Legacy Save",
+            "inventory": { "columns": 4, "rows": 4, "items": [] }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Reset { warning } => {
+            assert!(warning.contains("could not be loaded"));
+            assert!(warning.contains("0.0.0"));
+        }
+        LoadedSave::Loaded(_) => panic!("bad legacy save should reset"),
+    }
+    assert!(!save_path.exists());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn bad_versioned_save_resets_instead_of_erroring() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-bad-versioned-save-reset-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    fs::write(
+        &save_path,
+        serde_json::json!({
+            "save_version": SAVE_VERSION,
+            "character": { "name": "Broken Versioned Save" }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Reset { warning } => {
+            assert!(warning.contains("could not be loaded"));
+            assert!(warning.contains(SAVE_VERSION));
+        }
+        LoadedSave::Loaded(_) => panic!("bad versioned save should reset"),
+    }
+    assert!(!save_path.exists());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn save_character_creates_parent_directories() {
     let c = test_character();
     let dir = env::temp_dir().join(format!("crawltty-save-parent-test-{}", std::process::id()));
