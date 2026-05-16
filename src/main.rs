@@ -93,28 +93,32 @@ fn run_game(
         };
         match key {
             'm' | 'M' => {
-                merchant(character);
+                run_legacy_screen(terminal, || merchant(character))?;
                 town_message.clear();
             }
             'b' | 'B' => {
-                blacksmith(character);
+                run_legacy_screen(terminal, || blacksmith(character))?;
                 town_message.clear();
             }
             's' | 'S' => {
-                stash_menu(character);
+                run_legacy_screen(terminal, || stash_menu(character))?;
                 town_message.clear();
             }
             'p' | 'P' => {
-                town_projects_menu(character);
+                run_legacy_screen(terminal, || town_projects_menu(character))?;
                 town_message.clear();
             }
             't' | 'T' => *town_message = quest_giver(character),
             'd' | 'D' => *town_message = enter_dungeon(character),
             'i' | 'I' => {
-                inventory_screen(character);
+                run_legacy_screen(terminal, || inventory_screen(character))?;
             }
-            'a' | 'A' => spend_attributes(character),
-            'k' | 'K' => skill_tree_menu(character),
+            'a' | 'A' => {
+                run_legacy_screen(terminal, || spend_attributes(character))?;
+            }
+            'k' | 'K' => {
+                run_legacy_screen(terminal, || skill_tree_menu(character))?;
+            }
             'q' | 'Q' => {
                 save_character(character)?;
                 break;
@@ -124,6 +128,25 @@ fn run_game(
         save_character(character)?;
     }
     Ok(())
+}
+
+fn run_legacy_screen<B, F, T>(terminal: &mut ratatui::Terminal<B>, screen: F) -> Result<T>
+where
+    B: ratatui::backend::Backend,
+    F: FnOnce() -> T,
+{
+    let result = screen();
+    clear_after_legacy_screen(terminal)?;
+    Ok(result)
+}
+
+pub(crate) fn clear_after_legacy_screen<B>(terminal: &mut ratatui::Terminal<B>) -> Result<()>
+where
+    B: ratatui::backend::Backend,
+{
+    terminal
+        .clear()
+        .context("failed to reset terminal after legacy screen")
 }
 
 struct TerminalSession {

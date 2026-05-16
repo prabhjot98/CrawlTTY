@@ -803,6 +803,9 @@ Even without graphics, the game can feel responsive with:
 - Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow, boss red, elite magenta, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find.
+- The current implementation renders the parent town and dungeon screens with ratatui. Legacy ANSI submenu screens such as
+  inventory, merchant, stash, projects, attributes, and skills must reset ratatui's terminal buffer before returning so the
+  next parent draw fully repaints instead of visually leaving the submenu on screen.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.
 - Important UI text should use color: green for safe/positive options, yellow for gold/items/messages, red for danger/quit/back, blue for mana, and cyan/magenta for headings or special screens.
 - Animated projectile movement using short delays

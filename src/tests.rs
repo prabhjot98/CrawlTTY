@@ -622,6 +622,43 @@ fn successful_inventory_actions_spend_dungeon_turns() {
 }
 
 #[test]
+fn legacy_screen_reset_forces_parent_ratatui_redraw() {
+    use ratatui::{
+        Terminal,
+        backend::{Backend, TestBackend},
+        widgets::Paragraph,
+    };
+
+    let mut terminal = Terminal::new(TestBackend::new(16, 3)).unwrap();
+    terminal
+        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
+        .unwrap();
+
+    terminal.backend_mut().clear().unwrap();
+    terminal
+        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
+        .unwrap();
+    assert!(!backend_text(&terminal).contains("Town"));
+
+    clear_after_legacy_screen(&mut terminal).unwrap();
+    terminal
+        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
+        .unwrap();
+
+    assert!(backend_text(&terminal).contains("Town"));
+}
+
+fn backend_text(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> String {
+    terminal
+        .backend()
+        .buffer()
+        .content()
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect()
+}
+
+#[test]
 fn weapon_base_type_sets_flat_crit_chance() {
     assert_eq!(rusted_sword().crit_chance, SWORD_CRIT_CHANCE);
     assert_eq!(crude_axe().crit_chance, AXE_CRIT_CHANCE);
