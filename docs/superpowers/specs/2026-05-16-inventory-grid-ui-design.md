@@ -4,12 +4,12 @@
 
 Rework inventory from a list into ratatui grid screens. The player bag and stash should feel like spatial containers without becoming a manual packing puzzle. Every item occupies one cell, grids auto-compact after item changes, and selected item details appear in a right-side panel.
 
-Old saves can break for this change. Existing local saves should be deleted or reset after implementation.
+Old saves can break for this change because inventory, stash, and active dungeon ground loot changed save shape. Existing local saves should be reset during development with `cargo run -- reset-save`.
 
 ## Goals
 
 - Replace the list-like inventory with a visible grid and cursor selection.
-- Prefer ratatui for inventory, stash, and ground-loot picker screens.
+- Use ratatui for the implemented inventory, stash, and ground-loot picker screens.
 - Keep item management fast by avoiding manual item rearrangement.
 - Make inventory capacity a progression system through Quartermaster town projects.
 - Prevent loot loss when the bag is full by adding ground items.
@@ -67,6 +67,7 @@ Ground loot uses a ratatui picker when there is a real choice.
 - `Enter` picks up the selected item if the bag has space.
 - `d` discards the selected ground item permanently.
 - `Esc` leaves remaining items on the ground.
+- Dungeon map tiles containing ground items render with `!`.
 
 ## Data Model
 
@@ -119,21 +120,19 @@ Bag capacity is a Quartermaster town-project progression path.
 - `Storehouse Shelves` should become part of this capacity progression instead of being a placeholder-only project.
 - Stash starts at `8 x 8`.
 
-Exact project names, costs, and dimension steps can be tuned during implementation, but the first pass should keep the curve explicit and deterministic.
+Implemented bag curve:
 
-Recommended bag curve:
-
-| Stage | Size | Capacity |
-| --- | ---: | ---: |
-| Starting bag | `4 x 4` | 16 |
-| Upgrade 1 | `5 x 4` | 20 |
-| Upgrade 2 | `5 x 5` | 25 |
-| Upgrade 3 | `6 x 5` | 30 |
-| Upgrade 4 | `6 x 6` | 36 |
-| Upgrade 5 | `7 x 6` | 42 |
-| Upgrade 6 | `7 x 7` | 49 |
-| Upgrade 7 | `8 x 7` | 56 |
-| Upgrade 8 | `8 x 8` | 64 |
+| Stage | Project | Cost | Size | Capacity |
+| --- | --- | ---: | ---: | ---: |
+| Starting bag | - | - | `4 x 4` | 16 |
+| Upgrade 1 | Storehouse Shelves | 200 gold | `5 x 4` | 20 |
+| Upgrade 2 | Pack Hooks | 350 gold | `5 x 5` | 25 |
+| Upgrade 3 | Oilcloth Satchel | 500 gold | `6 x 5` | 30 |
+| Upgrade 4 | Quartermaster Ledger | 700 gold | `6 x 6` | 36 |
+| Upgrade 5 | Reinforced Pack | 950 gold | `7 x 6` | 42 |
+| Upgrade 6 | Stitched Pockets | 1200 gold | `7 x 7` | 49 |
+| Upgrade 7 | Deep Rucksack | 1500 gold | `8 x 7` | 56 |
+| Upgrade 8 | Exile's Trunk | 1900 gold | `8 x 8` | 64 |
 
 ## Loot And Pickup Behavior
 
@@ -141,20 +140,20 @@ Loot should not disappear because the bag is full.
 
 - If monster loot drops and the bag has room, add it to the bag.
 - If monster loot drops and the bag is full, create a `GroundItem` at or near the enemy/player tile.
-- If boss loot drops and the bag is full, create a `GroundItem` and log clearly that the reward is on the ground.
+- If boss loot drops and the bag is full, create a `GroundItem`, log clearly that the reward is on the ground, and retain the completed dungeon so the grounded reward remains accessible before returning to town.
 - Chest gold is always collected.
 - Chest items enter the bag if space exists.
 - Chest items become ground loot on the chest tile if the bag is full.
 - Dropping an item in town removes it from the bag.
 - Dropping an item in a dungeon creates a `GroundItem` at the player tile.
-- Ground item tiles should render with a loot glyph in the dungeon map.
+- Ground item tiles render with `!` in the dungeon map.
 - Dungeon command help should include `g=pickup`.
 
 If there are multiple ground items on the same tile, the picker opens instead of guessing which item to take.
 
 ## Ratatui Preference
 
-Use ratatui for the inventory, stash, and ground-loot picker screens. If a screen cannot use ratatui, the implementation must explain the concrete blocker before falling back to a legacy ANSI screen.
+Inventory, stash, and ground-loot picker screens are implemented with ratatui. If a future inventory-adjacent screen cannot use ratatui, the implementation must explain the concrete blocker before falling back to a legacy ANSI screen.
 
 The preferred direction is to avoid adding new legacy `println!` UI for this system. Existing legacy sell, salvage, and other service screens can remain list-based unless they need capacity or item-container correctness changes during implementation.
 
@@ -179,8 +178,11 @@ Test coverage should include:
 - Ground-loot discard removes only the selected ground item.
 - Ratatui render tests where practical cover grid cells, cursor highlight, selected-item detail text, and command footer text.
 
-## Open Implementation Details
+## Final Implementation Details
 
-- Final Quartermaster project names and costs.
-- Exact loot glyph for ground items.
-- Whether sell and salvage screens should get small adapter helpers immediately or remain list-based until a later UI pass.
+- Quartermaster bag upgrades use the fixed project chain and costs listed above.
+- Ground loot renders with the `!` glyph.
+- Inventory, stash, and ground-loot picker are ratatui screens.
+- Boss reward overflow retains the completed dungeon when the reward lands on the ground, leaving the reward accessible before the player returns to town.
+- Sell and salvage screens remain list-based for this pass, while item storage still uses the compacting grid containers.
+- Old saves are not migrated; during local development, reset incompatible saves with `cargo run -- reset-save`.

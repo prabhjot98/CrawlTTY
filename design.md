@@ -895,7 +895,7 @@ MVP save/load behavior:
 - Load the latest save automatically on startup if one exists.
 - Save active dungeon state, including map, enemies, items on the ground, player position, HP, mana, cooldowns, inventory, equipment, gold, XP, and quest progress.
 - If the player leaves or abandons the dungeon from town, clear the active dungeon state so the next dungeon entry generates a fresh dungeon.
-- The inventory grid rework may break older save files. During development, existing local saves can be deleted or reset instead of migrated.
+- The inventory grid rework may break older save files. During development, existing local saves can be deleted or reset with `cargo run -- reset-save` instead of migrated.
 
 ## Minimum Viable Product
 

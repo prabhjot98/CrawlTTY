@@ -10,7 +10,9 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - Procedural 10-floor Act I dungeon and 8-floor Act II dungeon
 - Turn-based combat with enemies, elites, chests, loot, XP, gold, and potions
 - Bellkeeper and Glass Tyrant boss encounters
-- Inventory, equipment, selling, salvaging, shard-only gear upgrading, and gold-funded town projects
+- Grid-based bag and stash inventory, equipment, selling, salvaging, shard-only gear upgrading, and gold-funded town projects
+- Quartermaster town projects upgrade bag capacity from `4 x 4` to `8 x 8`
+- Ground loot pickup with `g`, plus automatic pickup when walking over a single item and bag space is available
 - Save/load support via JSON saves
 
 ## Controls
@@ -72,6 +74,12 @@ saves/save.json
 ```
 
 The `saves/` directory is local/generated data and should not be committed.
+
+The inventory grid rework changed the save shape for inventory, stash, and active dungeon ground loot. During local development, old saves may fail to load and can be reset with:
+
+```sh
+cargo run -- reset-save
+```
 
 ## Design
 
