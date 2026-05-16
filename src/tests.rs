@@ -240,6 +240,35 @@ fn equipped_socketed_gems_add_effective_stats() {
 }
 
 #[test]
+fn equipped_socketed_gems_cover_all_remaining_stat_paths() {
+    let mut c = test_character();
+    c.equipped_weapon.sockets = vec![
+        Some(GemSocket::filled(GemKind::Sapphire, GemTier::Pristine)),
+        Some(GemSocket::filled(GemKind::Quartz, GemTier::Pristine)),
+    ];
+    c.equipped_armor.sockets = vec![
+        Some(GemSocket::filled(GemKind::Emerald, GemTier::Pristine)),
+        Some(GemSocket::filled(GemKind::Amethyst, GemTier::Pristine)),
+        Some(GemSocket::filled(GemKind::Citrine, GemTier::Pristine)),
+    ];
+    c.equipped_shield.sockets = vec![
+        Some(GemSocket::filled(GemKind::Jade, GemTier::Pristine)),
+        Some(GemSocket::filled(GemKind::Onyx, GemTier::Pristine)),
+    ];
+
+    assert_eq!(c.effective_dexterity(), c.dexterity + 3);
+    assert_eq!(c.effective_intelligence(), c.intelligence + 3);
+    assert_eq!(c.max_mana(), 10 + c.effective_intelligence() * 5 + 12);
+    assert_eq!(c.hit_rating(), 10 + c.effective_dexterity() * 5 + 10);
+    assert_eq!(
+        c.dodge_rating(),
+        (10 + c.effective_dexterity() * 3 + 2 + 8) as u32
+    );
+    assert_eq!(c.armor(), 1 + 1 + iron_guard_armor_bonus(&c) + 3);
+    assert_eq!(c.speed(), (10 + c.effective_dexterity() * 5 + 7) as u32);
+}
+
+#[test]
 fn socket_count_rolls_follow_rarity_thresholds() {
     assert_eq!(socket_count_for_roll(&Rarity::Common, 0.099), 1);
     assert_eq!(socket_count_for_roll(&Rarity::Common, 0.100), 0);
