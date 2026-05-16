@@ -668,8 +668,15 @@ fn skill_screens_render_with_ratatui() {
     assert!(skill_tree.contains("Current Skill"));
     assert!(skill_tree.contains("Improved Skill"));
     assert!(skill_tree.contains("Next rank 5"));
+    assert!(skill_tree.contains("Details"));
     assert!(skill_tree.contains("W/S or arrows=select"));
     assert!(skill_tree.contains("Enter=upgrade/mastery"));
+    let skill_lines = backend_lines(&terminal);
+    let skill_header = skill_lines
+        .iter()
+        .find(|line| line.contains("Skills") && line.contains("Details"))
+        .unwrap();
+    assert_eq!(char_index(skill_header, "Details"), 51);
 
     c.cleave_rank = 5;
     terminal
