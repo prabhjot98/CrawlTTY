@@ -977,8 +977,6 @@ pub(crate) fn resolve_enemy_death(
     let name = enemy.name.clone();
     let xp = enemy.xp;
     let was_boss = enemy.is_boss;
-    let drop_x = enemy.x;
-    let drop_y = enemy.y;
     let mut rng = rand::thread_rng();
     let gold = apply_gold_find_bonus(c, rng.gen_range(enemy.gold_min..=enemy.gold_max));
     c.gold += gold;
@@ -1003,11 +1001,11 @@ pub(crate) fn resolve_enemy_death(
     if was_boss {
         let loot = random_equipment_loot(d.floor, true);
         let loot_name = colored_item_name(&loot);
-        add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Boss reward dropped");
+        add_boss_loot_to_bag(c, d, loot, "Boss reward dropped");
         let boss_gem_name = if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.25) {
             let gem = random_gem();
             let gem_name = colored_item_name(&gem);
-            add_loot_to_bag_or_ground(c, d, gem, drop_x, drop_y, "Boss gem dropped");
+            add_boss_loot_to_bag(c, d, gem, "Boss gem dropped");
             Some(gem_name)
         } else {
             None
@@ -1734,6 +1732,27 @@ fn add_loot_to_inventory_or_ground(
                 format!("Inventory full. {name} fell to the ground."),
             );
             false
+        }
+    }
+}
+
+fn add_boss_loot_to_bag(c: &mut Character, d: &mut Dungeon, item: Item, verb: &str) {
+    let name = colored_item_name(&item);
+    ensure_bag_space_for_boss_loot(&mut c.inventory, 1);
+    assert!(
+        c.inventory.push(item),
+        "boss loot bag expansion must create an inventory slot"
+    );
+    log_event(&mut d.log, LogKind::Loot, format!("{verb}: {name}."));
+}
+
+fn ensure_bag_space_for_boss_loot(inventory: &mut ItemGrid, needed_slots: usize) {
+    let required_capacity = inventory.len() + needed_slots;
+    while inventory.capacity() < required_capacity {
+        if inventory.columns < MAX_BAG_COLUMNS {
+            inventory.columns += 1;
+        } else {
+            inventory.rows += 1;
         }
     }
 }
