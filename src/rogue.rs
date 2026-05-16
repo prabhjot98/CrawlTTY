@@ -4,17 +4,8 @@ use crate::*;
 const BACKSTAB_COST: u32 = 25;
 const VENOM_EDGE_COST: u32 = 30;
 const EVISCERATE_COST: u32 = 35;
-
-fn rogue_skill_not_ready(c: &mut Character, skill: &str) -> bool {
-    if let Some(d) = c.active_dungeon.as_mut() {
-        log_event(
-            &mut d.log,
-            LogKind::Warn,
-            format!("{skill} is not ready yet."),
-        );
-    }
-    false
-}
+const SMOKE_STEP_COST: u32 = 35;
+const SMOKE_STEP_COOLDOWN: u32 = 4;
 
 pub(crate) fn add_rogue_combo_point(c: &mut Character) {
     c.rogue.combo_points = (c.rogue.combo_points + 1).min(ROGUE_MAX_COMBO_POINTS);
@@ -221,8 +212,85 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
     true
 }
 
+pub(crate) fn try_smoke_step(c: &mut Character, dx: i32, dy: i32) -> bool {
+    if c.rogue.smoke_step_cooldown > 0 {
+        log_rogue_warning(c, "Smoke Step is on cooldown.");
+        return false;
+    }
+    if dx.abs() + dy.abs() == 0 || dx.abs() + dy.abs() > 2 || (dx != 0 && dy != 0) {
+        log_rogue_warning(c, "Smoke Step must move 1 or 2 cardinal tiles.");
+        return false;
+    }
+    if !c.spend_rogue_energy(SMOKE_STEP_COST) {
+        log_rogue_warning(c, "Not enough Energy for Smoke Step.");
+        return false;
+    }
+    let (nx, ny, blocked) = {
+        let Some(d) = c.active_dungeon.as_ref() else {
+            c.restore_rogue_energy(SMOKE_STEP_COST);
+            return false;
+        };
+        let nx = d.player_x + dx;
+        let ny = d.player_y + dy;
+        let blocked = dungeon_tile(d, nx, ny) == '#'
+            || d.enemies
+                .iter()
+                .any(|enemy| enemy.hp > 0 && enemy.x == nx && enemy.y == ny);
+        (nx, ny, blocked)
+    };
+    if blocked {
+        c.restore_rogue_energy(SMOKE_STEP_COST);
+        if let Some(d) = c.active_dungeon.as_mut() {
+            log_event(
+                &mut d.log,
+                LogKind::Warn,
+                "Smoke Step destination is blocked.",
+            );
+        }
+        return false;
+    }
+    let Some(d) = c.active_dungeon.as_mut() else {
+        c.restore_rogue_energy(SMOKE_STEP_COST);
+        return false;
+    };
+    d.player_x = nx;
+    d.player_y = ny;
+    c.rogue.smoke_step_cooldown = SMOKE_STEP_COOLDOWN;
+    c.rogue.smoke_protection_turns = 1;
+    c.rogue.empowered_backstab_turns = 1;
+    log_event(&mut d.log, LogKind::Status, "You vanish through smoke.");
+    true
+}
+
+pub(crate) fn smoke_step_direction(c: &Character) -> Option<(i32, i32)> {
+    let d = c.active_dungeon.as_ref()?;
+    let directions = [
+        (2, 0),
+        (-2, 0),
+        (0, 2),
+        (0, -2),
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+    ];
+    directions.into_iter().find(|(dx, dy)| {
+        let nx = d.player_x + dx;
+        let ny = d.player_y + dy;
+        dungeon_tile(d, nx, ny) != '#'
+            && !d
+                .enemies
+                .iter()
+                .any(|enemy| enemy.hp > 0 && enemy.x == nx && enemy.y == ny)
+    })
+}
+
 pub(crate) fn use_smoke_step(c: &mut Character) -> bool {
-    rogue_skill_not_ready(c, "Smoke Step")
+    let Some((dx, dy)) = smoke_step_direction(c) else {
+        log_rogue_warning(c, "No open tile for Smoke Step.");
+        return false;
+    };
+    try_smoke_step(c, dx, dy)
 }
 
 fn log_rogue_warning(c: &mut Character, message: &str) {

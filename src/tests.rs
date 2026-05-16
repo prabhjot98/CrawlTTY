@@ -46,6 +46,16 @@ fn one_hp_test_boss(x: i32, y: i32) -> Enemy {
 }
 
 fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dungeon {
+    let mut tiles = vec!['.'; (MAP_W * MAP_H) as usize];
+    for x in 0..MAP_W {
+        tiles[tile_index(x, 0)] = '#';
+        tiles[tile_index(x, MAP_H - 1)] = '#';
+    }
+    for y in 0..MAP_H {
+        tiles[tile_index(0, y)] = '#';
+        tiles[tile_index(MAP_W - 1, y)] = '#';
+    }
+
     Dungeon {
         floor: 2,
         player_x,
@@ -56,7 +66,7 @@ fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dunge
         chests: Vec::new(),
         ground_items: Vec::new(),
         log: Vec::new(),
-        tiles: vec!['.'; (MAP_W * MAP_H) as usize],
+        tiles,
         bell_wave_tiles: Vec::new(),
         boss_turn_counter: 0,
         log_turn: 0,
@@ -523,7 +533,7 @@ fn eviscerate_retained_boss_dungeon_leaves_smoke_protection_cleared() {
 }
 
 #[test]
-fn smoke_step_hotkey_dispatches_to_stub_warning() {
+fn smoke_step_hotkey_moves_to_default_open_destination() {
     let mut rogue = Character::new(
         "Sneak".to_string(),
         CharacterClass::Rogue,
@@ -532,12 +542,71 @@ fn smoke_step_hotkey_dispatches_to_stub_warning() {
     rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
     assert!(is_known_dungeon_command_for(&rogue, '4'));
-    assert!(!handle_class_skill_key(&mut rogue, '4'));
+    assert!(handle_class_skill_key(&mut rogue, '4'));
 
-    let log = &rogue.active_dungeon.as_ref().unwrap().log;
+    let d = rogue.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (4, 2));
     assert!(
-        log.iter()
-            .any(|line| line.contains("Smoke Step is not ready yet."))
+        d.log
+            .iter()
+            .any(|line| line.contains("You vanish through smoke."))
+    );
+}
+
+#[test]
+fn smoke_step_rejects_blocked_occupied_and_out_of_range_destinations() {
+    let enemy = armored_training_dummy(4, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(!try_smoke_step(&mut c, 3, 0));
+    assert!(!try_smoke_step(&mut c, 2, 0));
+    assert!(!try_smoke_step(&mut c, -2, 0));
+}
+
+#[test]
+fn smoke_step_moves_and_enables_empowered_backstab() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(try_smoke_step(&mut c, 2, 0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (4, 2));
+    assert_eq!(c.rogue.smoke_step_cooldown, 4);
+    assert_eq!(c.rogue.smoke_protection_turns, 1);
+    assert_eq!(c.rogue.empowered_backstab_turns, 1);
+}
+
+#[test]
+fn smoke_protection_adds_rogue_defensive_dodge_bonus() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let base_dodge = rogue.dodge_rating() as i32;
+
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge);
+
+    rogue.rogue.smoke_protection_turns = 1;
+
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 20);
+
+    let mut warrior = test_character();
+    warrior.rogue.smoke_protection_turns = 1;
+
+    assert_eq!(
+        defensive_dodge_rating(&warrior),
+        warrior.dodge_rating() as i32
     );
 }
 

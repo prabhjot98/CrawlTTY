@@ -1651,7 +1651,7 @@ pub(crate) fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
 pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) -> bool {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
-    if hit_roll(25, c.dodge_rating() as i32) {
+    if hit_roll(25, defensive_dodge_rating(c)) {
         let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max)
             + elite_damage_bonus(enemy)
             + bellkeeper_enrage_damage_bonus(enemy);
@@ -1744,7 +1744,7 @@ pub(crate) fn clear_cardinal_line(
 pub(crate) fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
-    if hit_roll(30, c.dodge_rating() as i32) {
+    if hit_roll(30, defensive_dodge_rating(c)) {
         let raw =
             rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
@@ -1834,6 +1834,16 @@ pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
     (((raw - c.armor()).max(1) as f32) * cry_penalty)
         .round()
         .max(1.0) as u32
+}
+
+pub(crate) fn defensive_dodge_rating(c: &Character) -> i32 {
+    let smoke_dodge_bonus =
+        if c.class == CharacterClass::Rogue && c.rogue.smoke_protection_turns > 0 {
+            20
+        } else {
+            0
+        };
+    c.dodge_rating() as i32 + smoke_dodge_bonus
 }
 
 pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
