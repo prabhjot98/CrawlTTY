@@ -202,6 +202,55 @@ pub(crate) fn blacksmith(c: &mut Character) {
     }
 }
 
+pub(crate) fn town_projects_menu(c: &mut Character) {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        clamp_selection(&mut selected, TOWN_PROJECTS.len());
+        clear_screen();
+        println!("{BOLD}{CYAN}Town Projects{RESET} - {}", gold_text(c.gold));
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        println!();
+        for (i, definition) in TOWN_PROJECTS.iter().enumerate() {
+            let marker = if i == selected {
+                format!("{GREEN}>{RESET}")
+            } else {
+                " ".to_string()
+            };
+            println!("{marker} {}", town_project_row_text(c, definition.project));
+        }
+        println!();
+        let selected_project = TOWN_PROJECTS[selected].project;
+        println!(
+            "{BOLD}Selected:{RESET} {}",
+            town_project_definition(selected_project).name
+        );
+        println!("{}", town_project_definition(selected_project).benefit);
+        print_footer(&[&format!(
+            "{BOLD}Projects:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=fund project  {RED}Esc{RESET}=back"
+        )]);
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
+            '\u{1b}' => break,
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < TOWN_PROJECTS.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => {
+                message = complete_town_project(c, TOWN_PROJECTS[selected].project);
+                append_autosave_status(c, &mut message);
+            }
+            _ => message = "Unknown projects command.".to_string(),
+        }
+    }
+}
+
 pub(crate) fn buy_item_message(c: &mut Character, item: Item) -> String {
     if c.gold < item.value {
         return "Not enough gold.".to_string();

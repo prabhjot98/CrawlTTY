@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,7 +8,6 @@ pub(crate) enum ProjectAvailability {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub(crate) struct TownProjectDefinition {
     pub(crate) project: TownProject,
     pub(crate) group: &'static str,
@@ -124,6 +121,26 @@ pub(crate) fn town_project_availability(
             }
         }
     }
+}
+
+pub(crate) fn town_project_status_text(c: &Character, project: TownProject) -> String {
+    match town_project_availability(c, project) {
+        ProjectAvailability::Available => "Available".to_string(),
+        ProjectAvailability::Completed => "Complete".to_string(),
+        ProjectAvailability::Locked(reason) => format!("Locked: {reason}"),
+    }
+}
+
+pub(crate) fn town_project_row_text(c: &Character, project: TownProject) -> String {
+    let definition = town_project_definition(project);
+    format!(
+        "[{}] {} - {} gold - {} - {}",
+        definition.group,
+        definition.name,
+        definition.cost,
+        town_project_status_text(c, project),
+        definition.benefit
+    )
 }
 
 pub(crate) fn complete_town_project(c: &mut Character, project: TownProject) -> String {

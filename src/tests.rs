@@ -197,6 +197,39 @@ fn town_project_availability_uses_completion_and_quest_gates() {
 }
 
 #[test]
+fn town_project_status_text_describes_available_locked_and_completed_projects() {
+    let mut c = test_character();
+
+    assert_eq!(
+        town_project_status_text(&c, TownProject::RebuildForge),
+        "Available"
+    );
+    assert_eq!(
+        town_project_status_text(&c, TownProject::HerbGarden),
+        "Locked: Requires Act I completed."
+    );
+
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    assert_eq!(
+        town_project_status_text(&c, TownProject::RebuildForge),
+        "Complete"
+    );
+}
+
+#[test]
+fn town_project_row_text_includes_group_cost_status_and_benefit() {
+    let c = test_character();
+
+    let row = town_project_row_text(&c, TownProject::HireAppraiser);
+
+    assert!(row.contains("[Appraiser]"));
+    assert!(row.contains("Hire Appraiser"));
+    assert!(row.contains("250 gold"));
+    assert!(row.contains("Available"));
+    assert!(row.contains("Improve sell prices from 25% to 30%."));
+}
+
+#[test]
 fn completing_town_project_spends_gold_and_records_completion() {
     let mut c = test_character();
     c.gold = 150;

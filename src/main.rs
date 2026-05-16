@@ -32,7 +32,6 @@ pub(crate) use model::*;
 pub(crate) use save::*;
 pub(crate) use skills::*;
 pub(crate) use town::*;
-#[allow(unused_imports)]
 pub(crate) use town_projects::*;
 pub(crate) use ui::*;
 
@@ -103,6 +102,10 @@ fn run_game(
             }
             's' | 'S' => {
                 stash_menu(character);
+                town_message.clear();
+            }
+            'p' | 'P' => {
+                town_projects_menu(character);
                 town_message.clear();
             }
             't' | 'T' => *town_message = quest_giver(character),
