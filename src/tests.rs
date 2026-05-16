@@ -165,6 +165,28 @@ fn item_grid_capacity_add_remove_and_auto_compaction() {
 }
 
 #[test]
+fn grid_cursor_movement_wraps_within_dimensions() {
+    assert_eq!(move_grid_cursor(0, 4, 4, 'a'), 0);
+    assert_eq!(move_grid_cursor(0, 4, 4, 'd'), 1);
+    assert_eq!(move_grid_cursor(0, 4, 4, 's'), 4);
+    assert_eq!(move_grid_cursor(15, 4, 4, 'd'), 15);
+    assert_eq!(move_grid_cursor(15, 4, 4, 's'), 15);
+    assert_eq!(move_grid_cursor(5, 4, 4, 'w'), 1);
+}
+
+#[test]
+fn inventory_cell_label_shows_item_kind_or_empty_cell() {
+    let mut grid = ItemGrid::new(2, 2, vec![health_potion(), rusted_sword()]);
+
+    assert_eq!(inventory_cell_label(&grid, 0), "H");
+    assert_eq!(inventory_cell_label(&grid, 1), "W");
+    assert_eq!(inventory_cell_label(&grid, 2), ".");
+
+    grid.push(mana_potion());
+    assert_eq!(inventory_cell_label(&grid, 2), "M");
+}
+
+#[test]
 fn new_character_uses_starting_bag_and_stash_grids() {
     let c = test_character();
 

@@ -1,4 +1,5 @@
 use crate::*;
+use ratatui::prelude::{Color, Line, Modifier, Style};
 
 pub(crate) fn inventory_screen(c: &mut Character) -> bool {
     let mut selected = 0usize;
@@ -208,6 +209,96 @@ pub(crate) fn clamp_selection(selected: &mut usize, total: usize) {
     }
 }
 
+#[allow(dead_code)]
+pub(crate) fn move_grid_cursor(selected: usize, columns: u16, rows: u16, key: char) -> usize {
+    let columns = usize::from(columns);
+    let rows = usize::from(rows);
+    let capacity = columns * rows;
+    if capacity == 0 {
+        return 0;
+    }
+    let selected = selected.min(capacity - 1);
+    let col = selected % columns;
+    let row = selected / columns;
+    match key {
+        'w' | 'W' if row > 0 => selected - columns,
+        's' | 'S' if row + 1 < rows => selected + columns,
+        'a' | 'A' if col > 0 => selected - 1,
+        'd' | 'D' if col + 1 < columns => selected + 1,
+        _ => selected,
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn inventory_cell_label(grid: &ItemGrid, index: usize) -> &'static str {
+    let Some(item) = grid.get(index) else {
+        return ".";
+    };
+    match item.kind {
+        ItemKind::HealthPotion => "H",
+        ItemKind::ManaPotion => "M",
+        ItemKind::Weapon => "W",
+        ItemKind::Armor => "A",
+        ItemKind::Shield => "S",
+        ItemKind::Gem => "G",
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn clamp_grid_cursor(selected: &mut usize, grid: &ItemGrid) {
+    let capacity = grid.capacity();
+    if capacity == 0 {
+        *selected = 0;
+    } else if *selected >= capacity {
+        *selected = capacity - 1;
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn selected_item_detail_lines(c: &Character, item: Option<&Item>) -> Vec<Line<'static>> {
+    let Some(item) = item else {
+        return vec![
+            Line::styled("Empty cell", Style::default().fg(Color::DarkGray)),
+            Line::from(format!(
+                "Bag: {}/{}",
+                c.inventory.len(),
+                c.inventory.capacity()
+            )),
+        ];
+    };
+    let mut lines = vec![
+        Line::styled(
+            item.name.clone(),
+            Style::default()
+                .fg(rarity_color(&item.rarity))
+                .add_modifier(Modifier::BOLD),
+        ),
+        Line::from(format!(
+            "{:?} | {} | value {}",
+            item.kind,
+            rarity_name(&item.rarity),
+            item.value
+        )),
+    ];
+    match item.kind {
+        ItemKind::Weapon => lines.push(Line::from(format!(
+            "Damage {}-{} | crit {}%",
+            item.damage_min, item.damage_max, item.crit_chance
+        ))),
+        ItemKind::Armor | ItemKind::Shield => lines.push(Line::from(format!(
+            "Armor {} | dodge {} | speed {}",
+            item.armor, item.dodge, item.speed
+        ))),
+        ItemKind::HealthPotion => lines.push(Line::from("Restores 15% HP.")),
+        ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
+        ItemKind::Gem => lines.push(Line::from(strip_ansi_codes(&gem_summary(item)))),
+    }
+    if let Some(compare) = item_comparison(c, item) {
+        lines.push(Line::from(strip_ansi_codes(&compare)));
+    }
+    lines
+}
+
 pub(crate) fn drop_selected_inventory_item(
     c: &mut Character,
     index: usize,
@@ -315,7 +406,7 @@ pub(crate) fn item_summary(item: &Item) -> String {
     }
 }
 
-fn gem_summary(item: &Item) -> String {
+pub(crate) fn gem_summary(item: &Item) -> String {
     let (Some(kind), Some(tier)) = (item.gem_kind, item.gem_tier) else {
         return format!(
             "{RED}Invalid gem metadata{RESET} [Gem] {YELLOW}value {}{RESET}",

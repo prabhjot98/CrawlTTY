@@ -135,6 +135,8 @@ fn read_key_char_with_navigation(navigation: bool) -> Result<char> {
                 KeyCode::Tab if navigation => return Ok('\t'),
                 KeyCode::Up if navigation => return Ok('w'),
                 KeyCode::Down if navigation => return Ok('s'),
+                KeyCode::Left if navigation => return Ok('a'),
+                KeyCode::Right if navigation => return Ok('d'),
                 _ => {}
             }
         }
