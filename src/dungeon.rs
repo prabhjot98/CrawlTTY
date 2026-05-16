@@ -92,7 +92,12 @@ pub(crate) fn dungeon_loop(
             '2' => took_turn = use_shield_bash(c),
             '3' => took_turn = use_battle_cry(c),
             'p' | 'P' => took_turn = use_potion(c),
-            'g' | 'G' => took_turn = pickup_ground_items_on_player(c),
+            'g' | 'G' => {
+                took_turn = pickup_ground_items_on_player(c);
+                if !took_turn && !ground_item_indices_at_player(c).is_empty() {
+                    took_turn = ground_loot_picker(c, terminal)?;
+                }
+            }
             'i' | 'I' => took_turn = inventory_screen(c, terminal)?,
             '\u{1b}' => {
                 if try_leave_dungeon_for_town(c) {
@@ -1745,12 +1750,46 @@ pub(crate) fn ground_item_indices_at_player(c: &Character) -> Vec<usize> {
     let Some(d) = c.active_dungeon.as_ref() else {
         return Vec::new();
     };
+    ground_item_indices_on_player_tile(d)
+}
+
+fn ground_item_indices_on_player_tile(d: &Dungeon) -> Vec<usize> {
     d.ground_items
         .iter()
         .enumerate()
         .filter(|(_, item)| item.x == d.player_x && item.y == d.player_y)
         .map(|(index, _)| index)
         .collect()
+}
+
+pub(crate) fn pick_up_ground_item_by_tile_index(c: &mut Character, tile_index: usize) -> String {
+    if !c.inventory.has_space() {
+        return "Inventory full.".to_string();
+    }
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return "No active dungeon.".to_string();
+    };
+    let indices = ground_item_indices_on_player_tile(d);
+    let Some(ground_index) = indices.get(tile_index).copied() else {
+        return "No item selected.".to_string();
+    };
+    let ground_item = d.ground_items.remove(ground_index);
+    let name = ground_item.item.name.clone();
+    let added = c.inventory.push(ground_item.item);
+    debug_assert!(added);
+    format!("Picked up {name}.")
+}
+
+pub(crate) fn discard_ground_item_by_tile_index(c: &mut Character, tile_index: usize) -> String {
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return "No active dungeon.".to_string();
+    };
+    let indices = ground_item_indices_on_player_tile(d);
+    let Some(ground_index) = indices.get(tile_index).copied() else {
+        return "No item selected.".to_string();
+    };
+    let ground_item = d.ground_items.remove(ground_index);
+    format!("Discarded {}.", ground_item.item.name)
 }
 
 pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
@@ -1766,14 +1805,18 @@ pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
             log_event(
                 &mut d.log,
                 LogKind::Info,
-                "Multiple items here. Choose one with the loot picker.",
+                "Multiple items here. Choose loot.",
             );
         }
         return false;
     }
     if !c.inventory.has_space() {
         if let Some(d) = c.active_dungeon.as_mut() {
-            log_event(&mut d.log, LogKind::Warn, "Inventory full.");
+            log_event(
+                &mut d.log,
+                LogKind::Warn,
+                "Inventory full. Choose loot to inspect or discard.",
+            );
         }
         return false;
     }
@@ -1789,6 +1832,179 @@ pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
     let d = c.active_dungeon.as_mut().expect("indices require dungeon");
     log_event(&mut d.log, LogKind::Loot, format!("Picked up {name}."));
     true
+}
+
+pub(crate) fn ground_loot_picker(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<bool> {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        let item_count = c
+            .active_dungeon
+            .as_ref()
+            .map(ground_item_indices_on_player_tile)
+            .unwrap_or_default()
+            .len();
+        clamp_selection(&mut selected, item_count);
+        terminal
+            .draw(|frame| render_ground_loot_picker(frame, c, selected, &message))
+            .context("failed to draw ground loot picker")?;
+        let key = read_key_char_nav()?;
+        message.clear();
+        match key {
+            '\u{1b}' => return Ok(false),
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < item_count {
+                    selected += 1;
+                }
+            }
+            '\n' => {
+                message = pick_up_ground_item_by_tile_index(c, selected);
+                if message.starts_with("Picked up ") {
+                    if let Some(d) = c.active_dungeon.as_mut() {
+                        log_event(&mut d.log, LogKind::Loot, message.clone());
+                    }
+                    return Ok(true);
+                }
+            }
+            'd' | 'D' => {
+                message = discard_ground_item_by_tile_index(c, selected);
+                if let Some(d) = c.active_dungeon.as_mut() {
+                    log_event(&mut d.log, LogKind::Info, message.clone());
+                }
+                if item_count <= 1 {
+                    return Ok(false);
+                }
+            }
+            _ => message = "Unknown loot command.".to_string(),
+        }
+    }
+}
+
+pub(crate) fn render_ground_loot_picker(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    const GROUND_LOOT_COMMANDS: &str = "W/S=move  Enter=pick up  d=discard  Esc=back";
+
+    let area = frame.area();
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(footer_height),
+    ])
+    .split(area);
+    let item_count = c
+        .active_dungeon
+        .as_ref()
+        .map(ground_item_indices_on_player_tile)
+        .unwrap_or_default()
+        .len();
+    let title = Paragraph::new(format!("Ground Loot - {item_count} item(s) here"))
+        .block(Block::default().borders(Borders::ALL).title("Ground Loot"));
+    frame.render_widget(title, layout[0]);
+
+    let body = Layout::horizontal([Constraint::Min(32), Constraint::Length(38)]).split(layout[1]);
+    render_ground_loot_list(frame, c, selected, body[0]);
+    let details = Paragraph::new(ground_item_detail_lines(c, selected))
+        .block(Block::default().borders(Borders::ALL).title("Details"));
+    frame.render_widget(details, body[1]);
+
+    let footer_text = if message.is_empty() {
+        GROUND_LOOT_COMMANDS.to_string()
+    } else {
+        format!("{message}\n{GROUND_LOOT_COMMANDS}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
+}
+
+fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, area: Rect) {
+    let Some(d) = c.active_dungeon.as_ref() else {
+        return;
+    };
+    let lines = ground_item_indices_on_player_tile(d)
+        .into_iter()
+        .enumerate()
+        .map(|(tile_index, ground_index)| {
+            let item = &d.ground_items[ground_index].item;
+            let prefix = if tile_index == selected { "> " } else { "  " };
+            Line::styled(
+                format!("{prefix}{}", strip_ansi_codes(&item.name)),
+                if tile_index == selected {
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    frame.render_widget(
+        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Items")),
+        area,
+    );
+}
+
+fn ground_item_detail_lines(c: &Character, selected: usize) -> Vec<Line<'static>> {
+    let Some(d) = c.active_dungeon.as_ref() else {
+        return vec![Line::styled(
+            "No active dungeon.",
+            Style::default().fg(Color::DarkGray),
+        )];
+    };
+    let indices = ground_item_indices_on_player_tile(d);
+    let Some(ground_index) = indices.get(selected).copied() else {
+        return vec![Line::styled(
+            "No loot selected.",
+            Style::default().fg(Color::DarkGray),
+        )];
+    };
+    let item = &d.ground_items[ground_index].item;
+    let mut lines = vec![
+        Line::styled(
+            strip_ansi_codes(&item.name),
+            Style::default()
+                .fg(rarity_color(&item.rarity))
+                .add_modifier(Modifier::BOLD),
+        ),
+        Line::from(format!(
+            "{:?} | {} | value {}",
+            item.kind,
+            rarity_name(&item.rarity),
+            item.value
+        )),
+    ];
+    match item.kind {
+        ItemKind::Weapon => lines.push(Line::from(format!(
+            "Damage {}-{} | crit {}%",
+            item.damage_min, item.damage_max, item.crit_chance
+        ))),
+        ItemKind::Armor | ItemKind::Shield => lines.push(Line::from(format!(
+            "Armor {} | dodge {} | speed {}",
+            item.armor, item.dodge, item.speed
+        ))),
+        ItemKind::HealthPotion => lines.push(Line::from("Restores 15% HP.")),
+        ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
+        ItemKind::Gem => {
+            if let (Some(kind), Some(tier)) = (item.gem_kind, item.gem_tier) {
+                lines.push(Line::from(gem_bonus_text(gem_bonus(kind, tier))));
+            }
+        }
+    }
+    if let Some(compare) = item_comparison(c, item) {
+        lines.push(Line::from(strip_ansi_codes(&compare)));
+    }
+    lines
 }
 
 fn add_loot_to_inventory_or_ground(

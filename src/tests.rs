@@ -1337,6 +1337,59 @@ fn pickup_ground_item_keeps_item_on_ground_when_inventory_is_full() {
 }
 
 #[test]
+fn ground_loot_picker_pickup_removes_selected_item() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, Vec::new());
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: health_potion(),
+    });
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    let message = pick_up_ground_item_by_tile_index(&mut c, 1);
+
+    assert_eq!(message, "Picked up Lesser Mana Potion (restores 15% mana).");
+    assert_eq!(c.inventory.len(), 1);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert!(matches!(
+        d.ground_items[0].item.kind,
+        ItemKind::HealthPotion
+    ));
+}
+
+#[test]
+fn ground_loot_picker_discard_removes_only_selected_item() {
+    let mut c = test_character();
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: health_potion(),
+    });
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    let message = discard_ground_item_by_tile_index(&mut c, 0);
+
+    assert_eq!(message, "Discarded Lesser Health Potion (restores 15% HP).");
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert!(matches!(d.ground_items[0].item.kind, ItemKind::ManaPotion));
+}
+
+#[test]
 fn full_inventory_chest_loot_goes_to_ground() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
