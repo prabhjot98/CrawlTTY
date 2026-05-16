@@ -1366,6 +1366,49 @@ fn ground_loot_picker_pickup_removes_selected_item() {
 }
 
 #[test]
+fn ground_loot_picker_successful_pickup_spends_turn() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, Vec::new());
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    let result = pick_up_selected_ground_loot_for_picker(&mut c, 0);
+
+    assert_eq!(
+        result.message,
+        "Picked up Lesser Mana Potion (restores 15% mana)."
+    );
+    assert!(result.spent_turn);
+    assert_eq!(c.inventory.len(), 1);
+    assert!(c.active_dungeon.as_ref().unwrap().ground_items.is_empty());
+}
+
+#[test]
+fn ground_loot_picker_full_bag_pickup_does_not_spend_turn() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    let result = pick_up_selected_ground_loot_for_picker(&mut c, 0);
+
+    assert_eq!(result.message, "Inventory full.");
+    assert!(!result.spent_turn);
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(c.active_dungeon.as_ref().unwrap().ground_items.len(), 1);
+}
+
+#[test]
 fn ground_loot_picker_discard_removes_only_selected_item() {
     let mut c = test_character();
     let mut d = open_test_dungeon(2, 2, Vec::new());

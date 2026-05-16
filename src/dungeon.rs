@@ -1762,46 +1762,50 @@ fn ground_item_indices_on_player_tile(d: &Dungeon) -> Vec<usize> {
         .collect()
 }
 
+#[cfg(test)]
 pub(crate) fn pick_up_ground_item_by_tile_index(c: &mut Character, tile_index: usize) -> String {
+    pick_up_selected_ground_loot_for_picker(c, tile_index).message
+}
+
+#[cfg(test)]
+pub(crate) fn discard_ground_item_by_tile_index(c: &mut Character, tile_index: usize) -> String {
+    discard_selected_ground_loot_for_picker(c, tile_index).message
+}
+
+pub(crate) fn pick_up_selected_ground_loot_for_picker(
+    c: &mut Character,
+    selected: usize,
+) -> InventoryActionResult {
     if !c.inventory.has_space() {
-        return "Inventory full.".to_string();
+        return InventoryActionResult::free("Inventory full.");
     }
     let Some(d) = c.active_dungeon.as_mut() else {
-        return "No active dungeon.".to_string();
+        return InventoryActionResult::free("No active dungeon.");
     };
     let indices = ground_item_indices_on_player_tile(d);
-    let Some(ground_index) = indices.get(tile_index).copied() else {
-        return "No item selected.".to_string();
+    let Some(ground_index) = indices.get(selected).copied() else {
+        return InventoryActionResult::free("No item selected.");
     };
     let ground_item = d.ground_items.remove(ground_index);
     let name = ground_item.item.name.clone();
     let added = c.inventory.push(ground_item.item);
     debug_assert!(added);
-    format!("Picked up {name}.")
-}
-
-pub(crate) fn discard_ground_item_by_tile_index(c: &mut Character, tile_index: usize) -> String {
-    let Some(d) = c.active_dungeon.as_mut() else {
-        return "No active dungeon.".to_string();
-    };
-    let indices = ground_item_indices_on_player_tile(d);
-    let Some(ground_index) = indices.get(tile_index).copied() else {
-        return "No item selected.".to_string();
-    };
-    let ground_item = d.ground_items.remove(ground_index);
-    format!("Discarded {}.", ground_item.item.name)
+    InventoryActionResult::spent(format!("Picked up {name}."))
 }
 
 pub(crate) fn discard_selected_ground_loot_for_picker(
     c: &mut Character,
     selected: usize,
 ) -> InventoryActionResult {
-    let message = discard_ground_item_by_tile_index(c, selected);
-    let spent_turn = message.starts_with("Discarded ");
-    InventoryActionResult {
-        message,
-        spent_turn,
-    }
+    let Some(d) = c.active_dungeon.as_mut() else {
+        return InventoryActionResult::free("No active dungeon.");
+    };
+    let indices = ground_item_indices_on_player_tile(d);
+    let Some(ground_index) = indices.get(selected).copied() else {
+        return InventoryActionResult::free("No item selected.");
+    };
+    let ground_item = d.ground_items.remove(ground_index);
+    InventoryActionResult::spent(format!("Discarded {}.", ground_item.item.name))
 }
 
 pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
@@ -1863,7 +1867,7 @@ pub(crate) fn ground_loot_picker(
         terminal
             .draw(|frame| render_ground_loot_picker(frame, c, selected, &message))
             .context("failed to draw ground loot picker")?;
-        let key = read_key_char_nav()?;
+        let key = read_key_char()?;
         message.clear();
         match key {
             '\u{1b}' => return Ok(false),
@@ -1874,8 +1878,9 @@ pub(crate) fn ground_loot_picker(
                 }
             }
             '\n' => {
-                message = pick_up_ground_item_by_tile_index(c, selected);
-                if message.starts_with("Picked up ") {
+                let result = pick_up_selected_ground_loot_for_picker(c, selected);
+                message = result.message;
+                if result.spent_turn {
                     if let Some(d) = c.active_dungeon.as_mut() {
                         log_event(&mut d.log, LogKind::Loot, message.clone());
                     }
@@ -1950,10 +1955,16 @@ fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, ar
     let Some(d) = c.active_dungeon.as_ref() else {
         return;
     };
-    let lines = ground_item_indices_on_player_tile(d)
+    let indices = ground_item_indices_on_player_tile(d);
+    let max_rows = area.height.saturating_sub(2).max(1) as usize;
+    let offset = scroll_offset(selected, indices.len(), max_rows);
+    let lines = indices
         .into_iter()
+        .skip(offset)
+        .take(max_rows)
         .enumerate()
-        .map(|(tile_index, ground_index)| {
+        .map(|(visible_index, ground_index)| {
+            let tile_index = offset + visible_index;
             let item = &d.ground_items[ground_index].item;
             let prefix = if tile_index == selected { "> " } else { "  " };
             Line::styled(
