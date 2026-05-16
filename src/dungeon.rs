@@ -744,9 +744,15 @@ pub(crate) fn adjacent_enemy_indices(c: &Character) -> Vec<usize> {
 
 #[derive(Clone, Copy)]
 pub(crate) enum EnemyDeathCause<'a> {
-    PlayerAttack { verb: &'a str, damage: i32 },
+    PlayerAttack {
+        verb: &'a str,
+        damage: i32,
+        critical: bool,
+    },
     Bleed,
-    Effect { source: &'a str },
+    Effect {
+        source: &'a str,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -791,6 +797,7 @@ pub(crate) fn damage_enemy(
         return DamageEnemyOutcome::Missed;
     }
 
+    let critical = crit_roll(c.equipped_weapon.crit_chance);
     let mut raw = ((rng.gen_range(min..=max) as f32) * multiplier * damage_bonus).round() as i32;
     if d.enemies[enemy_index].vulnerable_turns > 0 {
         raw += 2;
@@ -800,7 +807,10 @@ pub(crate) fn damage_enemy(
     let (damage, hp_text, killed) = {
         let enemy = &mut d.enemies[enemy_index];
         let armor = effective_enemy_armor(enemy);
-        let damage = (raw - armor).max(1);
+        let mut damage = (raw - armor).max(1);
+        if critical {
+            damage *= 2;
+        }
         enemy.hp -= damage;
         if enemy.guarding {
             guard_message = Some(format!("{} blocks with its shield.", enemy.name));
@@ -822,7 +832,11 @@ pub(crate) fn damage_enemy(
             c,
             &mut d,
             enemy_index,
-            EnemyDeathCause::PlayerAttack { verb, damage },
+            EnemyDeathCause::PlayerAttack {
+                verb,
+                damage,
+                critical,
+            },
         );
         if let Some(message) = guard_message {
             log_event(&mut d.log, LogKind::Status, message);
@@ -837,10 +851,14 @@ pub(crate) fn damage_enemy(
         }
     } else {
         let name = d.enemies[enemy_index].name.clone();
+        let prefix = if critical { "Critical hit! " } else { "" };
         log_event(
             &mut d.log,
             LogKind::Hit,
-            format!("You {verb} {name} for {}. {hp_text}.", damage_text(damage)),
+            format!(
+                "{prefix}You {verb} {name} for {}. {hp_text}.",
+                damage_text(damage)
+            ),
         );
         if let Some(message) = guard_message {
             log_event(&mut d.log, LogKind::Status, message);
@@ -937,12 +955,19 @@ pub(crate) fn enemy_death_message(
     cause: EnemyDeathCause<'_>,
 ) -> String {
     match cause {
-        EnemyDeathCause::PlayerAttack { verb, damage } => format!(
-            "You {verb} {name} for {} and kill it. +{}, +{}.",
-            damage_text(damage),
-            xp_reward_text(xp),
-            gold_reward_text(gold)
-        ),
+        EnemyDeathCause::PlayerAttack {
+            verb,
+            damage,
+            critical,
+        } => {
+            let prefix = if critical { "Critical hit! " } else { "" };
+            format!(
+                "{prefix}You {verb} {name} for {} and kill it. +{}, +{}.",
+                damage_text(damage),
+                xp_reward_text(xp),
+                gold_reward_text(gold)
+            )
+        }
         EnemyDeathCause::Bleed => format!(
             "{name} dies from bleeding. +{}, +{}.",
             xp_reward_text(xp),
@@ -1523,6 +1548,11 @@ pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
 pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
     let chance = (hit as f32 / (hit + dodge).max(1) as f32).clamp(0.20, 0.95);
     rand::thread_rng().gen_bool(chance as f64)
+}
+
+pub(crate) fn crit_roll(crit_chance: u32) -> bool {
+    let chance = (crit_chance.min(100) as f64) / 100.0;
+    rand::thread_rng().gen_bool(chance)
 }
 
 pub(crate) fn maybe_drop_loot_in_dungeon(

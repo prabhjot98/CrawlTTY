@@ -950,6 +950,49 @@ fn bellkeeper_bleed_death_completes_boss_fight_even_with_mobs_left() {
 }
 
 #[test]
+fn critical_player_death_message_marks_critical_hit() {
+    let message = enemy_death_message(
+        "Skeleton",
+        8,
+        3,
+        EnemyDeathCause::PlayerAttack {
+            verb: "hit",
+            damage: 14,
+            critical: true,
+        },
+    );
+
+    assert!(message.starts_with("Critical hit! You hit Skeleton"));
+    assert!(message.contains("14"));
+}
+
+#[test]
+fn normal_player_death_message_keeps_existing_wording() {
+    let message = enemy_death_message(
+        "Skeleton",
+        8,
+        3,
+        EnemyDeathCause::PlayerAttack {
+            verb: "hit",
+            damage: 7,
+            critical: false,
+        },
+    );
+
+    assert!(message.starts_with("You hit Skeleton"));
+    assert!(!message.starts_with("Critical hit!"));
+}
+
+#[test]
+fn crit_roll_handles_extreme_chances() {
+    for _ in 0..100 {
+        assert!(!crit_roll(0));
+        assert!(crit_roll(100));
+        assert!(crit_roll(250));
+    }
+}
+
+#[test]
 fn entering_dungeon_clears_stale_combat_state() {
     let mut c = test_character();
     c.cleave_cooldown = 1;
