@@ -93,7 +93,7 @@ pub(crate) fn dungeon_loop(
             '3' => took_turn = use_battle_cry(c),
             'p' | 'P' => took_turn = use_potion(c),
             'g' | 'G' => took_turn = pickup_ground_items_on_player(c),
-            'i' | 'I' => took_turn = run_legacy_screen(terminal, || inventory_screen(c))?,
+            'i' | 'I' => took_turn = inventory_screen(c, terminal)?,
             '\u{1b}' => {
                 if try_leave_dungeon_for_town(c) {
                     full_heal_on_town_return(c);

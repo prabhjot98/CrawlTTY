@@ -239,6 +239,18 @@ fn selected_item_detail_lines_strip_ansi_from_rendered_text() {
 }
 
 #[test]
+fn inventory_render_lines_include_grid_capacity_and_selected_details() {
+    let c = test_character();
+    let lines = inventory_screen_text_for_test(&c, 0, "");
+    let rendered = lines.join("\n");
+
+    assert!(rendered.contains("Inventory - Bag 4 x 4 - 3 / 16"));
+    assert!(rendered.contains("[H]"));
+    assert!(rendered.contains("Lesser Health Potion"));
+    assert!(rendered.contains("Enter=equip/use"));
+}
+
+#[test]
 fn new_character_uses_starting_bag_and_stash_grids() {
     let c = test_character();
 

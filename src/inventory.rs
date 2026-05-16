@@ -1,50 +1,26 @@
 use crate::*;
-use ratatui::prelude::{Color, Line, Modifier, Style};
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph},
+};
 
-pub(crate) fn inventory_screen(c: &mut Character) -> bool {
+pub(crate) fn inventory_screen(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<bool> {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
-        clamp_selection(&mut selected, c.inventory.len());
-        clear_screen();
-        println!("{BOLD}{CYAN}Equipment{RESET}");
-        println!("Weapon: {}", item_summary(&c.equipped_weapon));
-        println!("Armor : {}", item_summary(&c.equipped_armor));
-        println!("Shield: {}", item_summary(&c.equipped_shield));
-        println!(
-            "{}  {}  {}",
-            armor_text(c.armor()),
-            dodge_text(c.dodge_rating()),
-            speed_text(c.speed())
-        );
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        println!("{BOLD}Inventory{RESET}");
-        if c.inventory.is_empty() {
-            println!("  Empty");
-        } else {
-            print_inventory_list(c, selected, inventory_visible_rows(10));
-            println!();
-            println!("Selected: {}", item_summary(&c.inventory[selected]));
-            if let Some(compare) = item_comparison(c, &c.inventory[selected]) {
-                println!("{compare}");
-            }
-        }
-        print_footer(&[&format!(
-            "{BOLD}Inventory:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=equip/use  {RED}x{RESET}=drop selected  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            return false;
-        };
+        clamp_grid_cursor(&mut selected, &c.inventory);
+        terminal
+            .draw(|frame| render_inventory_screen(frame, c, selected, &message))
+            .context("failed to draw inventory")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
-            '\u{1b}' => return false,
-            'w' | 'W' => selected = selected.saturating_sub(1),
-            's' | 'S' => {
-                if selected + 1 < c.inventory.len() {
-                    selected += 1;
-                }
+            '\u{1b}' => return Ok(false),
+            'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => {
+                selected = move_grid_cursor(selected, c.inventory.columns, c.inventory.rows, key);
             }
             'x' | 'X' => {
                 let result = drop_selected_inventory_item(c, selected);
@@ -54,7 +30,7 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
                 }
                 if c.active_dungeon.is_some() && result.spent_turn {
                     log_inventory_action(c, &message);
-                    return true;
+                    return Ok(true);
                 }
             }
             '\n' => {
@@ -65,12 +41,126 @@ pub(crate) fn inventory_screen(c: &mut Character) -> bool {
                 }
                 if c.active_dungeon.is_some() && result.spent_turn {
                     log_inventory_action(c, &message);
-                    return true;
+                    return Ok(true);
                 }
             }
             _ => message = "Unknown inventory command.".to_string(),
         }
     }
+}
+
+pub(crate) fn render_inventory_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let area = frame.area();
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(3),
+    ])
+    .split(area);
+    let title = Paragraph::new(format!(
+        "Inventory - Bag {} x {} - {} / {}",
+        c.inventory.columns,
+        c.inventory.rows,
+        c.inventory.len(),
+        c.inventory.capacity()
+    ))
+    .block(Block::default().borders(Borders::ALL).title("Inventory"));
+    frame.render_widget(title, layout[0]);
+
+    let body = Layout::horizontal([Constraint::Min(24), Constraint::Length(38)]).split(layout[1]);
+    render_item_grid(frame, &c.inventory, selected, body[0], "Bag");
+    let details = Paragraph::new(selected_item_detail_lines(
+        c,
+        &c.inventory,
+        "Bag",
+        c.inventory.get(selected),
+    ))
+    .block(Block::default().borders(Borders::ALL).title("Details"));
+    frame.render_widget(details, body[1]);
+
+    let footer_text = if message.is_empty() {
+        "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back".to_string()
+    } else {
+        format!("{message}\nWASD/Arrows=move  Enter=equip/use  x=drop  Esc=back")
+    };
+    frame.render_widget(
+        Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
+}
+
+pub(crate) fn render_item_grid(
+    frame: &mut Frame,
+    grid: &ItemGrid,
+    selected: usize,
+    area: Rect,
+    title: &str,
+) {
+    let mut lines = Vec::new();
+    for row in 0..grid.rows {
+        let mut spans = Vec::new();
+        for col in 0..grid.columns {
+            let index = usize::from(row) * usize::from(grid.columns) + usize::from(col);
+            let label = inventory_cell_label(grid, index);
+            let style = if index == selected {
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            spans.push(Span::styled(format!("[{label}]"), style));
+            spans.push(Span::raw(" "));
+        }
+        lines.push(Line::from(spans));
+    }
+    frame.render_widget(
+        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title)),
+        area,
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn inventory_screen_text_for_test(
+    c: &Character,
+    selected: usize,
+    message: &str,
+) -> Vec<String> {
+    let mut lines = vec![format!(
+        "Inventory - Bag {} x {} - {} / {}",
+        c.inventory.columns,
+        c.inventory.rows,
+        c.inventory.len(),
+        c.inventory.capacity()
+    )];
+    for row in 0..c.inventory.rows {
+        let mut line = String::new();
+        for col in 0..c.inventory.columns {
+            let index = usize::from(row) * usize::from(c.inventory.columns) + usize::from(col);
+            line.push_str(&format!("[{}] ", inventory_cell_label(&c.inventory, index)));
+        }
+        lines.push(line);
+    }
+    lines.extend(
+        selected_item_detail_lines(c, &c.inventory, "Bag", c.inventory.get(selected))
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|span| span.content.to_string())
+                    .collect()
+            }),
+    );
+    if !message.is_empty() {
+        lines.push(message.to_string());
+    }
+    lines.push("Enter=equip/use".to_string());
+    lines
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
