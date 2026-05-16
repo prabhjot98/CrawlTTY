@@ -273,7 +273,7 @@ pub(crate) fn item_summary(item: &Item) -> String {
     let level_and_requirements = item_level_and_requirements(item);
     match item.kind {
         ItemKind::Weapon => format!(
-            "{}{} [{} {:?}] {} {RED}dmg {}-{}{RESET} {YELLOW}value {}{RESET}",
+            "{}{} [{} {:?}] {} {RED}dmg {}-{}{RESET} {CYAN}crit {}%{RESET} {YELLOW}value {}{RESET}",
             name,
             upgrade,
             rarity,
@@ -281,6 +281,7 @@ pub(crate) fn item_summary(item: &Item) -> String {
             level_and_requirements,
             item.damage_min,
             item.damage_max,
+            item.crit_chance,
             item.value
         ),
         ItemKind::Armor | ItemKind::Shield => format!(
@@ -316,7 +317,11 @@ pub(crate) fn item_comparison(c: &Character, item: &Item) -> Option<String> {
         ItemKind::Weapon => {
             let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
             let new_avg = item.damage_min + item.damage_max;
-            format_delta("damage", new_avg - cur_avg)
+            format!(
+                "Compare: {}  {}",
+                format_delta("damage", new_avg - cur_avg),
+                format_crit_delta(item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32)
+            )
         }
         ItemKind::Armor => format!(
             "Compare: {}  {}  {}",
@@ -346,6 +351,16 @@ pub(crate) fn format_delta(label: &str, delta: i32) -> String {
         format!("{RED}{delta} {label}{RESET}")
     } else {
         format!("+0 {label}")
+    }
+}
+
+fn format_crit_delta(delta: i32) -> String {
+    if delta > 0 {
+        format!("{GREEN}crit +{delta}{RESET}")
+    } else if delta < 0 {
+        format!("{RED}crit {delta}{RESET}")
+    } else {
+        "crit +0".to_string()
     }
 }
 

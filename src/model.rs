@@ -45,6 +45,8 @@ pub(crate) struct Item {
     #[serde(default)]
     pub(crate) speed: i32,
     #[serde(default)]
+    pub(crate) crit_chance: u32,
+    #[serde(default)]
     pub(crate) rarity: Rarity,
     #[serde(default = "default_item_level")]
     pub(crate) item_level: u32,

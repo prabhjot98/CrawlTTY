@@ -1,5 +1,8 @@
 use crate::*;
 
+pub(crate) const SWORD_CRIT_CHANCE: u32 = 8;
+pub(crate) const AXE_CRIT_CHANCE: u32 = 5;
+
 #[derive(Clone, Copy)]
 pub(crate) struct ItemStats {
     pub(crate) damage_min: i32,
@@ -7,6 +10,7 @@ pub(crate) struct ItemStats {
     pub(crate) armor: i32,
     pub(crate) dodge: i32,
     pub(crate) speed: i32,
+    pub(crate) crit_chance: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -29,6 +33,35 @@ pub(crate) fn item_stats(
         armor,
         dodge,
         speed,
+        crit_chance: 0,
+    }
+}
+
+pub(crate) fn weapon_stats(
+    damage_min: i32,
+    damage_max: i32,
+    speed: i32,
+    crit_chance: u32,
+) -> ItemStats {
+    ItemStats {
+        damage_min,
+        damage_max,
+        armor: 0,
+        dodge: 0,
+        speed,
+        crit_chance,
+    }
+}
+
+fn base_weapon_crit_chance(name: &str, kind: ItemKind) -> u32 {
+    if kind != ItemKind::Weapon {
+        0
+    } else if name.contains("Sword") {
+        SWORD_CRIT_CHANCE
+    } else if name.contains("Axe") {
+        AXE_CRIT_CHANCE
+    } else {
+        0
     }
 }
 
@@ -60,6 +93,7 @@ pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> 
         armor: stats.armor,
         dodge: stats.dodge,
         speed: stats.speed,
+        crit_chance: stats.crit_chance.max(base_weapon_crit_chance(name, kind)),
         rarity: Rarity::Common,
         item_level: 1,
         required_strength,
@@ -87,6 +121,7 @@ pub(crate) fn item_with_rarity(
         armor: stats.armor,
         dodge: stats.dodge,
         speed: stats.speed,
+        crit_chance: stats.crit_chance.max(base_weapon_crit_chance(name, kind)),
         rarity,
         item_level,
         required_strength: requirements.strength,
@@ -116,7 +151,7 @@ pub(crate) fn rusted_sword() -> Item {
         "Rusted Sword (3-5 dmg, STR F, DEX F)",
         ItemKind::Weapon,
         20,
-        item_stats(3, 5, 0, 0, 0),
+        weapon_stats(3, 5, 0, SWORD_CRIT_CHANCE),
     )
 }
 pub(crate) fn crude_axe() -> Item {
@@ -124,7 +159,7 @@ pub(crate) fn crude_axe() -> Item {
         "Crude Axe (4-6 dmg, STR F)",
         ItemKind::Weapon,
         60,
-        item_stats(4, 6, 0, 0, -1),
+        weapon_stats(4, 6, -1, AXE_CRIT_CHANCE),
     )
 }
 pub(crate) fn cloth_tunic() -> Item {

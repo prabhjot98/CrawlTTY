@@ -380,6 +380,48 @@ fn successful_inventory_actions_spend_dungeon_turns() {
 }
 
 #[test]
+fn weapon_base_type_sets_flat_crit_chance() {
+    assert_eq!(rusted_sword().crit_chance, SWORD_CRIT_CHANCE);
+    assert_eq!(crude_axe().crit_chance, AXE_CRIT_CHANCE);
+}
+
+#[test]
+fn weapon_rarity_does_not_change_crit_chance() {
+    let common_sword = item_with_rarity(
+        "Iron Sword",
+        ItemKind::Weapon,
+        45,
+        weapon_stats(3, 5, 0, SWORD_CRIT_CHANCE),
+        Rarity::Common,
+        1,
+        requirements(5, 3, 0),
+    );
+    let rare_sword = item_with_rarity(
+        "Rare Iron Sword",
+        ItemKind::Weapon,
+        75,
+        weapon_stats(5, 7, 0, SWORD_CRIT_CHANCE),
+        Rarity::Rare,
+        3,
+        requirements(7, 5, 0),
+    );
+
+    assert_eq!(common_sword.crit_chance, SWORD_CRIT_CHANCE);
+    assert_eq!(rare_sword.crit_chance, SWORD_CRIT_CHANCE);
+}
+
+#[test]
+fn weapon_summary_and_comparison_show_crit_chance() {
+    let mut c = test_character();
+    c.equipped_weapon = rusted_sword();
+    let axe = crude_axe();
+
+    assert!(item_summary(&c.equipped_weapon).contains("crit 8%"));
+    assert!(item_summary(&axe).contains("crit 5%"));
+    assert!(item_comparison(&c, &axe).unwrap().contains("crit -3"));
+}
+
+#[test]
 fn item_requirements_gate_equipping() {
     let c = test_character();
     let high_level_axe = item_with_rarity(
