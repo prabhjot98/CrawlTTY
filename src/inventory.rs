@@ -255,14 +255,20 @@ pub(crate) fn clamp_grid_cursor(selected: &mut usize, grid: &ItemGrid) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn selected_item_detail_lines(c: &Character, item: Option<&Item>) -> Vec<Line<'static>> {
+pub(crate) fn selected_item_detail_lines(
+    c: &Character,
+    grid: &ItemGrid,
+    grid_label: &str,
+    item: Option<&Item>,
+) -> Vec<Line<'static>> {
     let Some(item) = item else {
         return vec![
             Line::styled("Empty cell", Style::default().fg(Color::DarkGray)),
             Line::from(format!(
-                "Bag: {}/{}",
-                c.inventory.len(),
-                c.inventory.capacity()
+                "{}: {}/{}",
+                grid_label,
+                grid.len(),
+                grid.capacity()
             )),
         ];
     };
@@ -406,7 +412,7 @@ pub(crate) fn item_summary(item: &Item) -> String {
     }
 }
 
-pub(crate) fn gem_summary(item: &Item) -> String {
+fn gem_summary(item: &Item) -> String {
     let (Some(kind), Some(tier)) = (item.gem_kind, item.gem_tier) else {
         return format!(
             "{RED}Invalid gem metadata{RESET} [Gem] {YELLOW}value {}{RESET}",

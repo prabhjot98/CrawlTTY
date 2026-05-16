@@ -13,6 +13,13 @@ fn critical_combat_test_character() -> Character {
     c
 }
 
+fn line_text(line: &ratatui::text::Line<'_>) -> String {
+    line.spans
+        .iter()
+        .map(|span| span.content.as_ref())
+        .collect()
+}
+
 fn armored_training_dummy(x: i32, y: i32) -> Enemy {
     let mut enemy = skeleton(x, y);
     enemy.name = "Armored Dummy".to_string();
@@ -165,13 +172,33 @@ fn item_grid_capacity_add_remove_and_auto_compaction() {
 }
 
 #[test]
-fn grid_cursor_movement_wraps_within_dimensions() {
+fn grid_cursor_movement_clamps_within_dimensions() {
     assert_eq!(move_grid_cursor(0, 4, 4, 'a'), 0);
     assert_eq!(move_grid_cursor(0, 4, 4, 'd'), 1);
     assert_eq!(move_grid_cursor(0, 4, 4, 's'), 4);
     assert_eq!(move_grid_cursor(15, 4, 4, 'd'), 15);
     assert_eq!(move_grid_cursor(15, 4, 4, 's'), 15);
     assert_eq!(move_grid_cursor(5, 4, 4, 'w'), 1);
+}
+
+#[test]
+fn grid_cursor_handles_empty_and_stale_selections() {
+    assert_eq!(move_grid_cursor(7, 0, 4, 'd'), 0);
+    assert_eq!(move_grid_cursor(7, 4, 0, 's'), 0);
+    assert_eq!(move_grid_cursor(99, 4, 4, 'a'), 14);
+    assert_eq!(move_grid_cursor(99, 4, 4, 'd'), 15);
+}
+
+#[test]
+fn clamp_grid_cursor_clamps_to_grid_capacity() {
+    let grid = ItemGrid::new(2, 2, vec![health_potion()]);
+    let mut selected = 99;
+    clamp_grid_cursor(&mut selected, &grid);
+    assert_eq!(selected, 3);
+
+    let empty_grid = ItemGrid::new(0, 0, Vec::new());
+    clamp_grid_cursor(&mut selected, &empty_grid);
+    assert_eq!(selected, 0);
 }
 
 #[test]
@@ -184,6 +211,31 @@ fn inventory_cell_label_shows_item_kind_or_empty_cell() {
 
     grid.push(mana_potion());
     assert_eq!(inventory_cell_label(&grid, 2), "M");
+}
+
+#[test]
+fn selected_item_detail_lines_empty_cell_uses_passed_grid_label_and_capacity() {
+    let c = test_character();
+    let lines = selected_item_detail_lines(&c, &c.stash, "Stash", None);
+    let text = lines.iter().map(line_text).collect::<Vec<_>>();
+
+    assert_eq!(
+        text,
+        vec!["Empty cell".to_string(), "Stash: 0/64".to_string()]
+    );
+}
+
+#[test]
+fn selected_item_detail_lines_strip_ansi_from_rendered_text() {
+    let c = test_character();
+    let axe = crude_axe();
+    let gem = gem_item(GemKind::Topaz, GemTier::Flawed);
+
+    for item in [&axe, &gem] {
+        let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", Some(item));
+        let text = lines.iter().map(line_text).collect::<Vec<_>>();
+        assert!(text.iter().all(|line| !line.contains('\u{1b}')));
+    }
 }
 
 #[test]
