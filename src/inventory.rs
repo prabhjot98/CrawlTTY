@@ -116,15 +116,7 @@ pub(crate) fn render_item_grid(
         let mut spans = Vec::new();
         for col in 0..grid.columns {
             let index = usize::from(row) * usize::from(grid.columns) + usize::from(col);
-            let label = inventory_cell_label(grid, index);
-            let style = if index == selected {
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            spans.push(Span::styled(format!("[{label}]"), style));
+            spans.extend(inventory_cell_spans(grid, index, index == selected));
             spans.push(Span::raw(" "));
         }
         lines.push(Line::from(spans));
@@ -137,6 +129,43 @@ pub(crate) fn render_item_grid(
 
 pub(crate) fn item_grid_render_width(grid: &ItemGrid) -> u16 {
     grid.columns.saturating_mul(4).saturating_add(2)
+}
+
+#[allow(dead_code)]
+pub(crate) fn inventory_cell_spans(
+    grid: &ItemGrid,
+    index: usize,
+    selected: bool,
+) -> Vec<Span<'static>> {
+    let label = inventory_cell_label(grid, index);
+    let focus_style = Style::default()
+        .fg(Color::Green)
+        .add_modifier(Modifier::BOLD);
+
+    let Some(item) = grid.get(index) else {
+        let style = if selected {
+            focus_style
+        } else {
+            Style::default().fg(Color::White)
+        };
+        return vec![
+            Span::styled("[", style),
+            Span::styled(label, style),
+            Span::styled("]", style),
+        ];
+    };
+
+    let outline_style = Style::default().fg(rarity_color(&item.rarity));
+    let label_style = if selected {
+        focus_style
+    } else {
+        Style::default().fg(Color::White)
+    };
+    vec![
+        Span::styled("[", outline_style),
+        Span::styled(label, label_style),
+        Span::styled("]", outline_style),
+    ]
 }
 
 #[cfg(test)]

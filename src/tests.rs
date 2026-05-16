@@ -353,6 +353,50 @@ fn inventory_cell_label_shows_item_kind_or_empty_cell() {
 }
 
 #[test]
+fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
+    use ratatui::style::{Color, Modifier, Style};
+
+    let mut rare_sword = rusted_sword();
+    rare_sword.rarity = Rarity::Rare;
+    let mut magic_axe = crude_axe();
+    magic_axe.rarity = Rarity::Magic;
+    let grid = ItemGrid::new(2, 2, vec![rare_sword, magic_axe]);
+
+    let rare_selected = inventory_cell_spans(&grid, 0, true);
+    assert_eq!(rare_selected[0].content.as_ref(), "[");
+    assert_eq!(rare_selected[0].style, Style::default().fg(Color::Yellow));
+    assert_eq!(rare_selected[1].content.as_ref(), "W");
+    assert_eq!(
+        rare_selected[1].style,
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(rare_selected[2].content.as_ref(), "]");
+    assert_eq!(rare_selected[2].style, Style::default().fg(Color::Yellow));
+
+    let magic_unselected = inventory_cell_spans(&grid, 1, false);
+    assert_eq!(magic_unselected[0].style, Style::default().fg(Color::Blue));
+    assert_eq!(magic_unselected[1].style, Style::default().fg(Color::White));
+    assert_eq!(magic_unselected[2].style, Style::default().fg(Color::Blue));
+
+    let empty_selected = inventory_cell_spans(&grid, 2, true);
+    assert_eq!(
+        empty_selected
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<Vec<_>>(),
+        vec!["[", ".", "]"]
+    );
+    assert!(empty_selected.iter().all(|span| {
+        span.style
+            == Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD)
+    }));
+}
+
+#[test]
 fn selected_item_detail_lines_empty_cell_uses_passed_grid_label_and_capacity() {
     let c = test_character();
     let lines = selected_item_detail_lines(&c, &c.stash, "Stash", None);
