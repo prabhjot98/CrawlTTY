@@ -188,15 +188,18 @@ pub(crate) struct ItemGrid {
 
 impl ItemGrid {
     pub(crate) fn new(columns: u16, rows: u16, items: Vec<Item>) -> Self {
-        let mut grid = Self {
+        let capacity = usize::from(columns) * usize::from(rows);
+        assert!(
+            items.len() <= capacity,
+            "ItemGrid cannot hold {} items in {} slots",
+            items.len(),
+            capacity
+        );
+        Self {
             columns,
             rows,
-            items: Vec::new(),
-        };
-        for item in items {
-            let _ = grid.push(item);
+            items,
         }
-        grid
     }
 
     pub(crate) fn player_starting(items: Vec<Item>) -> Self {

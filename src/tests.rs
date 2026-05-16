@@ -184,6 +184,12 @@ fn dungeon_starts_without_ground_items() {
 }
 
 #[test]
+#[should_panic(expected = "ItemGrid cannot hold 2 items in 1 slots")]
+fn item_grid_new_panics_when_initial_items_exceed_capacity() {
+    let _ = ItemGrid::new(1, 1, vec![health_potion(), mana_potion()]);
+}
+
+#[test]
 fn new_ironbound_matches_mvp_starting_state() {
     let c = test_character();
 
@@ -754,7 +760,7 @@ fn stash_move_selected_moves_requested_item_immediately() {
 #[test]
 fn stash_move_selected_restores_item_when_destination_is_full() {
     let mut inventory = ItemGrid::new(2, 2, vec![health_potion(), mana_potion()]);
-    let mut stash = ItemGrid::new(1, 1, vec![crude_axe(), rusted_sword()]);
+    let mut stash = ItemGrid::new(1, 1, vec![crude_axe()]);
 
     let message = move_selected(&mut inventory, &mut stash, 1, "Stored");
 
@@ -972,6 +978,68 @@ fn successful_inventory_actions_spend_dungeon_turns() {
     assert!(drop_selected_inventory_item(&mut c, sword_index).spent_turn);
     assert!(!equip_or_use_inventory_item(&mut c, usize::MAX).spent_turn);
     assert!(!drop_selected_inventory_item(&mut c, usize::MAX).spent_turn);
+}
+
+fn fill_inventory_to_capacity(c: &mut Character) {
+    c.inventory.clear();
+    while c.inventory.has_space() {
+        assert!(c.inventory.push(health_potion()));
+    }
+}
+
+#[test]
+fn full_inventory_monster_loot_goes_to_ground() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    let mut d = open_test_dungeon(2, 2, vec![skeleton(4, 2)]);
+
+    maybe_drop_loot_in_dungeon(&mut c, &mut d, 0, true);
+
+    assert_eq!(c.inventory.len(), c.inventory.capacity());
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (4, 2));
+}
+
+#[test]
+fn full_inventory_chest_loot_goes_to_ground() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    let mut d = open_test_dungeon(5, 5, Vec::new());
+    d.chests.push(Chest {
+        x: 5,
+        y: 5,
+        opened: false,
+    });
+    c.active_dungeon = Some(d);
+
+    open_chest_on_player(&mut c);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.inventory.len(), c.inventory.capacity());
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (5, 5));
+}
+
+#[test]
+fn full_inventory_boss_reward_goes_to_ground() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    let mut boss = skeleton(7, 6);
+    boss.name = "Test Boss".to_string();
+    boss.hp = 0;
+    boss.is_boss = true;
+    let mut d = open_test_dungeon(2, 2, vec![boss]);
+
+    assert!(resolve_enemy_death(
+        &mut c,
+        &mut d,
+        0,
+        EnemyDeathCause::Effect { source: "test" },
+    ));
+
+    assert_eq!(c.inventory.len(), c.inventory.capacity());
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
 }
 
 #[test]
