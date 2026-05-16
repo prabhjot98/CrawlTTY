@@ -31,6 +31,7 @@ fn open_test_dungeon(player_x: i32, player_y: i32, enemies: Vec<Enemy>) -> Dunge
         stairs_y: MAP_H - 2,
         enemies,
         chests: Vec::new(),
+        ground_items: Vec::new(),
         log: Vec::new(),
         tiles: vec!['.'; (MAP_W * MAP_H) as usize],
         bell_wave_tiles: Vec::new(),
@@ -132,6 +133,54 @@ fn save_character_creates_parent_directories() {
 
     assert!(save_path.exists());
     fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn item_grid_capacity_add_remove_and_auto_compaction() {
+    let mut grid = ItemGrid::new(2, 2, Vec::new());
+
+    assert_eq!(grid.columns, 2);
+    assert_eq!(grid.rows, 2);
+    assert_eq!(grid.capacity(), 4);
+    assert_eq!(grid.len(), 0);
+    assert!(grid.is_empty());
+    assert!(grid.has_space());
+
+    assert!(grid.push(health_potion()));
+    assert!(grid.push(mana_potion()));
+    assert_eq!(grid.len(), 2);
+    assert!(matches!(grid[0].kind, ItemKind::HealthPotion));
+    assert!(matches!(grid[1].kind, ItemKind::ManaPotion));
+
+    let removed = grid.remove(0);
+    assert!(matches!(removed.kind, ItemKind::HealthPotion));
+    assert_eq!(grid.len(), 1);
+    assert!(matches!(grid[0].kind, ItemKind::ManaPotion));
+
+    assert!(grid.push(health_potion()));
+    assert!(grid.push(health_potion()));
+    assert!(grid.push(mana_potion()));
+    assert!(!grid.push(rusted_sword()));
+    assert_eq!(grid.len(), 4);
+}
+
+#[test]
+fn new_character_uses_starting_bag_and_stash_grids() {
+    let c = test_character();
+
+    assert_eq!((c.inventory.columns, c.inventory.rows), (4, 4));
+    assert_eq!(c.inventory.capacity(), 16);
+    assert_eq!(c.inventory.len(), 3);
+    assert_eq!((c.stash.columns, c.stash.rows), (8, 8));
+    assert_eq!(c.stash.capacity(), 64);
+    assert_eq!(c.stash.len(), 0);
+}
+
+#[test]
+fn dungeon_starts_without_ground_items() {
+    let d = generate_dungeon(1);
+
+    assert!(d.ground_items.is_empty());
 }
 
 #[test]
@@ -525,8 +574,8 @@ fn saved_character_without_town_projects_defaults_to_empty_projects() {
         "intelligence": 1,
         "hp": 40,
         "mana": 15,
-        "inventory": [],
-        "stash": [],
+        "inventory": {"columns": 4, "rows": 4, "items": []},
+        "stash": {"columns": 8, "rows": 8, "items": []},
         "equipped_weapon": {
             "name": "Rusted Sword",
             "kind": "Weapon",

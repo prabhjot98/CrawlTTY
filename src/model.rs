@@ -10,6 +10,14 @@ pub(crate) const FINAL_FLOOR: u32 = ACT1_FLOORS + ACT2_FLOORS;
 pub(crate) const HEALTH_POTION_COST: u32 = 50;
 pub(crate) const MANA_POTION_COST: u32 = 100;
 pub(crate) const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
+pub(crate) const STARTING_BAG_COLUMNS: u16 = 4;
+pub(crate) const STARTING_BAG_ROWS: u16 = 4;
+#[allow(dead_code)]
+pub(crate) const MAX_BAG_COLUMNS: u16 = 8;
+#[allow(dead_code)]
+pub(crate) const MAX_BAG_ROWS: u16 = 8;
+pub(crate) const STARTING_STASH_COLUMNS: u16 = 8;
+pub(crate) const STARTING_STASH_ROWS: u16 = 8;
 
 pub(crate) const RESET: &str = "\x1b[0m";
 pub(crate) const BOLD: &str = "\x1b[1m";
@@ -171,6 +179,141 @@ pub(crate) struct Item {
     pub(crate) gem_tier: Option<GemTier>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct ItemGrid {
+    pub(crate) columns: u16,
+    pub(crate) rows: u16,
+    pub(crate) items: Vec<Item>,
+}
+
+impl ItemGrid {
+    pub(crate) fn new(columns: u16, rows: u16, items: Vec<Item>) -> Self {
+        let mut grid = Self {
+            columns,
+            rows,
+            items: Vec::new(),
+        };
+        for item in items {
+            let _ = grid.push(item);
+        }
+        grid
+    }
+
+    pub(crate) fn player_starting(items: Vec<Item>) -> Self {
+        Self::new(STARTING_BAG_COLUMNS, STARTING_BAG_ROWS, items)
+    }
+
+    pub(crate) fn stash_starting() -> Self {
+        Self::new(STARTING_STASH_COLUMNS, STARTING_STASH_ROWS, Vec::new())
+    }
+
+    pub(crate) fn capacity(&self) -> usize {
+        usize::from(self.columns) * usize::from(self.rows)
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    pub(crate) fn has_space(&self) -> bool {
+        self.len() < self.capacity()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn available_slots(&self) -> usize {
+        self.capacity().saturating_sub(self.len())
+    }
+
+    pub(crate) fn push(&mut self, item: Item) -> bool {
+        if self.has_space() {
+            self.items.push(item);
+            true
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn try_push(&mut self, item: Item) -> Result<usize, Item> {
+        if self.has_space() {
+            self.items.push(item);
+            Ok(self.items.len() - 1)
+        } else {
+            Err(item)
+        }
+    }
+
+    pub(crate) fn remove(&mut self, index: usize) -> Item {
+        self.items.remove(index)
+    }
+
+    pub(crate) fn insert(&mut self, index: usize, item: Item) -> bool {
+        if self.has_space() && index <= self.items.len() {
+            self.items.insert(index, item);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn get(&self, index: usize) -> Option<&Item> {
+        self.items.get(index)
+    }
+
+    pub(crate) fn get_mut(&mut self, index: usize) -> Option<&mut Item> {
+        self.items.get_mut(index)
+    }
+
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Item> {
+        self.items.iter()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn clear(&mut self) {
+        self.items.clear();
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&Item) -> bool,
+    {
+        self.items.retain(f);
+    }
+}
+
+impl std::ops::Deref for ItemGrid {
+    type Target = Vec<Item>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.items
+    }
+}
+
+impl std::ops::DerefMut for ItemGrid {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
+    }
+}
+
+impl std::ops::Index<usize> for ItemGrid {
+    type Output = Item;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.items[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for ItemGrid {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.items[index]
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub(crate) enum Rarity {
     #[default]
@@ -261,6 +404,13 @@ pub(crate) struct Chest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GroundItem {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) item: Item,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Dungeon {
     pub(crate) floor: u32,
     pub(crate) player_x: i32,
@@ -269,6 +419,8 @@ pub(crate) struct Dungeon {
     pub(crate) stairs_y: i32,
     pub(crate) enemies: Vec<Enemy>,
     pub(crate) chests: Vec<Chest>,
+    #[serde(default)]
+    pub(crate) ground_items: Vec<GroundItem>,
     pub(crate) log: Vec<String>,
     #[serde(default)]
     pub(crate) tiles: Vec<char>,
@@ -309,8 +461,8 @@ pub(crate) struct Character {
     pub(crate) second_wind_rank: u32,
     pub(crate) hp: u32,
     pub(crate) mana: u32,
-    pub(crate) inventory: Vec<Item>,
-    pub(crate) stash: Vec<Item>,
+    pub(crate) inventory: ItemGrid,
+    pub(crate) stash: ItemGrid,
     pub(crate) equipped_weapon: Item,
     pub(crate) equipped_armor: Item,
     pub(crate) equipped_shield: Item,
@@ -392,8 +544,12 @@ impl Character {
             second_wind_rank: 1,
             hp: max_hp,
             mana: max_mana,
-            inventory: vec![health_potion(), health_potion(), mana_potion()],
-            stash: Vec::new(),
+            inventory: ItemGrid::player_starting(vec![
+                health_potion(),
+                health_potion(),
+                mana_potion(),
+            ]),
+            stash: ItemGrid::stash_starting(),
             equipped_weapon: rusted_sword(),
             equipped_armor: cloth_tunic(),
             equipped_shield: worn_shield(),

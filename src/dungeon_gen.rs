@@ -233,6 +233,7 @@ pub(crate) fn generate_dungeon(floor: u32) -> Dungeon {
         stairs_y: stairs.1,
         enemies,
         chests,
+        ground_items: Vec::new(),
         log: vec![format!(
             "[INFO] Entered {} floor {}.",
             act_name(floor),
