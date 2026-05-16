@@ -648,6 +648,23 @@ fn legacy_screen_reset_forces_parent_ratatui_redraw() {
     assert!(backend_text(&terminal).contains("Town"));
 }
 
+#[test]
+fn legacy_screen_releases_ratatui_raw_mode_while_running() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    set_ratatui_owns_raw_mode(true);
+    let mut terminal = Terminal::new(TestBackend::new(16, 3)).unwrap();
+    let mut released_for_legacy_paint = false;
+
+    run_legacy_screen(&mut terminal, || {
+        released_for_legacy_paint = !input::ratatui_owns_raw_mode_for_test();
+    })
+    .unwrap();
+
+    assert!(released_for_legacy_paint);
+    assert!(input::ratatui_owns_raw_mode_for_test());
+}
+
 fn backend_text(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> String {
     terminal
         .backend()

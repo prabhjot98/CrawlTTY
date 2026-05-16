@@ -23,8 +23,8 @@ mod ui;
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
 use input::{
-    read_key_char, read_key_char_nav_or_message, read_key_char_or_message,
-    set_ratatui_owns_raw_mode,
+    LegacyScreenTerminalMode, read_key_char, read_key_char_nav_or_message,
+    read_key_char_or_message, set_ratatui_owns_raw_mode,
 };
 pub(crate) use inventory::*;
 pub(crate) use items::*;
@@ -135,7 +135,9 @@ where
     B: ratatui::backend::Backend,
     F: FnOnce() -> T,
 {
+    let mut legacy_mode = LegacyScreenTerminalMode::enter()?;
     let result = screen();
+    legacy_mode.restore_ratatui()?;
     clear_after_legacy_screen(terminal)?;
     Ok(result)
 }
