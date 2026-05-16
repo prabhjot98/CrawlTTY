@@ -97,10 +97,11 @@ pub(crate) fn merchant(c: &mut Character) {
                     selected += 1;
                 }
             }
-            '\n' => match selected {
-                0 => sell_item_screen(c),
-                _ => {}
-            },
+            '\n' => {
+                if selected == 0 {
+                    sell_item_screen(c);
+                }
+            }
             _ => message = "Unknown merchant command.".to_string(),
         }
     }
@@ -945,9 +946,7 @@ fn gem_picker_screen(c: &Character) -> Option<usize> {
         print_footer(&[&format!(
             "{BOLD}Gems:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
         )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            return None;
-        };
+        let key = read_key_char_nav_or_message(&mut message)?;
         match key {
             '\u{1b}' => return None,
             'w' | 'W' => selected = selected.saturating_sub(1),

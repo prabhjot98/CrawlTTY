@@ -1,10 +1,41 @@
 use crate::*;
 
+pub(crate) const SAVE_VERSION: &str = env!("CARGO_PKG_VERSION");
+const LEGACY_SAVE_VERSION: &str = "0.0.0";
+
+#[derive(Debug, Deserialize)]
+struct SaveHeader {
+    save_version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SaveFile {
+    character: Character,
+}
+
+#[derive(Serialize)]
+struct SaveFileRef<'a> {
+    save_version: &'static str,
+    character: &'a Character,
+}
+
+#[derive(Debug)]
+pub(crate) enum LoadedSave {
+    Loaded(Box<Character>),
+    Reset { warning: String },
+}
+
 pub(crate) fn load_or_create_character() -> Result<Character> {
     if Path::new(SAVE_PATH).exists() {
-        let data = fs::read_to_string(SAVE_PATH).context("failed to read save file")?;
-        return serde_json::from_str(&data).context("failed to parse save file");
+        match load_character_from_path(Path::new(SAVE_PATH))? {
+            LoadedSave::Loaded(character) => return Ok(*character),
+            LoadedSave::Reset { warning } => println!("{YELLOW}{warning}{RESET}"),
+        }
     }
+    create_character()
+}
+
+fn create_character() -> Result<Character> {
     println!("CrawlTTY");
     println!("ASCII terminal action RPG prototype");
     let name = prompt("Character name: ")?;
@@ -22,6 +53,43 @@ pub(crate) fn load_or_create_character() -> Result<Character> {
         }
     };
     Ok(Character::new(name.trim().to_string(), death_mode))
+}
+
+pub(crate) fn load_character_from_path(save_path: &Path) -> Result<LoadedSave> {
+    let data = fs::read_to_string(save_path).context("failed to read save file")?;
+    let header: SaveHeader = serde_json::from_str(&data).context("failed to parse save file")?;
+    let save_version = header
+        .save_version
+        .as_deref()
+        .unwrap_or(LEGACY_SAVE_VERSION);
+    if save_major_version_changed(save_version, SAVE_VERSION) {
+        fs::remove_file(save_path).context("failed to reset incompatible save file")?;
+        return Ok(LoadedSave::Reset {
+            warning: incompatible_save_warning(save_version, SAVE_VERSION),
+        });
+    }
+
+    if header.save_version.is_some() {
+        let save: SaveFile = serde_json::from_str(&data).context("failed to parse save file")?;
+        return Ok(LoadedSave::Loaded(Box::new(save.character)));
+    }
+
+    let character = serde_json::from_str(&data).context("failed to parse legacy save file")?;
+    Ok(LoadedSave::Loaded(Box::new(character)))
+}
+
+pub(crate) fn save_major_version_changed(save_version: &str, game_version: &str) -> bool {
+    parse_major_version(save_version) != parse_major_version(game_version)
+}
+
+fn parse_major_version(version: &str) -> Option<u64> {
+    version.split('.').next()?.parse().ok()
+}
+
+fn incompatible_save_warning(save_version: &str, game_version: &str) -> String {
+    format!(
+        "Warning: save version {save_version} is incompatible with game version {game_version}. The existing save was reset."
+    )
 }
 
 pub(crate) fn save_character(character: &Character) -> Result<()> {
@@ -44,7 +112,11 @@ pub(crate) fn save_character_to_path(character: &Character, save_path: &Path) ->
     {
         fs::create_dir_all(parent).context("failed to create save directory")?;
     }
-    let data = serde_json::to_string_pretty(character).context("failed to serialize save")?;
+    let save = SaveFileRef {
+        save_version: SAVE_VERSION,
+        character,
+    };
+    let data = serde_json::to_string_pretty(&save).context("failed to serialize save")?;
     let tmp_path = save_path.with_file_name(format!(
         "{}.tmp",
         save_path

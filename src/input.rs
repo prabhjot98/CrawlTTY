@@ -43,10 +43,8 @@ impl LegacyScreenTerminalMode {
 
 impl Drop for LegacyScreenTerminalMode {
     fn drop(&mut self) {
-        if !self.restored {
-            if set_terminal_raw_mode(true).is_ok() {
-                set_ratatui_owns_raw_mode(true);
-            }
+        if !self.restored && set_terminal_raw_mode(true).is_ok() {
+            set_ratatui_owns_raw_mode(true);
         }
     }
 }

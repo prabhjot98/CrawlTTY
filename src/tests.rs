@@ -131,8 +131,69 @@ fn save_character_writes_atomically() {
 
     assert!(save_path.exists());
     assert!(!tmp_path.exists());
-    let saved: Character = serde_json::from_str(&fs::read_to_string(&save_path).unwrap()).unwrap();
-    assert_eq!(saved.name, c.name);
+    let saved: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&save_path).unwrap()).unwrap();
+    assert_eq!(saved["save_version"], SAVE_VERSION);
+    let saved_character: Character = serde_json::from_value(saved["character"].clone()).unwrap();
+    assert_eq!(saved_character.name, c.name);
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn save_major_version_mismatch_resets_save() {
+    let c = test_character();
+    let dir = env::temp_dir().join(format!(
+        "crawltty-save-version-reset-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    let current_major: u64 = SAVE_VERSION.split('.').next().unwrap().parse().unwrap();
+    let incompatible_version = format!("{}.0.0", current_major + 1);
+    let save = serde_json::json!({
+        "save_version": incompatible_version,
+        "character": c,
+    });
+    fs::write(&save_path, serde_json::to_string_pretty(&save).unwrap()).unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Reset { warning } => {
+            assert!(warning.contains("incompatible"));
+            assert!(warning.contains(SAVE_VERSION));
+        }
+        LoadedSave::Loaded(_) => panic!("major version mismatch should reset the save"),
+    }
+    assert!(!save_path.exists());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn save_minor_version_mismatch_loads_existing_character() {
+    let mut c = test_character();
+    c.name = "Compatible Save".to_string();
+    let dir = env::temp_dir().join(format!(
+        "crawltty-save-version-load-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    let current_major: u64 = SAVE_VERSION.split('.').next().unwrap().parse().unwrap();
+    let compatible_version = format!("{current_major}.999.0");
+    let save = serde_json::json!({
+        "save_version": compatible_version,
+        "character": c,
+    });
+    fs::write(&save_path, serde_json::to_string_pretty(&save).unwrap()).unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Loaded(character) => assert_eq!(character.name, "Compatible Save"),
+        LoadedSave::Reset { warning } => panic!("compatible save was reset: {warning}"),
+    }
+    assert!(save_path.exists());
     fs::remove_dir_all(&dir).unwrap();
 }
 
