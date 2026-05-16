@@ -188,7 +188,8 @@ fn gems_are_normal_items_with_kind_tier_and_value() {
 
 #[test]
 fn item_summary_shows_gems_and_socket_contents() {
-    let gem = gem_item(GemKind::Topaz, GemTier::Pristine);
+    let mut gem = gem_item(GemKind::Topaz, GemTier::Pristine);
+    gem.name = "Wrong Name".to_string();
     assert!(strip_ansi_codes(&item_summary(&gem)).contains("Pristine Topaz"));
     assert!(strip_ansi_codes(&item_summary(&gem)).contains("+4% crit chance"));
 
@@ -200,6 +201,23 @@ fn item_summary_shows_gems_and_socket_contents() {
     let summary = strip_ansi_codes(&item_summary(&sword));
 
     assert!(summary.contains("Sockets [Chipped Ruby, empty]"));
+}
+
+#[test]
+fn item_summary_marks_gems_with_incomplete_metadata_invalid() {
+    let mut missing_tier = gem_item(GemKind::Topaz, GemTier::Pristine);
+    missing_tier.gem_tier = None;
+    assert!(
+        strip_ansi_codes(&item_summary(&missing_tier)).contains("Invalid gem metadata"),
+        "missing tier summary should mark invalid metadata"
+    );
+
+    let mut missing_kind = gem_item(GemKind::Topaz, GemTier::Pristine);
+    missing_kind.gem_kind = None;
+    assert!(
+        strip_ansi_codes(&item_summary(&missing_kind)).contains("Invalid gem metadata"),
+        "missing kind summary should mark invalid metadata"
+    );
 }
 
 #[test]

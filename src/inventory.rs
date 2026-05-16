@@ -300,12 +300,29 @@ pub(crate) fn item_summary(item: &Item) -> String {
                 item.value
             ) + &socket_summary(item)
         }
-        ItemKind::Gem => format!("{} [Gem] {YELLOW}value {}{RESET}", name, item.value),
+        ItemKind::Gem => gem_summary(item),
         _ => format!(
             "{} [{:?}] {YELLOW}value {}{RESET}",
             name, item.kind, item.value
         ),
     }
+}
+
+fn gem_summary(item: &Item) -> String {
+    let (Some(kind), Some(tier)) = (item.gem_kind, item.gem_tier) else {
+        return format!(
+            "{RED}Invalid gem metadata{RESET} [Gem] {YELLOW}value {}{RESET}",
+            item.value
+        );
+    };
+
+    let bonus = gem_bonus_text(gem_bonus(kind, tier));
+    format!(
+        "{WHITE}{} {}{RESET} ({bonus}) [Gem] {YELLOW}value {}{RESET}",
+        gem_tier_name(tier),
+        gem_kind_name(kind),
+        item.value
+    )
 }
 
 fn socket_summary(item: &Item) -> String {

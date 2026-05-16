@@ -185,8 +185,7 @@ pub(crate) fn gem_tier_name(tier: GemTier) -> &'static str {
     }
 }
 
-#[allow(dead_code)]
-fn gem_bonus_text(bonus: GemBonuses) -> String {
+pub(crate) fn gem_bonus_text(bonus: GemBonuses) -> String {
     if bonus.max_hp > 0 {
         format!("+{} max HP", bonus.max_hp)
     } else if bonus.max_mana > 0 {
