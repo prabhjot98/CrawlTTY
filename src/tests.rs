@@ -539,7 +539,7 @@ fn town_service_screens_render_with_ratatui() {
     assert!(projects.contains("Enter=fund project"));
 
     terminal
-        .draw(|frame| render_spend_attributes_screen(frame, &c, ""))
+        .draw(|frame| render_spend_attributes_screen(frame, &c, 0, ""))
         .unwrap();
     let attributes = backend_text(&terminal);
     assert!(attributes.contains("Spend Attributes"));
@@ -604,13 +604,34 @@ fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
     let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
 
     terminal
-        .draw(|frame| render_spend_attributes_screen(frame, &c, ""))
+        .draw(|frame| render_spend_attributes_screen(frame, &c, 0, ""))
         .unwrap();
     let attributes = backend_text(&terminal);
 
     assert!(attributes.contains("Spend Attributes (0 left)"));
     assert!(attributes.contains("No unspent attribute points."));
     assert!(attributes.contains("Esc=back"));
+}
+
+#[test]
+fn attributes_screen_uses_cursor_selection_and_attribute_colors() {
+    use ratatui::{Terminal, backend::TestBackend, style::Color};
+
+    let mut c = test_character();
+    c.unspent_attributes = 3;
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_spend_attributes_screen(frame, &c, 0, ""))
+        .unwrap();
+    let attributes = backend_text(&terminal);
+
+    assert!(attributes.contains("> 1) Strength"));
+    assert!(attributes.contains("W/S or arrows=select"));
+    assert!(attributes.contains("Enter=spend"));
+    assert_eq!(cell_fg_at_text(&terminal, "Strength"), Color::Red);
+    assert_eq!(cell_fg_at_text(&terminal, "Dexterity"), Color::Green);
+    assert_eq!(cell_fg_at_text(&terminal, "Intelligence"), Color::Blue);
 }
 
 #[test]
@@ -1988,6 +2009,21 @@ fn backend_lines(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) ->
         .chunks(width)
         .map(|row| row.iter().map(|cell| cell.symbol()).collect())
         .collect()
+}
+
+fn cell_fg_at_text(
+    terminal: &ratatui::Terminal<ratatui::backend::TestBackend>,
+    needle: &str,
+) -> ratatui::style::Color {
+    let buffer = terminal.backend().buffer();
+    let width = usize::from(buffer.area.width);
+    let lines = backend_lines(terminal);
+    let (y, x) = lines
+        .iter()
+        .enumerate()
+        .find_map(|(y, line)| line.find(needle).map(|x| (y, x)))
+        .unwrap();
+    buffer.content()[y * width + x].fg
 }
 
 fn char_index(text: &str, needle: &str) -> usize {
