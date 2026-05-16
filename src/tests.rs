@@ -272,8 +272,7 @@ fn stash_render_lines_include_both_grid_capacities() {
     let lines = stash_screen_text_for_test(&c, StashSide::Inventory, 0, 0, "");
     let rendered = lines.join("\n");
 
-    assert!(rendered.contains("Inventory 3 / 16"));
-    assert!(rendered.contains("Stash 0 / 64"));
+    assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
     assert!(rendered.contains("Tab=switch"));
 }
 

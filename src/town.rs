@@ -1080,7 +1080,7 @@ pub(crate) fn render_stash_screen(
     ])
     .split(frame.area());
     let title = Paragraph::new(format!(
-        "Stash - Inventory {} / {} - Stash {} / {}",
+        "Stash - Inventory {}/{} - Stash {}/{}",
         c.inventory.len(),
         c.inventory.capacity(),
         c.stash.len(),
@@ -1132,7 +1132,7 @@ pub(crate) fn stash_screen_text_for_test(
     message: &str,
 ) -> Vec<String> {
     let mut lines = vec![format!(
-        "Stash - Inventory {} / {} - Stash {} / {}",
+        "Stash - Inventory {}/{} - Stash {}/{}",
         c.inventory.len(),
         c.inventory.capacity(),
         c.stash.len(),
