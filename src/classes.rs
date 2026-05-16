@@ -188,6 +188,10 @@ impl Character {
     }
 
     pub(crate) fn restore_rogue_energy(&mut self, amount: u32) {
-        self.rogue.energy = (self.rogue.energy + amount).min(ROGUE_MAX_ENERGY);
+        self.rogue.energy = self
+            .rogue
+            .energy
+            .saturating_add(amount)
+            .min(ROGUE_MAX_ENERGY);
     }
 }

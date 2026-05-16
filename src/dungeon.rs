@@ -1169,6 +1169,11 @@ pub(crate) fn tick_player_effects(c: &mut Character) {
     }
 }
 
+pub(crate) fn restore_dungeon_after_enemy_turns(c: &mut Character, d: Dungeon) {
+    c.rogue.smoke_protection_turns = c.rogue.smoke_protection_turns.saturating_sub(1);
+    c.active_dungeon = Some(d);
+}
+
 pub(crate) fn enemy_turns(c: &mut Character) {
     let Some(mut d) = c.active_dungeon.take() else {
         return;
@@ -1239,7 +1244,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 bellkeeper_specials(c, &mut d, i, &mut occupied);
             }
             if c.hp == 0 {
-                c.active_dungeon = Some(d);
+                restore_dungeon_after_enemy_turns(c, d);
                 return;
             }
         }
@@ -1247,7 +1252,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         if dist == 1 {
             let enemy_killed = enemy_melee_attack(c, &mut d, i);
             if c.hp == 0 {
-                c.active_dungeon = Some(d);
+                restore_dungeon_after_enemy_turns(c, d);
                 return;
             }
             if enemy_killed {
@@ -1268,7 +1273,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         } else if can_cultist_ranged_attack(&d, i) {
             cultist_shadow_bolt(c, &mut d, i);
             if c.hp == 0 {
-                c.active_dungeon = Some(d);
+                restore_dungeon_after_enemy_turns(c, d);
                 return;
             }
         } else if dist < 8 {
@@ -1294,8 +1299,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         }
     }
     d.enemies.retain(|e| e.hp > 0);
-    c.rogue.smoke_protection_turns = c.rogue.smoke_protection_turns.saturating_sub(1);
-    c.active_dungeon = Some(d);
+    restore_dungeon_after_enemy_turns(c, d);
 }
 
 pub(crate) fn enemy_action_energy_threshold(c: &Character) -> i32 {

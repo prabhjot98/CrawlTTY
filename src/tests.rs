@@ -106,6 +106,20 @@ fn class_resource_labels_match_active_class() {
 }
 
 #[test]
+fn rogue_energy_restore_clamps_without_overflow() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rogue.rogue.energy = ROGUE_MAX_ENERGY - 1;
+
+    rogue.restore_rogue_energy(u32::MAX);
+
+    assert_eq!(rogue.rogue.energy, ROGUE_MAX_ENERGY);
+}
+
+#[test]
 fn rogue_dungeon_action_labels_include_four_active_skills() {
     let rogue = Character::new(
         "Sneak".to_string(),
@@ -2853,6 +2867,29 @@ fn lethal_boss_special_stops_remaining_enemy_actions() {
     enemy_turns(&mut c);
 
     assert_eq!(c.hp, 0);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(d.log.iter().any(|line| line.contains("prism burst cuts")));
+    assert!(!d.log.iter().any(|line| line.contains("Skeleton")));
+}
+
+#[test]
+fn smoke_protection_ticks_after_lethal_boss_special() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.hp = 1;
+    c.rogue.smoke_protection_turns = 2;
+    let mut d = open_test_dungeon(7, 5, vec![glass_tyrant(5, 5), skeleton(7, 6)]);
+    d.boss_turn_counter = 3;
+    d.enemies[0].energy = enemy_action_energy_threshold(&c);
+    c.active_dungeon = Some(d);
+
+    enemy_turns(&mut c);
+
+    assert_eq!(c.hp, 0);
+    assert_eq!(c.rogue.smoke_protection_turns, 1);
     let d = c.active_dungeon.as_ref().unwrap();
     assert!(d.log.iter().any(|line| line.contains("prism burst cuts")));
     assert!(!d.log.iter().any(|line| line.contains("Skeleton")));
