@@ -882,12 +882,12 @@ pub(crate) fn damage_enemy(
     };
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
-    let damage_bonus = if c.warrior.battle_cry_charges > 0 {
+    let battle_cry_active = c.is_warrior() && c.warrior.battle_cry_charges > 0;
+    let damage_bonus = if battle_cry_active {
         battle_cry_multiplier(c)
     } else {
         1.0
     };
-    let battle_cry_active = c.warrior.battle_cry_charges > 0;
     let hit = hit_roll(c.hit_rating() as i32, 10);
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
         c.active_dungeon = Some(d);
@@ -918,7 +918,11 @@ pub(crate) fn damage_enemy(
         if enemy.guarding {
             guard_message = Some(format!("{} blocks with its shield.", enemy.name));
         }
-        let bleed_chance = deep_cut_chance_for_rank(c.warrior.deep_cut_rank) as f64 / 100.0;
+        let bleed_chance = if c.is_warrior() {
+            deep_cut_chance_for_rank(c.warrior.deep_cut_rank) as f64 / 100.0
+        } else {
+            0.0
+        };
         if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
             enemy.bleed_turns = 3;
             enemy.bleed_damage = deep_cut_damage_for_rank(c.warrior.deep_cut_rank);
@@ -1099,6 +1103,9 @@ pub(crate) fn trigger_second_wind_with_log(
     log: &mut Vec<String>,
     battle_cry_active: bool,
 ) {
+    if !c.is_warrior() {
+        return;
+    }
     let mut heal = 0;
     if battle_cry_active {
         heal = second_wind_heal_amount(c);
@@ -1650,13 +1657,18 @@ pub(crate) fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
 }
 
 pub(crate) fn apply_player_damage(c: &mut Character, damage: u32) {
-    let absorbed = c.warrior.second_wind_shield.min(damage);
-    c.warrior.second_wind_shield -= absorbed;
+    let absorbed = if c.is_warrior() {
+        let absorbed = c.warrior.second_wind_shield.min(damage);
+        c.warrior.second_wind_shield -= absorbed;
+        absorbed
+    } else {
+        0
+    };
     c.hp = c.hp.saturating_sub(damage - absorbed);
 }
 
 pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
-    let cry_penalty = if c.warrior.battle_cry_charges > 0 {
+    let cry_penalty = if c.is_warrior() && c.warrior.battle_cry_charges > 0 {
         0.90
     } else {
         1.0
@@ -1677,7 +1689,7 @@ pub(crate) fn crit_roll(crit_chance: u32) -> bool {
 }
 
 pub(crate) fn player_crit_chance(c: &Character) -> u32 {
-    let battle_cry_bonus = if c.warrior.battle_cry_charges > 0 {
+    let battle_cry_bonus = if c.is_warrior() && c.warrior.battle_cry_charges > 0 {
         5
     } else {
         0

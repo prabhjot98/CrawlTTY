@@ -535,6 +535,10 @@ impl Character {
         self.class.name()
     }
 
+    pub(crate) fn is_warrior(&self) -> bool {
+        self.class == CharacterClass::Warrior
+    }
+
     pub(crate) fn max_hp(&self) -> u32 {
         let bonuses = self.socket_bonuses();
         10 + self.effective_strength() * 5 + bonuses.max_hp
@@ -549,12 +553,13 @@ impl Character {
     }
     pub(crate) fn dodge_rating(&self) -> u32 {
         let bonuses = self.socket_bonuses();
-        let mastery_bonus =
-            if self.warrior.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
-                3
-            } else {
-                0
-            };
+        let mastery_bonus = if self.is_warrior()
+            && self.warrior.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline)
+        {
+            3
+        } else {
+            0
+        };
         (10 + self.effective_dexterity() as i32 * 3
             + self.equipped_shield.dodge
             + self.equipped_armor.dodge
@@ -573,7 +578,8 @@ impl Character {
     }
     pub(crate) fn armor(&self) -> i32 {
         let bonuses = self.socket_bonuses();
-        let bulwark_bonus = if self.warrior.iron_guard_mastery == Some(SkillMastery::Bulwark)
+        let bulwark_bonus = if self.is_warrior()
+            && self.warrior.iron_guard_mastery == Some(SkillMastery::Bulwark)
             && self.hp * 2 <= self.max_hp()
         {
             4

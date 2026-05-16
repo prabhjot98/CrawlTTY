@@ -865,6 +865,39 @@ fn warrior_state_defaults_match_existing_rank_baseline() {
 }
 
 #[test]
+fn rogue_ignores_default_warrior_passive_armor() {
+    let mut c = test_character();
+    c.class = CharacterClass::Rogue;
+    c.warrior = WarriorState::default();
+
+    assert_eq!(c.warrior.iron_guard_rank, 1);
+    assert_eq!(iron_guard_armor_bonus(&c), 0);
+    assert_eq!(c.armor(), c.equipped_armor.armor + c.equipped_shield.armor);
+}
+
+#[test]
+fn rogue_ignores_warrior_shared_stat_and_shield_effects() {
+    let mut c = test_character();
+    c.class = CharacterClass::Rogue;
+    c.hp = 1;
+    c.equipped_weapon.crit_chance = 8;
+    c.warrior.iron_guard_mastery = Some(SkillMastery::ShieldDiscipline);
+    c.warrior.battle_cry_charges = 1;
+    c.warrior.second_wind_shield = 5;
+
+    assert_eq!(c.dodge_rating(), 21);
+    c.warrior.iron_guard_mastery = Some(SkillMastery::Bulwark);
+    assert_eq!(c.armor(), c.equipped_armor.armor + c.equipped_shield.armor);
+    assert_eq!(enemy_damage_after_mitigation(10, &c), 8);
+    assert_eq!(player_crit_chance(&c), 8);
+
+    apply_player_damage(&mut c, 3);
+
+    assert_eq!(c.hp, 0);
+    assert_eq!(c.warrior.second_wind_shield, 5);
+}
+
+#[test]
 fn saved_items_without_socket_fields_default_to_no_sockets_or_gem_metadata() {
     let json = r#"{
         "name": "Old Sword",

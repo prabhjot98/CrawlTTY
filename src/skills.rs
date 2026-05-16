@@ -719,6 +719,9 @@ pub(crate) fn deep_cut_damage_for_rank(rank: u32) -> i32 {
     1 + rank.min(5).div_ceil(2) as i32
 }
 pub(crate) fn iron_guard_armor_bonus(c: &Character) -> i32 {
+    if !c.is_warrior() {
+        return 0;
+    }
     iron_guard_armor_bonus_for_rank(c.warrior.iron_guard_rank)
 }
 pub(crate) fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
@@ -728,5 +731,8 @@ pub(crate) fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
     5 + rank.min(5) * 5
 }
 pub(crate) fn second_wind_heal_amount(c: &Character) -> u32 {
+    if !c.is_warrior() {
+        return 0;
+    }
     ((c.max_hp() * second_wind_heal_percent_for_rank(c.warrior.second_wind_rank)) / 100).max(1)
 }
