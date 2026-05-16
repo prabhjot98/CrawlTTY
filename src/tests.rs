@@ -134,6 +134,99 @@ fn rogue_dungeon_action_labels_include_four_active_skills() {
 }
 
 #[test]
+fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rogue.rogue.energy = 45;
+    rogue.rogue.combo_points = 3;
+    rogue.rogue.smoke_step_cooldown = 2;
+
+    let rendered = dungeon_skill_help_lines(&rogue)
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("Energy 45/100"));
+    assert!(rendered.contains("CP 3/5"));
+    assert!(rendered.contains("1 Backstab"));
+    assert!(rendered.contains("2 Venom Edge"));
+    assert!(rendered.contains("3 Eviscerate"));
+    assert!(rendered.contains("4 Smoke Step"));
+}
+
+#[test]
+fn rogue_dungeon_header_uses_energy_resource_label() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rogue.rogue.energy = 42;
+    rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_dungeon(frame, &rogue))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Energy 42/100"));
+    assert!(!rendered.contains("Mana 15/15"));
+}
+
+#[test]
+fn rogue_skill_hotkeys_dispatch_to_stub_warnings() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    for key in ['1', '2', '3', '4'] {
+        assert!(is_known_dungeon_command_for(&rogue, key));
+        assert!(!handle_class_skill_key(&mut rogue, key));
+    }
+
+    let log = &rogue.active_dungeon.as_ref().unwrap().log;
+    assert!(
+        log.iter()
+            .any(|line| line.contains("Backstab is not ready yet."))
+    );
+    assert!(
+        log.iter()
+            .any(|line| line.contains("Venom Edge is not ready yet."))
+    );
+    assert!(
+        log.iter()
+            .any(|line| line.contains("Eviscerate is not ready yet."))
+    );
+    assert!(
+        log.iter()
+            .any(|line| line.contains("Smoke Step is not ready yet."))
+    );
+}
+
+#[test]
+fn warrior_does_not_accept_rogue_fourth_skill_key() {
+    let mut warrior = test_character();
+    warrior.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(!is_known_dungeon_command_for(&warrior, '4'));
+    assert!(!is_known_dungeon_command('4'));
+    assert!(!handle_class_skill_key(&mut warrior, '4'));
+
+    let log = &warrior.active_dungeon.as_ref().unwrap().log;
+    assert!(log.iter().any(|line| line.contains("Unknown class skill.")));
+}
+
+#[test]
 fn terminal_resize_event_requests_redraw() {
     use crossterm::event::Event;
 

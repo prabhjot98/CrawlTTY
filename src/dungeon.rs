@@ -81,7 +81,7 @@ pub(crate) fn dungeon_loop(
                 return Err(err);
             }
         };
-        if is_known_dungeon_command(key) {
+        if is_known_dungeon_command_for(c, key) {
             clear_recent_unknown_dungeon_commands(c);
         }
         let before_floor = current_dungeon_floor(c);
@@ -93,9 +93,7 @@ pub(crate) fn dungeon_loop(
             's' | 'S' => took_turn = try_move(c, 0, 1),
             'a' | 'A' => took_turn = try_move(c, -1, 0),
             'd' | 'D' => took_turn = try_move(c, 1, 0),
-            '1' => took_turn = use_cleave(c),
-            '2' => took_turn = use_shield_bash(c),
-            '3' => took_turn = use_battle_cry(c),
+            '1' | '2' | '3' | '4' => took_turn = handle_class_skill_key(c, key),
             'p' | 'P' => took_turn = use_potion(c),
             'g' | 'G' => {
                 took_turn = pickup_ground_items_on_player(c);
@@ -156,7 +154,15 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
         Span::raw("  "),
         stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
         Span::raw("  "),
-        stat_span(format!("Mana {}/{}", c.mana, c.max_mana()), Color::Blue),
+        stat_span(
+            format!(
+                "{} {}/{}",
+                c.resource_label(),
+                c.current_resource(),
+                c.max_resource()
+            ),
+            Color::Blue,
+        ),
         Span::raw("  "),
         stat_span(format!("Gold {}", c.gold), Color::Yellow),
         Span::raw("  "),
@@ -186,19 +192,7 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
     frame.render_widget(help, layout[2]);
 
     let footer = Paragraph::new(vec![
-        command_line(
-            "Dungeon",
-            &[
-                ("w/a/s/d", "move/attack"),
-                ("1", "Cleave"),
-                ("2", "Bash"),
-                ("3", "Cry"),
-                ("p", "potion"),
-                ("g", "pickup"),
-                ("i", "inventory"),
-                ("Esc", "town"),
-            ],
-        ),
+        command_line("Dungeon", &dungeon_command_entries(c)),
         Line::from(vec![
             Span::styled("Legend: ", Style::default().add_modifier(Modifier::BOLD)),
             tile_span('@'),
@@ -358,7 +352,14 @@ fn log_color(line: &str) -> Color {
     }
 }
 
-fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+pub(crate) fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+    match c.class {
+        CharacterClass::Warrior => warrior_dungeon_skill_help_lines(c),
+        CharacterClass::Rogue => rogue_dungeon_skill_help_lines(c),
+    }
+}
+
+fn warrior_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
     vec![
         Line::from(format!(
             "1 Cleave r{}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
@@ -394,6 +395,57 @@ fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
             iron_guard_armor_bonus(c)
         )),
     ]
+}
+
+fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+    vec![
+        Line::from(format!(
+            "Energy {}/{} | CP {}/{} | 1 Backstab r{}: cost 25 Energy. Build +1 CP.",
+            c.current_resource(),
+            c.max_resource(),
+            c.rogue.combo_points,
+            ROGUE_MAX_COMBO_POINTS,
+            c.rogue.backstab_rank
+        )),
+        Line::from(format!(
+            "2 Venom Edge r{}: cost 30 Energy. Poison and build +1 CP.",
+            c.rogue.venom_edge_rank
+        )),
+        Line::from(format!(
+            "3 Eviscerate r{}: cost 35 Energy, spend CP for heavy burst.",
+            c.rogue.eviscerate_rank
+        )),
+        Line::from(format!(
+            "4 Smoke Step r{}: cost 25 Energy, cd 4. Dash, gain protection, empower Backstab. Ready in {}.",
+            c.rogue.smoke_step_rank, c.rogue.smoke_step_cooldown
+        )),
+    ]
+}
+
+fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
+    match c.class {
+        CharacterClass::Warrior => vec![
+            ("w/a/s/d", "move/attack"),
+            ("1", "Cleave"),
+            ("2", "Bash"),
+            ("3", "Cry"),
+            ("p", "potion"),
+            ("g", "pickup"),
+            ("i", "inventory"),
+            ("Esc", "town"),
+        ],
+        CharacterClass::Rogue => vec![
+            ("w/a/s/d", "move/attack"),
+            ("1", "Backstab"),
+            ("2", "Venom"),
+            ("3", "Eviscerate"),
+            ("4", "Smoke"),
+            ("p", "potion"),
+            ("g", "pickup"),
+            ("i", "inventory"),
+            ("Esc", "town"),
+        ],
+    }
 }
 
 fn tile_span(ch: char) -> Span<'static> {
@@ -478,7 +530,25 @@ pub(crate) fn dungeon_action_label(key: char) -> &'static str {
     dungeon_action_label_for(&warrior, key)
 }
 
-pub(crate) fn is_known_dungeon_command(key: char) -> bool {
+pub(crate) fn handle_class_skill_key(c: &mut Character, key: char) -> bool {
+    match (c.class, key) {
+        (CharacterClass::Warrior, '1') => use_cleave(c),
+        (CharacterClass::Warrior, '2') => use_shield_bash(c),
+        (CharacterClass::Warrior, '3') => use_battle_cry(c),
+        (CharacterClass::Rogue, '1') => use_backstab(c),
+        (CharacterClass::Rogue, '2') => use_venom_edge(c),
+        (CharacterClass::Rogue, '3') => use_eviscerate(c),
+        (CharacterClass::Rogue, '4') => use_smoke_step(c),
+        _ => {
+            if let Some(d) = c.active_dungeon.as_mut() {
+                log_event(&mut d.log, LogKind::Warn, "Unknown class skill.");
+            }
+            false
+        }
+    }
+}
+
+pub(crate) fn is_known_dungeon_command_for(c: &Character, key: char) -> bool {
     matches!(
         key,
         'w' | 'W'
@@ -491,7 +561,6 @@ pub(crate) fn is_known_dungeon_command(key: char) -> bool {
             | '1'
             | '2'
             | '3'
-            | '4'
             | 'p'
             | 'P'
             | 'g'
@@ -499,7 +568,17 @@ pub(crate) fn is_known_dungeon_command(key: char) -> bool {
             | 'i'
             | 'I'
             | '\u{1b}'
-    )
+    ) || (c.class == CharacterClass::Rogue && key == '4')
+}
+
+#[allow(dead_code)]
+pub(crate) fn is_known_dungeon_command(key: char) -> bool {
+    let warrior = Character::new(
+        "Known".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    is_known_dungeon_command_for(&warrior, key)
 }
 
 pub(crate) fn clear_recent_unknown_dungeon_commands(c: &mut Character) {
