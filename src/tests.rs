@@ -247,7 +247,33 @@ fn inventory_render_lines_include_grid_capacity_and_selected_details() {
     assert!(rendered.contains("Inventory - Bag 4 x 4 - 3 / 16"));
     assert!(rendered.contains("[H]"));
     assert!(rendered.contains("Lesser Health Potion"));
-    assert!(rendered.contains("Enter=equip/use"));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+}
+
+#[test]
+fn inventory_render_lines_include_message_and_full_commands() {
+    let c = test_character();
+    let lines = inventory_screen_text_for_test(&c, 0, "Dropped Lesser Health Potion.");
+    let rendered = lines.join("\n");
+
+    assert!(rendered.contains("Dropped Lesser Health Potion."));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+}
+
+#[test]
+fn inventory_render_footer_shows_message_and_commands() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_inventory_screen(frame, &c, 0, "Dropped Lesser Health Potion."))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Dropped Lesser Health Potion."));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
 }
 
 #[test]

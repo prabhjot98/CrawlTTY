@@ -55,11 +55,14 @@ pub(crate) fn render_inventory_screen(
     selected: usize,
     message: &str,
 ) {
+    const INVENTORY_COMMANDS: &str = "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
+
     let area = frame.area();
+    let footer_height = if message.is_empty() { 3 } else { 4 };
     let layout = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(10),
-        Constraint::Length(3),
+        Constraint::Length(footer_height),
     ])
     .split(area);
     let title = Paragraph::new(format!(
@@ -84,9 +87,9 @@ pub(crate) fn render_inventory_screen(
     frame.render_widget(details, body[1]);
 
     let footer_text = if message.is_empty() {
-        "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back".to_string()
+        INVENTORY_COMMANDS.to_string()
     } else {
-        format!("{message}\nWASD/Arrows=move  Enter=equip/use  x=drop  Esc=back")
+        format!("{message}\n{INVENTORY_COMMANDS}")
     };
     frame.render_widget(
         Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL).title("Commands")),
@@ -131,6 +134,8 @@ pub(crate) fn inventory_screen_text_for_test(
     selected: usize,
     message: &str,
 ) -> Vec<String> {
+    const INVENTORY_COMMANDS: &str = "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
+
     let mut lines = vec![format!(
         "Inventory - Bag {} x {} - {} / {}",
         c.inventory.columns,
@@ -159,7 +164,7 @@ pub(crate) fn inventory_screen_text_for_test(
     if !message.is_empty() {
         lines.push(message.to_string());
     }
-    lines.push("Enter=equip/use".to_string());
+    lines.push(INVENTORY_COMMANDS.to_string());
     lines
 }
 
