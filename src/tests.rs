@@ -297,10 +297,24 @@ fn removing_hp_or_mana_gem_clamps_current_resources() {
     complete_project_for_test(&mut c, TownProject::SocketBench);
     c.equipped_armor.sockets = vec![Some(GemSocket::filled(GemKind::Ruby, GemTier::Pristine))];
     c.hp = c.max_hp();
+    let ruby_max_hp = c.max_hp();
 
     remove_gem_from_equipped(&mut c, UpgradeSlot::Armor, 0);
 
     assert_eq!(c.hp, c.max_hp());
+    assert!(c.max_hp() < ruby_max_hp);
+
+    c.equipped_shield.sockets = vec![Some(GemSocket::filled(
+        GemKind::Sapphire,
+        GemTier::Pristine,
+    ))];
+    c.mana = c.max_mana();
+    let sapphire_max_mana = c.max_mana();
+
+    remove_gem_from_equipped(&mut c, UpgradeSlot::Shield, 0);
+
+    assert_eq!(c.mana, c.max_mana());
+    assert!(c.max_mana() < sapphire_max_mana);
 }
 
 #[test]
