@@ -142,6 +142,7 @@ pub(crate) fn rusted_sword() -> Item {
         weapon_stats(3, 5, 0, SWORD_CRIT_CHANCE),
     )
 }
+#[cfg(test)]
 pub(crate) fn crude_axe() -> Item {
     item(
         "Crude Axe (4-6 dmg, STR F)",
@@ -156,14 +157,6 @@ pub(crate) fn cloth_tunic() -> Item {
         ItemKind::Armor,
         12,
         item_stats(0, 0, 1, 0, 0),
-    )
-}
-pub(crate) fn battered_mail() -> Item {
-    item(
-        "Battered Mail (+2 armor, -5 speed)",
-        ItemKind::Armor,
-        55,
-        item_stats(0, 0, 2, 0, -5),
     )
 }
 pub(crate) fn worn_shield() -> Item {

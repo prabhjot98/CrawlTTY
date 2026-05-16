@@ -44,7 +44,7 @@ Use these stable project identifiers and costs in `src/town_projects.rs`:
 - Modify: `src/model.rs`
 - Test: `src/tests.rs`
 
-- [ ] **Step 1: Write failing tests for project metadata, gates, purchases, and save compatibility**
+- [x] **Step 1: Write failing tests for project metadata, gates, purchases, and save compatibility**
 
 Add these tests near the other town/economy tests in `src/tests.rs`:
 
@@ -174,7 +174,7 @@ fn saved_character_without_town_projects_defaults_to_empty_projects() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -184,7 +184,7 @@ cargo test town_project -- --nocapture
 
 Expected: compile failures for missing `TownProject`, `ProjectAvailability`, `town_project_availability`, `complete_town_project`, `has_completed_project`, and `complete_project_for_test`.
 
-- [ ] **Step 3: Add persisted project state and module wiring**
+- [x] **Step 3: Add persisted project state and module wiring**
 
 In `src/main.rs`, add the module and re-export near existing modules:
 
@@ -221,7 +221,7 @@ In `Character::new`, initialize it:
 completed_town_projects: Vec::new(),
 ```
 
-- [ ] **Step 4: Add project metadata and purchase logic**
+- [x] **Step 4: Add project metadata and purchase logic**
 
 Create `src/town_projects.rs` with:
 
@@ -379,7 +379,7 @@ pub(crate) fn complete_project_for_test(c: &mut Character, project: TownProject)
 }
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -389,7 +389,7 @@ cargo test town_project -- --nocapture
 
 Expected: all `town_project` tests pass.
 
-- [ ] **Step 6: Run required guard and commit**
+- [x] **Step 6: Run required guard and commit**
 
 Run:
 
@@ -411,7 +411,7 @@ Expected: guard passes, only Task 1 files are staged, commit succeeds.
 - Modify: `src/ui.rs`
 - Test: `src/tests.rs`
 
-- [ ] **Step 1: Write failing tests for project display text helpers**
+- [x] **Step 1: Write failing tests for project display text helpers**
 
 Add these tests to `src/tests.rs`:
 
@@ -450,7 +450,7 @@ fn town_project_row_text_includes_group_cost_status_and_benefit() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -461,7 +461,7 @@ cargo test town_project_row_text -- --nocapture
 
 Expected: compile failures for missing display helper functions.
 
-- [ ] **Step 3: Add display helpers to `src/town_projects.rs`**
+- [x] **Step 3: Add display helpers to `src/town_projects.rs`**
 
 Append these functions:
 
@@ -487,7 +487,7 @@ pub(crate) fn town_project_row_text(c: &Character, project: TownProject) -> Stri
 }
 ```
 
-- [ ] **Step 4: Add `town_projects_menu` to `src/town.rs`**
+- [x] **Step 4: Add `town_projects_menu` to `src/town.rs`**
 
 Add this function near the other town service menus:
 
@@ -548,7 +548,7 @@ pub(crate) fn town_projects_menu(c: &mut Character) {
 }
 ```
 
-- [ ] **Step 5: Wire town command**
+- [x] **Step 5: Wire town command**
 
 In `src/main.rs`, add this arm to the town input `match`:
 
@@ -565,7 +565,7 @@ In `src/ui.rs`, add projects to the first town footer command line:
 ("p", "projects"),
 ```
 
-- [ ] **Step 6: Run focused and full guard, then commit**
+- [x] **Step 6: Run focused and full guard, then commit**
 
 Run:
 
@@ -586,7 +586,7 @@ Expected: tests and guard pass, commit succeeds.
 - Modify: `src/town.rs`
 - Modify: `src/tests.rs`
 
-- [ ] **Step 1: Write failing tests for shard-only upgrades, forge gate, reinforced salvage, and appraiser sell value**
+- [x] **Step 1: Write failing tests for shard-only upgrades, forge gate, reinforced salvage, and appraiser sell value**
 
 Update the existing `blacksmith_upgrades_equipped_gear_with_shards_and_gold` test by renaming it to `blacksmith_upgrades_equipped_gear_with_shards_only_after_forge_project` and replacing the body with:
 
@@ -719,7 +719,7 @@ fn appraiser_project_improves_sell_value() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -732,7 +732,7 @@ cargo test appraiser_project_improves_sell_value -- --nocapture
 
 Expected: failures because upgrade costs still include gold, forge gates do not exist, reinforced salvage does not add shards, and `sell_value` does not exist.
 
-- [ ] **Step 3: Make upgrade costs shard-only and gate smith services**
+- [x] **Step 3: Make upgrade costs shard-only and gate smith services**
 
 In `src/town.rs`, update `upgrade_equipped_message`:
 
@@ -771,7 +771,7 @@ pub(crate) fn upgrade_cost(item: &Item) -> u32 {
 }
 ```
 
-- [ ] **Step 4: Gate salvage and add reinforced yield**
+- [x] **Step 4: Gate salvage and add reinforced yield**
 
 In `salvage_inventory_item`, add the forge gate first:
 
@@ -811,7 +811,7 @@ Update the salvage screen preview call to pass `c`:
 salvage_shard_yield(c, &c.inventory[selected])
 ```
 
-- [ ] **Step 5: Add appraiser sell value helper and use it**
+- [x] **Step 5: Add appraiser sell value helper and use it**
 
 Add this function near `sell_item_screen`:
 
@@ -828,7 +828,7 @@ pub(crate) fn sell_value(c: &Character, item: &Item) -> u32 {
 
 In `sell_item_screen`, replace both `item.value / 4` uses with `sell_value(c, item)`.
 
-- [ ] **Step 6: Remove direct gold purchase services from merchant and blacksmith menus**
+- [x] **Step 6: Remove direct gold purchase services from merchant and blacksmith menus**
 
 In `merchant`, replace the options with:
 
@@ -872,7 +872,7 @@ println!(
 
 Update blacksmith enter handlers so indices `0..=3` map to salvage, weapon, armor, shield.
 
-- [ ] **Step 7: Run focused tests and guard, then commit**
+- [x] **Step 7: Run focused tests and guard, then commit**
 
 Run:
 
@@ -896,7 +896,7 @@ Expected: tests and guard pass, commit succeeds.
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-05-15-town-gold-progression.md`
 
-- [ ] **Step 1: Update README town controls and feature summary**
+- [x] **Step 1: Update README town controls and feature summary**
 
 In `README.md`, update current features to include town projects:
 
@@ -916,11 +916,11 @@ Update the economy feature bullet:
 - Inventory, equipment, selling, salvaging, shard-only gear upgrading, and gold-funded town projects
 ```
 
-- [ ] **Step 2: Mark plan checkboxes complete as tasks are actually finished**
+- [x] **Step 2: Mark plan checkboxes complete as tasks are actually finished**
 
 After Tasks 1-3 are committed, update this plan file so completed steps use `[x]` for those tasks. Leave Task 4 checkboxes accurate based on what has been done.
 
-- [ ] **Step 3: Run final verification**
+- [x] **Step 3: Run final verification**
 
 Run:
 
@@ -932,7 +932,7 @@ git diff
 
 Expected: guard passes. `git diff` contains only README and plan checkbox/documentation updates.
 
-- [ ] **Step 4: Commit docs and plan status**
+- [x] **Step 4: Commit docs and plan status**
 
 Run:
 

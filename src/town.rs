@@ -467,9 +467,9 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
                     continue;
                 }
                 let item = c.inventory.remove(selected);
-                let sell_value = sell_value(c, &item);
-                c.gold += sell_value;
-                message = format!("Sold {} for {} gold.", item.name, sell_value);
+                let item_sell_value = sell_value(c, &item);
+                c.gold += item_sell_value;
+                message = format!("Sold {} for {} gold.", item.name, item_sell_value);
                 append_autosave_status(c, &mut message);
             }
             _ => message = "Unknown sell command.".to_string(),

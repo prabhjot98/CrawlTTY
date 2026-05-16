@@ -5,12 +5,12 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 ## Current Features
 
 - ASCII terminal UI
-- Town hub with merchant, blacksmith, stash, quest giver, dungeon entrance, and automatic full healing on return
+- Town hub with merchant, blacksmith, stash, town projects, quest giver, dungeon entrance, and automatic full healing on return
 - Ironbound class with attributes, leveling, skills, and mastery choices
 - Procedural 10-floor Act I dungeon and 8-floor Act II dungeon
 - Turn-based combat with enemies, elites, chests, loot, XP, gold, and potions
 - Bellkeeper and Glass Tyrant boss encounters
-- Inventory, equipment, selling, salvaging, and gear upgrading
+- Inventory, equipment, selling, salvaging, shard-only gear upgrading, and gold-funded town projects
 - Save/load support via JSON saves
 
 ## Controls
@@ -20,6 +20,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - `m` merchant
 - `b` blacksmith
 - `s` stash
+- `p` town projects
 - `t` quest giver
 - `d` dungeon
 - `i` inventory
