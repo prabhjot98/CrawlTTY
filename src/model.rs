@@ -381,6 +381,10 @@ pub(crate) struct Enemy {
     #[serde(default)]
     pub(crate) bleed_damage: i32,
     #[serde(default)]
+    pub(crate) poison_turns: u32,
+    #[serde(default)]
+    pub(crate) poison_damage: i32,
+    #[serde(default)]
     pub(crate) armor_shred_turns: u32,
     #[serde(default)]
     pub(crate) vulnerable_turns: u32,

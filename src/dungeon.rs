@@ -1325,6 +1325,29 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 continue;
             }
         }
+        if d.enemies[i].poison_turns > 0 {
+            let poison_damage = d.enemies[i].poison_damage.max(1);
+            d.enemies[i].hp -= poison_damage;
+            d.enemies[i].poison_turns -= 1;
+            log_event(
+                &mut d.log,
+                LogKind::Hit,
+                format!(
+                    "{} suffers poison for {}. {}.",
+                    d.enemies[i].name,
+                    damage_text(poison_damage),
+                    enemy_hp_text(&d.enemies[i])
+                ),
+            );
+            if d.enemies[i].hp <= 0 {
+                let ground_items_before_death = d.ground_items.len();
+                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Effect { source: "Poison" }) {
+                    finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
+                    return;
+                }
+                continue;
+            }
+        }
         d.enemies[i].energy += d.enemies[i].speed.max(1);
         let energy_threshold = enemy_action_energy_threshold(c);
         if d.enemies[i].energy < energy_threshold {

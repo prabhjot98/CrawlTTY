@@ -448,6 +448,8 @@ pub(crate) fn enemy(
         stunned_turns: 0,
         bleed_turns: 0,
         bleed_damage: 0,
+        poison_turns: 0,
+        poison_damage: 0,
         armor_shred_turns: 0,
         vulnerable_turns: 0,
         guarding: false,

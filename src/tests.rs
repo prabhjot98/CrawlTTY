@@ -207,7 +207,94 @@ fn rogue_dungeon_render_shows_fourth_skill_help() {
 }
 
 #[test]
-fn rogue_skill_hotkeys_dispatch_to_stub_warnings() {
+fn rogue_builders_grant_combo_points_and_cap_at_five() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    for _ in 0..7 {
+        c.rogue.energy = ROGUE_MAX_ENERGY;
+        assert!(use_backstab(&mut c));
+    }
+
+    assert_eq!(c.rogue.combo_points, ROGUE_MAX_COMBO_POINTS);
+}
+
+#[test]
+fn eviscerate_requires_and_spends_combo_points() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(!use_eviscerate(&mut c));
+    assert_eq!(c.rogue.combo_points, 0);
+
+    c.rogue.combo_points = 3;
+    c.rogue.energy = ROGUE_MAX_ENERGY;
+    assert!(use_eviscerate(&mut c));
+    assert_eq!(c.rogue.combo_points, 0);
+}
+
+#[test]
+fn venom_edge_applies_poison_and_grants_combo_point() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(use_venom_edge(&mut c));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.rogue.combo_points, 1);
+    assert_eq!(d.enemies[0].poison_turns, 3);
+    assert!(d.enemies[0].poison_damage > 0);
+}
+
+#[test]
+fn eviscerate_poison_payoff_can_kill_and_award_rewards() {
+    let enemy = enemy(
+        "Poison Dummy",
+        'p',
+        3,
+        2,
+        enemy_stats(3, 0, 0, 0, 10),
+        enemy_rewards(10, 1, 1),
+        false,
+    );
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+    c.rogue.combo_points = 5;
+    c.rogue.energy = ROGUE_MAX_ENERGY;
+    {
+        let d = c.active_dungeon.as_mut().unwrap();
+        d.enemies[0].poison_turns = 3;
+        d.enemies[0].poison_damage = 3;
+    }
+
+    assert!(use_eviscerate(&mut c));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(d.enemies[0].hp <= 0 || d.enemies.is_empty());
+    assert!(c.xp >= 10);
+}
+
+#[test]
+fn smoke_step_hotkey_dispatches_to_stub_warning() {
     let mut rogue = Character::new(
         "Sneak".to_string(),
         CharacterClass::Rogue,
@@ -215,24 +302,10 @@ fn rogue_skill_hotkeys_dispatch_to_stub_warnings() {
     );
     rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
-    for key in ['1', '2', '3', '4'] {
-        assert!(is_known_dungeon_command_for(&rogue, key));
-        assert!(!handle_class_skill_key(&mut rogue, key));
-    }
+    assert!(is_known_dungeon_command_for(&rogue, '4'));
+    assert!(!handle_class_skill_key(&mut rogue, '4'));
 
     let log = &rogue.active_dungeon.as_ref().unwrap().log;
-    assert!(
-        log.iter()
-            .any(|line| line.contains("Backstab is not ready yet."))
-    );
-    assert!(
-        log.iter()
-            .any(|line| line.contains("Venom Edge is not ready yet."))
-    );
-    assert!(
-        log.iter()
-            .any(|line| line.contains("Eviscerate is not ready yet."))
-    );
     assert!(
         log.iter()
             .any(|line| line.contains("Smoke Step is not ready yet."))
