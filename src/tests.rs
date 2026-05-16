@@ -2081,6 +2081,39 @@ fn spiked_guard_boss_kill_completes_boss_fight() {
 }
 
 #[test]
+fn full_inventory_spiked_guard_boss_reward_retains_dungeon_after_gameplay_kill() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    c.iron_guard_mastery = Some(SkillMastery::SpikedGuard);
+    c.dexterity = 0;
+    c.equipped_armor.dodge = -10;
+    c.equipped_shield.dodge = 0;
+    let mut boss = bellkeeper(3, 2);
+    boss.hp = 2;
+    boss.energy = 100;
+    boss.damage_min = 1;
+    boss.damage_max = 1;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]));
+
+    for _ in 0..20 {
+        enemy_turns(&mut c);
+        let Some(d) = c.active_dungeon.as_mut() else {
+            break;
+        };
+        if !d.ground_items.is_empty() {
+            break;
+        }
+        d.enemies[0].energy = 100;
+    }
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (3, 2));
+    assert_eq!(living_monster_count(d), 0);
+    assert!(d.log.iter().any(|line| line.contains("Spiked Guard")));
+}
+
+#[test]
 fn potion_hotkey_consumes_one_health_potion_and_caps_healing() {
     let mut c = test_character();
     c.active_dungeon = Some(generate_dungeon(1));

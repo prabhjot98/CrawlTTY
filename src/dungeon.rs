@@ -1205,7 +1205,11 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 return;
             }
             if enemy_killed {
+                let ground_items_before_death = d.ground_items.len();
                 if resolve_enemy_killed_by_effect(c, &mut d, i, "Spiked Guard") {
+                    if boss_death_added_ground_loot(&d, ground_items_before_death) {
+                        retain_boss_overflow_dungeon(c, d);
+                    }
                     return;
                 }
                 continue;
