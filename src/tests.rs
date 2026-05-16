@@ -852,7 +852,22 @@ fn new_rogue_matches_starting_state() {
     assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
     assert_eq!(c.rogue.combo_points, 0);
     assert!(c.equipped_weapon.name.contains("Dagger"));
+    assert_eq!(c.equipped_weapon.kind, ItemKind::Weapon);
+    assert_eq!(c.equipped_weapon.required_strength, 0);
+    assert_eq!(c.equipped_weapon.required_dexterity, 2);
+    assert_eq!(c.equipped_weapon.required_intelligence, 0);
+    assert!(can_equip_item(&c, &c.equipped_weapon));
     assert!(c.equipped_armor.name.contains("Leathers"));
+    assert_eq!(c.equipped_armor.kind, ItemKind::Armor);
+    assert_eq!(c.equipped_armor.required_strength, 0);
+    assert_eq!(c.equipped_armor.required_dexterity, 0);
+    assert_eq!(c.equipped_armor.required_intelligence, 0);
+    assert!(can_equip_item(&c, &c.equipped_armor));
+    assert_eq!(c.equipped_shield.kind, ItemKind::Shield);
+    assert_eq!(c.equipped_shield.required_strength, 0);
+    assert_eq!(c.equipped_shield.required_dexterity, 0);
+    assert_eq!(c.equipped_shield.required_intelligence, 0);
+    assert!(can_equip_item(&c, &c.equipped_shield));
 }
 
 #[test]

@@ -238,11 +238,14 @@ pub(crate) fn rusted_sword() -> Item {
     )
 }
 pub(crate) fn training_dagger() -> Item {
-    item(
+    item_with_rarity(
         "Training Dagger (2-4 dmg, DEX D)",
         ItemKind::Weapon,
         20,
         weapon_stats(2, 4, 1, 12),
+        Rarity::Common,
+        1,
+        requirements(0, 2, 0),
     )
 }
 #[cfg(test)]
@@ -263,11 +266,14 @@ pub(crate) fn cloth_tunic() -> Item {
     )
 }
 pub(crate) fn patched_leathers() -> Item {
-    item(
+    item_with_rarity(
         "Patched Leathers (+1 armor, +2 dodge)",
         ItemKind::Armor,
         18,
         item_stats(0, 0, 1, 2, 1),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
     )
 }
 pub(crate) fn worn_shield() -> Item {
@@ -279,10 +285,13 @@ pub(crate) fn worn_shield() -> Item {
     )
 }
 pub(crate) fn empty_offhand() -> Item {
-    item(
+    item_with_rarity(
         "Empty Offhand",
         ItemKind::Shield,
         0,
         item_stats(0, 0, 0, 0, 0),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
     )
 }
