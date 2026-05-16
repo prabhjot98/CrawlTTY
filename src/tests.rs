@@ -1,7 +1,11 @@
 use super::*;
 
 fn test_character() -> Character {
-    Character::new("Tester".to_string(), DeathMode::Softcore)
+    Character::new(
+        "Tester".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    )
 }
 
 fn critical_combat_test_character() -> Character {
@@ -543,7 +547,15 @@ fn character_creation_renders_as_ratatui_screen() {
 
     let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
     terminal
-        .draw(|frame| render_character_creation_screen(frame, "Mara", DeathMode::Hardcore, ""))
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                "Mara",
+                CharacterClass::Warrior,
+                DeathMode::Hardcore,
+                "",
+            )
+        })
         .unwrap();
 
     let rendered = backend_text(&terminal);
@@ -822,6 +834,49 @@ fn new_warrior_matches_mvp_starting_state() {
     );
     assert!(!c.bellkeeper_defeated);
     assert!(!c.act1_completed);
+}
+
+#[test]
+fn new_rogue_matches_starting_state() {
+    let c = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+
+    assert_eq!(c.class, CharacterClass::Rogue);
+    assert_eq!(c.class_name(), "Rogue");
+    assert_eq!(c.strength, 2);
+    assert_eq!(c.dexterity, 7);
+    assert_eq!(c.intelligence, 1);
+    assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
+    assert_eq!(c.rogue.combo_points, 0);
+    assert!(c.equipped_weapon.name.contains("Dagger"));
+    assert!(c.equipped_armor.name.contains("Leathers"));
+}
+
+#[test]
+fn character_creation_renders_class_choices() {
+    let backend = ratatui::backend::TestBackend::new(80, 24);
+    let mut terminal = ratatui::Terminal::new(backend).unwrap();
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                "Mara",
+                CharacterClass::Rogue,
+                DeathMode::Hardcore,
+                "",
+            )
+        })
+        .unwrap();
+
+    let text = backend_text(&terminal);
+    assert!(text.contains("Warrior"));
+    assert!(text.contains("Rogue"));
+    assert!(text.contains("> Rogue"));
+    assert!(text.contains("> Hardcore"));
 }
 
 #[test]

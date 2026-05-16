@@ -46,11 +46,14 @@ fn create_character(
     startup_message: &str,
 ) -> Result<Character> {
     let mut name = String::new();
+    let mut selected_class = CharacterClass::Warrior;
     let mut death_mode = DeathMode::Softcore;
     let mut message = startup_message.to_string();
     loop {
         terminal
-            .draw(|frame| render_character_creation_screen(frame, &name, death_mode, &message))
+            .draw(|frame| {
+                render_character_creation_screen(frame, &name, selected_class, death_mode, &message)
+            })
             .context("failed to draw character creation")?;
         let key = match read_ui_input()? {
             UiInput::Key(key) => key,
@@ -61,14 +64,26 @@ fn create_character(
                 if name.trim().is_empty() {
                     message = "Enter a character name.".to_string();
                 } else {
-                    return Ok(Character::new(name.trim().to_string(), death_mode));
+                    return Ok(Character::new(
+                        name.trim().to_string(),
+                        selected_class,
+                        death_mode,
+                    ));
                 }
             }
             '1' => {
-                death_mode = DeathMode::Softcore;
+                selected_class = CharacterClass::Warrior;
                 message.clear();
             }
             '2' => {
+                selected_class = CharacterClass::Rogue;
+                message.clear();
+            }
+            's' | 'S' => {
+                death_mode = DeathMode::Softcore;
+                message.clear();
+            }
+            'h' | 'H' => {
                 death_mode = DeathMode::Hardcore;
                 message.clear();
             }
@@ -96,6 +111,7 @@ fn create_character(
 pub(crate) fn render_character_creation_screen(
     frame: &mut Frame,
     name: &str,
+    selected_class: CharacterClass,
     selected_death_mode: DeathMode,
     message: &str,
 ) {
@@ -125,6 +141,16 @@ pub(crate) fn render_character_creation_screen(
     } else {
         " "
     };
+    let warrior_marker = if selected_class == CharacterClass::Warrior {
+        ">"
+    } else {
+        " "
+    };
+    let rogue_marker = if selected_class == CharacterClass::Rogue {
+        ">"
+    } else {
+        " "
+    };
     let lines = vec![
         Line::from("ASCII terminal action RPG prototype"),
         Line::from(""),
@@ -132,6 +158,15 @@ pub(crate) fn render_character_creation_screen(
             "Name: {}",
             if name.is_empty() { "_" } else { name }
         )),
+        Line::from(""),
+        Line::styled(
+            format!("{warrior_marker} Warrior - armored melee skills and mana."),
+            Style::default().fg(Color::Cyan),
+        ),
+        Line::styled(
+            format!("{rogue_marker} Rogue - dagger burst, Energy, and combo points."),
+            Style::default().fg(Color::Green),
+        ),
         Line::from(""),
         Line::styled(
             format!("{softcore_marker} Softcore - death returns you to town."),
@@ -153,7 +188,7 @@ pub(crate) fn render_character_creation_screen(
         layout[1],
     );
 
-    let commands = "Type=name  Backspace=delete  1/2 or Tab=mode  Enter=confirm";
+    let commands = "Type=name  Backspace=delete  1/2=class  S/H or Tab=death mode  Enter=confirm";
     let footer = if message.is_empty() {
         commands.to_string()
     } else {

@@ -237,6 +237,14 @@ pub(crate) fn rusted_sword() -> Item {
         weapon_stats(3, 5, 0, SWORD_CRIT_CHANCE),
     )
 }
+pub(crate) fn training_dagger() -> Item {
+    item(
+        "Training Dagger (2-4 dmg, DEX D)",
+        ItemKind::Weapon,
+        20,
+        weapon_stats(2, 4, 1, 12),
+    )
+}
 #[cfg(test)]
 pub(crate) fn crude_axe() -> Item {
     item(
@@ -254,11 +262,27 @@ pub(crate) fn cloth_tunic() -> Item {
         item_stats(0, 0, 1, 0, 0),
     )
 }
+pub(crate) fn patched_leathers() -> Item {
+    item(
+        "Patched Leathers (+1 armor, +2 dodge)",
+        ItemKind::Armor,
+        18,
+        item_stats(0, 0, 1, 2, 1),
+    )
+}
 pub(crate) fn worn_shield() -> Item {
     item(
         "Worn Shield (+1 armor, +2 dodge)",
         ItemKind::Shield,
         40,
         item_stats(0, 0, 1, 2, 0),
+    )
+}
+pub(crate) fn empty_offhand() -> Item {
+    item(
+        "Empty Offhand",
+        ItemKind::Shield,
+        0,
+        item_stats(0, 0, 0, 0, 0),
     )
 }

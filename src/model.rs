@@ -487,7 +487,14 @@ pub(crate) fn default_item_level() -> u32 {
 }
 
 impl Character {
-    pub(crate) fn new(name: String, death_mode: DeathMode) -> Self {
+    pub(crate) fn new(name: String, class: CharacterClass, death_mode: DeathMode) -> Self {
+        match class {
+            CharacterClass::Warrior => Self::new_warrior(name, death_mode),
+            CharacterClass::Rogue => Self::new_rogue(name, death_mode),
+        }
+    }
+
+    fn new_warrior(name: String, death_mode: DeathMode) -> Self {
         let strength = 6;
         let dexterity = 3;
         let intelligence = 1;
@@ -527,6 +534,46 @@ impl Character {
             armor_shards: 0,
             shield_shards: 0,
             completed_town_projects: Vec::new(),
+            pending_town_message: String::new(),
+        }
+    }
+
+    fn new_rogue(name: String, death_mode: DeathMode) -> Self {
+        let strength = 2;
+        let dexterity = 7;
+        let intelligence = 1;
+        let max_hp = 10 + strength * 5;
+        let max_mana = 10 + intelligence * 5;
+        Self {
+            name,
+            class: CharacterClass::Rogue,
+            death_mode,
+            level: 1,
+            xp: 0,
+            gold: 50,
+            strength,
+            dexterity,
+            intelligence,
+            unspent_attributes: 0,
+            unspent_skills: 0,
+            hp: max_hp,
+            mana: max_mana,
+            inventory: ItemGrid::player_starting(vec![health_potion(), health_potion()]),
+            stash: ItemGrid::stash_starting(),
+            equipped_weapon: training_dagger(),
+            equipped_armor: patched_leathers(),
+            equipped_shield: empty_offhand(),
+            bellkeeper_defeated: false,
+            glass_tyrant_defeated: false,
+            act1_completed: false,
+            act2_completed: false,
+            active_dungeon: None,
+            weapon_shards: 0,
+            armor_shards: 0,
+            shield_shards: 0,
+            completed_town_projects: Vec::new(),
+            warrior: WarriorState::default(),
+            rogue: RogueState::default(),
             pending_town_message: String::new(),
         }
     }
