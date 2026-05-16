@@ -39,6 +39,8 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - `i` inventory
 - `Esc` return to town / back out of menus
 
+Dungeon glyphs: `!` marks ground loot.
+
 ## Running
 
 ```sh
