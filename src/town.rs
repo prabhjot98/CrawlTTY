@@ -1529,33 +1529,34 @@ pub(crate) fn spend_attributes(
     terminal: &mut ratatui::DefaultTerminal,
 ) -> Result<()> {
     let mut message = String::new();
-    while c.unspent_attributes > 0 {
+    loop {
         terminal
             .draw(|frame| render_spend_attributes_screen(frame, c, &message))
             .context("failed to draw attributes")?;
         let key = read_key_char()?;
         message.clear();
         match key {
-            '1' => {
+            '1' if c.unspent_attributes > 0 => {
                 c.strength += 1;
                 c.unspent_attributes -= 1;
                 c.hp += 5;
                 message = "Spent 1 attribute on Strength.".to_string();
                 append_autosave_status(c, &mut message);
             }
-            '2' => {
+            '2' if c.unspent_attributes > 0 => {
                 c.dexterity += 1;
                 c.unspent_attributes -= 1;
                 message = "Spent 1 attribute on Dexterity.".to_string();
                 append_autosave_status(c, &mut message);
             }
-            '3' => {
+            '3' if c.unspent_attributes > 0 => {
                 c.intelligence += 1;
                 c.unspent_attributes -= 1;
                 c.mana += 5;
                 message = "Spent 1 attribute on Intelligence.".to_string();
                 append_autosave_status(c, &mut message);
             }
+            '1' | '2' | '3' => message = "No unspent attribute points.".to_string(),
             '\u{1b}' => break,
             _ => message = "Unknown attribute command.".to_string(),
         }
@@ -1564,7 +1565,7 @@ pub(crate) fn spend_attributes(
 }
 
 pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, message: &str) {
-    let lines = vec![
+    let mut lines = vec![
         Line::styled(
             format!("Spend Attributes ({} left)", c.unspent_attributes),
             Style::default()
@@ -1588,6 +1589,10 @@ pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, m
             c.intelligence + 1
         )),
     ];
+    if c.unspent_attributes == 0 {
+        lines.push(Line::from(""));
+        lines.push(plain_line("No unspent attribute points."));
+    }
     render_lines_screen(
         frame,
         "Spend Attributes",

@@ -492,6 +492,23 @@ fn town_service_screens_render_with_ratatui() {
 }
 
 #[test]
+fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_spend_attributes_screen(frame, &c, ""))
+        .unwrap();
+    let attributes = backend_text(&terminal);
+
+    assert!(attributes.contains("Spend Attributes (0 left)"));
+    assert!(attributes.contains("No unspent attribute points."));
+    assert!(attributes.contains("Esc=back"));
+}
+
+#[test]
 fn inventory_adjacent_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
