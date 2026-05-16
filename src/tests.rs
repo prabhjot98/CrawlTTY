@@ -440,6 +440,118 @@ fn inventory_render_footer_shows_message_and_commands() {
 }
 
 #[test]
+fn character_creation_renders_as_ratatui_screen() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
+    terminal
+        .draw(|frame| render_character_creation_screen(frame, "Mara", DeathMode::Hardcore, ""))
+        .unwrap();
+
+    let rendered = backend_text(&terminal);
+    assert!(rendered.contains("Character Creation"));
+    assert!(rendered.contains("Name: Mara"));
+    assert!(rendered.contains("> Hardcore"));
+    assert!(rendered.contains("Enter=confirm"));
+}
+
+#[test]
+fn town_service_screens_render_with_ratatui() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_merchant_screen(frame, &c, 0, ""))
+        .unwrap();
+    let merchant = backend_text(&terminal);
+    assert!(merchant.contains("Merchant"));
+    assert!(merchant.contains("> Sell items"));
+
+    terminal
+        .draw(|frame| render_blacksmith_screen(frame, &c, 4, ""))
+        .unwrap();
+    let blacksmith = backend_text(&terminal);
+    assert!(blacksmith.contains("Blacksmith"));
+    assert!(blacksmith.contains("> Manage sockets"));
+
+    terminal
+        .draw(|frame| render_town_projects_screen(frame, &c, 0, ""))
+        .unwrap();
+    let projects = backend_text(&terminal);
+    assert!(projects.contains("Town Projects"));
+    assert!(projects.contains("Enter=fund project"));
+
+    terminal
+        .draw(|frame| render_spend_attributes_screen(frame, &c, ""))
+        .unwrap();
+    let attributes = backend_text(&terminal);
+    assert!(attributes.contains("Spend Attributes"));
+    assert!(attributes.contains("Strength"));
+}
+
+#[test]
+fn inventory_adjacent_screens_render_with_ratatui() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.inventory.push(rusted_sword());
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_sell_items_screen(frame, &c, 0, ""))
+        .unwrap();
+    let sell = backend_text(&terminal);
+    assert!(sell.contains("Sell Items"));
+    assert!(sell.contains("Sell value"));
+
+    terminal
+        .draw(|frame| render_salvage_screen(frame, &c, 3, ""))
+        .unwrap();
+    let salvage = backend_text(&terminal);
+    assert!(salvage.contains("Salvage Gear"));
+    assert!(salvage.contains("Salvage yield"));
+
+    terminal
+        .draw(|frame| render_socket_bench_screen(frame, &c, 0, 0, ""))
+        .unwrap();
+    let sockets = backend_text(&terminal);
+    assert!(sockets.contains("Socket Bench"));
+    assert!(sockets.contains("Socketed Gear"));
+
+    terminal
+        .draw(|frame| render_gem_picker_screen(frame, &c, 0, ""))
+        .unwrap();
+    let gems = backend_text(&terminal);
+    assert!(gems.contains("Select Gem"));
+    assert!(gems.contains("No gems in inventory."));
+}
+
+#[test]
+fn skill_screens_render_with_ratatui() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.cleave_rank = 5;
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, ""))
+        .unwrap();
+    let skill_tree = backend_text(&terminal);
+    assert!(skill_tree.contains("Ironbound Skill Tree"));
+    assert!(skill_tree.contains("Cleave"));
+
+    terminal
+        .draw(|frame| render_mastery_screen(frame, &c, "Cleave", ""))
+        .unwrap();
+    let mastery = backend_text(&terminal);
+    assert!(mastery.contains("Cleave Mastery"));
+    assert!(mastery.contains("Choose one free path"));
+}
+
+#[test]
 fn new_character_uses_starting_bag_and_stash_grids() {
     let c = test_character();
 
@@ -1720,50 +1832,6 @@ fn dropping_inventory_item_in_dungeon_creates_ground_item() {
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.ground_items.len(), 1);
     assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (4, 5));
-}
-
-#[test]
-fn legacy_screen_reset_forces_parent_ratatui_redraw() {
-    use ratatui::{
-        Terminal,
-        backend::{Backend, TestBackend},
-        widgets::Paragraph,
-    };
-
-    let mut terminal = Terminal::new(TestBackend::new(16, 3)).unwrap();
-    terminal
-        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
-        .unwrap();
-
-    terminal.backend_mut().clear().unwrap();
-    terminal
-        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
-        .unwrap();
-    assert!(!backend_text(&terminal).contains("Town"));
-
-    clear_after_legacy_screen(&mut terminal).unwrap();
-    terminal
-        .draw(|frame| frame.render_widget(Paragraph::new("Town"), frame.area()))
-        .unwrap();
-
-    assert!(backend_text(&terminal).contains("Town"));
-}
-
-#[test]
-fn legacy_screen_releases_ratatui_raw_mode_while_running() {
-    use ratatui::{Terminal, backend::TestBackend};
-
-    set_ratatui_owns_raw_mode(true);
-    let mut terminal = Terminal::new(TestBackend::new(16, 3)).unwrap();
-    let mut released_for_legacy_paint = false;
-
-    run_legacy_screen(&mut terminal, || {
-        released_for_legacy_paint = !input::ratatui_owns_raw_mode_for_test();
-    })
-    .unwrap();
-
-    assert!(released_for_legacy_paint);
-    assert!(input::ratatui_owns_raw_mode_for_test());
 }
 
 fn backend_text(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> String {

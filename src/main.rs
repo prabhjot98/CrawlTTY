@@ -22,10 +22,7 @@ mod ui;
 
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
-use input::{
-    LegacyScreenTerminalMode, read_key_char, read_key_char_nav, read_key_char_nav_or_message,
-    read_key_char_or_message, set_ratatui_owns_raw_mode,
-};
+use input::{read_key_char, read_key_char_nav, set_ratatui_owns_raw_mode};
 pub(crate) use inventory::*;
 pub(crate) use items::*;
 pub(crate) use model::*;
@@ -47,12 +44,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut character = load_or_create_character()?;
-    let mut town_message = take_startup_town_message(&mut character);
-    save_character(&character)?;
-
     {
         let mut terminal_session = TerminalSession::start()?;
+        let mut character = load_or_create_character(&mut terminal_session.terminal)?;
+        let mut town_message = take_startup_town_message(&mut character);
+        save_character(&character)?;
         run_game(
             &mut terminal_session.terminal,
             &mut character,
@@ -101,11 +97,13 @@ fn run_game(
         };
         match key {
             'm' | 'M' => {
-                run_legacy_screen(terminal, || merchant(character))?;
+                merchant(character, terminal)?;
+                terminal.clear()?;
                 town_message.clear();
             }
             'b' | 'B' => {
-                run_legacy_screen(terminal, || blacksmith(character))?;
+                blacksmith(character, terminal)?;
+                terminal.clear()?;
                 town_message.clear();
             }
             's' | 'S' => {
@@ -114,7 +112,8 @@ fn run_game(
                 town_message.clear();
             }
             'p' | 'P' => {
-                run_legacy_screen(terminal, || town_projects_menu(character))?;
+                town_projects_menu(character, terminal)?;
+                terminal.clear()?;
                 town_message.clear();
             }
             't' | 'T' => *town_message = quest_giver(character),
@@ -124,10 +123,12 @@ fn run_game(
                 terminal.clear()?;
             }
             'a' | 'A' => {
-                run_legacy_screen(terminal, || spend_attributes(character))?;
+                spend_attributes(character, terminal)?;
+                terminal.clear()?;
             }
             'k' | 'K' => {
-                run_legacy_screen(terminal, || skill_tree_menu(character))?;
+                skill_tree_menu(character, terminal)?;
+                terminal.clear()?;
             }
             'q' | 'Q' => {
                 save_character(character)?;
@@ -138,27 +139,6 @@ fn run_game(
         save_character(character)?;
     }
     Ok(())
-}
-
-fn run_legacy_screen<B, F, T>(terminal: &mut ratatui::Terminal<B>, screen: F) -> Result<T>
-where
-    B: ratatui::backend::Backend,
-    F: FnOnce() -> T,
-{
-    let mut legacy_mode = LegacyScreenTerminalMode::enter()?;
-    let result = screen();
-    legacy_mode.restore_ratatui()?;
-    clear_after_legacy_screen(terminal)?;
-    Ok(result)
-}
-
-pub(crate) fn clear_after_legacy_screen<B>(terminal: &mut ratatui::Terminal<B>) -> Result<()>
-where
-    B: ratatui::backend::Backend,
-{
-    terminal
-        .clear()
-        .context("failed to reset terminal after legacy screen")
 }
 
 struct TerminalSession {

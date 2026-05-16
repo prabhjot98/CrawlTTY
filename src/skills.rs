@@ -1,125 +1,165 @@
 use crate::*;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
-pub(crate) fn skill_tree_menu(c: &mut Character) {
+pub(crate) fn skill_tree_menu(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     let mut message = String::new();
     loop {
-        clear_screen();
-        println!("{BOLD}{CYAN}Ironbound Skill Tree{RESET}");
-        println!("{}", unspent_skills_text(c.unspent_skills));
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        println!("{BOLD}Weapons Branch{RESET}");
-        print_skill_upgrade_preview(
-            '1',
-            "Cleave",
-            c.cleave_rank,
-            "cost 5 mana, cd 1, hits up to 3 adjacent enemies",
-            cleave_percent_for_rank(c.cleave_rank),
-            cleave_percent_for_rank(next_skill_rank(c.cleave_rank)),
-            "% weapon damage",
-        );
-        print_mastery_status(c, "Cleave");
-        print_skill_upgrade_preview(
-            '4',
-            "Deep Cut",
-            c.deep_cut_rank,
-            "passive melee bleed chance and damage; requires Cleave rank 2 for upgrades",
-            deep_cut_chance_for_rank(c.deep_cut_rank),
-            deep_cut_chance_for_rank(next_skill_rank(c.deep_cut_rank)),
-            "% bleed chance",
-        );
-        print_mastery_status(c, "Deep Cut");
-        println!(
-            "   Bleed damage: {} now, {} next.",
-            deep_cut_damage_for_rank(c.deep_cut_rank),
-            deep_cut_damage_for_rank(next_skill_rank(c.deep_cut_rank))
-        );
-        println!("{BOLD}Defense Branch{RESET}");
-        print_skill_upgrade_preview(
-            '2',
-            "Shield Bash",
-            c.shield_bash_rank,
-            "cost 6 mana, cd 3, hits 1 enemy and staggers",
-            shield_bash_percent_for_rank(c.shield_bash_rank),
-            shield_bash_percent_for_rank(next_skill_rank(c.shield_bash_rank)),
-            "% weapon damage",
-        );
-        print_mastery_status(c, "Shield Bash");
-        print_skill_upgrade_preview(
-            '5',
-            "Iron Guard",
-            c.iron_guard_rank,
-            "passive armor while using a shield; requires Shield Bash rank 2 for upgrades",
-            iron_guard_armor_bonus_for_rank(c.iron_guard_rank) as u32,
-            iron_guard_armor_bonus_for_rank(next_skill_rank(c.iron_guard_rank)) as u32,
-            " armor",
-        );
-        print_mastery_status(c, "Iron Guard");
-        println!("{BOLD}Warcry Branch{RESET}");
-        print_skill_upgrade_preview(
-            '3',
-            "Battle Cry",
-            c.battle_cry_rank,
-            "cost 8 mana, cd 6, grants attack charges",
-            battle_cry_bonus_percent_for_rank(c.battle_cry_rank),
-            battle_cry_bonus_percent_for_rank(next_skill_rank(c.battle_cry_rank)),
-            "% bonus damage",
-        );
-        print_mastery_status(c, "Battle Cry");
-        print_skill_upgrade_preview(
-            '6',
-            "Second Wind",
-            c.second_wind_rank,
-            "passive heal on kill while Battle Cry is active; requires Battle Cry rank 2 for upgrades",
-            second_wind_heal_percent_for_rank(c.second_wind_rank),
-            second_wind_heal_percent_for_rank(next_skill_rank(c.second_wind_rank)),
-            "% max HP heal",
-        );
-        print_mastery_status(c, "Second Wind");
-        println!();
-        println!(
-            "Each rank upgrade costs 1 skill point. Masteries are free at rank 5. Passive upgrades require rank 2 in their branch starter."
-        );
-        print_footer(&[&format!(
-            "{BOLD}Skill Tree:{RESET} {GREEN}1{RESET}=Cleave {GREEN}2{RESET}=Bash {GREEN}3{RESET}=Cry {GREEN}4{RESET}=Deep Cut {GREEN}5{RESET}=Iron Guard {GREEN}6{RESET}=Second Wind {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_skill_tree_screen(frame, c, &message))
+            .context("failed to draw skill tree")?;
+        let key = read_key_char()?;
+        message.clear();
         match key {
             '1' => {
-                message = choose_skill_or_mastery(c, "Cleave");
+                message = choose_skill_or_mastery(c, terminal, "Cleave")?;
                 append_autosave_status(c, &mut message);
             }
             '2' => {
-                message = choose_skill_or_mastery(c, "Shield Bash");
+                message = choose_skill_or_mastery(c, terminal, "Shield Bash")?;
                 append_autosave_status(c, &mut message);
             }
             '3' => {
-                message = choose_skill_or_mastery(c, "Battle Cry");
+                message = choose_skill_or_mastery(c, terminal, "Battle Cry")?;
                 append_autosave_status(c, &mut message);
             }
             '4' => {
-                message = choose_skill_or_mastery(c, "Deep Cut");
+                message = choose_skill_or_mastery(c, terminal, "Deep Cut")?;
                 append_autosave_status(c, &mut message);
             }
             '5' => {
-                message = choose_skill_or_mastery(c, "Iron Guard");
+                message = choose_skill_or_mastery(c, terminal, "Iron Guard")?;
                 append_autosave_status(c, &mut message);
             }
             '6' => {
-                message = choose_skill_or_mastery(c, "Second Wind");
+                message = choose_skill_or_mastery(c, terminal, "Second Wind")?;
                 append_autosave_status(c, &mut message);
             }
             '\u{1b}' => break,
             _ => message = "Unknown skill command.".to_string(),
         }
     }
+    Ok(())
 }
 
-pub(crate) fn print_skill_upgrade_preview(
+pub(crate) fn render_skill_tree_screen(frame: &mut Frame, c: &Character, message: &str) {
+    let mut lines = vec![
+        Line::styled(
+            "Ironbound Skill Tree",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        skill_line(strip_ansi_codes(&unspent_skills_text(c.unspent_skills))),
+        Line::from(""),
+        Line::styled(
+            "Weapons Branch",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+    ];
+    append_skill_upgrade_lines(
+        &mut lines,
+        '1',
+        "Cleave",
+        c.cleave_rank,
+        "cost 5 mana, cd 1, hits up to 3 adjacent enemies",
+        cleave_percent_for_rank(c.cleave_rank),
+        cleave_percent_for_rank(next_skill_rank(c.cleave_rank)),
+        "% weapon damage",
+    );
+    append_mastery_status_lines(&mut lines, c, "Cleave");
+    append_skill_upgrade_lines(
+        &mut lines,
+        '4',
+        "Deep Cut",
+        c.deep_cut_rank,
+        "passive melee bleed chance and damage; requires Cleave rank 2 for upgrades",
+        deep_cut_chance_for_rank(c.deep_cut_rank),
+        deep_cut_chance_for_rank(next_skill_rank(c.deep_cut_rank)),
+        "% bleed chance",
+    );
+    append_mastery_status_lines(&mut lines, c, "Deep Cut");
+    lines.push(skill_line(format!(
+        "   Bleed damage: {} now, {} next.",
+        deep_cut_damage_for_rank(c.deep_cut_rank),
+        deep_cut_damage_for_rank(next_skill_rank(c.deep_cut_rank))
+    )));
+    lines.push(Line::styled(
+        "Defense Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_upgrade_lines(
+        &mut lines,
+        '2',
+        "Shield Bash",
+        c.shield_bash_rank,
+        "cost 6 mana, cd 3, hits 1 enemy and staggers",
+        shield_bash_percent_for_rank(c.shield_bash_rank),
+        shield_bash_percent_for_rank(next_skill_rank(c.shield_bash_rank)),
+        "% weapon damage",
+    );
+    append_mastery_status_lines(&mut lines, c, "Shield Bash");
+    append_skill_upgrade_lines(
+        &mut lines,
+        '5',
+        "Iron Guard",
+        c.iron_guard_rank,
+        "passive armor while using a shield; requires Shield Bash rank 2 for upgrades",
+        iron_guard_armor_bonus_for_rank(c.iron_guard_rank) as u32,
+        iron_guard_armor_bonus_for_rank(next_skill_rank(c.iron_guard_rank)) as u32,
+        " armor",
+    );
+    append_mastery_status_lines(&mut lines, c, "Iron Guard");
+    lines.push(Line::styled(
+        "Warcry Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_upgrade_lines(
+        &mut lines,
+        '3',
+        "Battle Cry",
+        c.battle_cry_rank,
+        "cost 8 mana, cd 6, grants attack charges",
+        battle_cry_bonus_percent_for_rank(c.battle_cry_rank),
+        battle_cry_bonus_percent_for_rank(next_skill_rank(c.battle_cry_rank)),
+        "% bonus damage",
+    );
+    append_mastery_status_lines(&mut lines, c, "Battle Cry");
+    append_skill_upgrade_lines(
+        &mut lines,
+        '6',
+        "Second Wind",
+        c.second_wind_rank,
+        "passive heal on kill while Battle Cry is active; requires Battle Cry rank 2 for upgrades",
+        second_wind_heal_percent_for_rank(c.second_wind_rank),
+        second_wind_heal_percent_for_rank(next_skill_rank(c.second_wind_rank)),
+        "% max HP heal",
+    );
+    append_mastery_status_lines(&mut lines, c, "Second Wind");
+    lines.push(Line::from(""));
+    lines.push(skill_line("Each rank upgrade costs 1 skill point. Masteries are free at rank 5. Passive upgrades require rank 2 in their branch starter."));
+
+    render_skill_lines_screen(
+        frame,
+        "Ironbound Skill Tree",
+        "Skills",
+        lines,
+        message,
+        "Skill Tree: 1=Cleave  2=Bash  3=Cry  4=Deep Cut  5=Iron Guard  6=Second Wind  Esc=back",
+    );
+}
+
+fn skill_line(text: impl Into<String>) -> Line<'static> {
+    Line::from(strip_ansi_codes(&text.into()))
+}
+
+fn append_skill_upgrade_lines(
+    lines: &mut Vec<Line<'static>>,
     key: char,
     name: &str,
     rank: u32,
@@ -128,40 +168,85 @@ pub(crate) fn print_skill_upgrade_preview(
     next_value: u32,
     value_label: &str,
 ) {
-    println!("{GREEN}{key}) {name}{RESET} rank {rank}/5");
-    println!("   Current: {CYAN}{current_value}{value_label}{RESET}; {details}");
+    lines.push(skill_line(format!("{key}) {name} rank {rank}/5")));
+    lines.push(skill_line(format!(
+        "   Current: {current_value}{value_label}; {details}"
+    )));
     if rank >= 5 {
-        println!("   Next: {YELLOW}MAX RANK{RESET}");
+        lines.push(skill_line("   Next: MAX RANK"));
     } else {
-        println!(
-            "   Next rank {}: {GREEN}{next_value}{value_label}{RESET}; {details}",
+        lines.push(skill_line(format!(
+            "   Next rank {}: {next_value}{value_label}; {details}",
             rank + 1
-        );
+        )));
     }
 }
 
-pub(crate) fn print_mastery_status(c: &Character, skill: &str) {
+fn append_mastery_status_lines(lines: &mut Vec<Line<'static>>, c: &Character, skill: &str) {
     if skill_rank(c, skill) < 5 {
         return;
     }
     if let Some(mastery) = mastery_for_skill(c, skill) {
-        println!("   {MAGENTA}Mastery:{RESET} {}", mastery.name());
+        lines.push(skill_line(format!("   Mastery: {}", mastery.name())));
     } else {
-        println!("   {YELLOW}Mastery available:{RESET} select this skill to choose a free path.");
+        lines.push(skill_line(
+            "   Mastery available: select this skill to choose a free path.",
+        ));
     }
 }
 
-pub(crate) fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
+fn render_skill_lines_screen(
+    frame: &mut Frame,
+    screen_title: &str,
+    body_title: &str,
+    lines: Vec<Line<'static>>,
+    message: &str,
+    commands: &str,
+) {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(8),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    frame.render_widget(
+        Paragraph::new(screen_title.to_string())
+            .block(Block::default().borders(Borders::ALL).title(screen_title)),
+        layout[0],
+    );
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(Block::default().borders(Borders::ALL).title(body_title))
+            .wrap(Wrap { trim: false }),
+        layout[1],
+    );
+    let footer = if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
+}
+
+pub(crate) fn choose_skill_or_mastery(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+    skill: &str,
+) -> Result<String> {
     if skill_rank(c, skill) >= 5 {
         if mastery_for_skill(c, skill).is_some() {
-            return format!(
+            return Ok(format!(
                 "{skill} already has a mastery: {}.",
                 mastery_for_skill(c, skill).unwrap().name()
-            );
+            ));
         }
-        return mastery_menu(c, skill);
+        return mastery_menu(c, terminal, skill);
     }
-    upgrade_skill(c, skill)
+    Ok(upgrade_skill(c, skill))
 }
 
 pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
@@ -346,31 +431,57 @@ pub(crate) fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, Str
     }
 }
 
-pub(crate) fn mastery_menu(c: &mut Character, skill: &str) -> String {
+pub(crate) fn mastery_menu(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+    skill: &str,
+) -> Result<String> {
+    let mut message = String::new();
     loop {
-        clear_screen();
-        println!("{BOLD}{MAGENTA}{skill} Mastery{RESET}");
-        println!("Choose one free path. The other two will be locked out permanently.");
+        terminal
+            .draw(|frame| render_mastery_screen(frame, c, skill, &message))
+            .context("failed to draw mastery menu")?;
         let options = mastery_options(c, skill);
-        for (i, (mastery, details)) in options.iter().enumerate() {
-            println!("{GREEN}{}){RESET} {BOLD}{}{RESET}", i + 1, mastery.name());
-            println!("   {details}");
-        }
-        print_footer(&[&format!(
-            "{BOLD}Mastery:{RESET} {GREEN}1-3{RESET}=choose  {RED}Esc{RESET}=back"
-        )]);
-        match read_key_char() {
-            Ok(key @ ('1' | '2' | '3')) => {
+        match read_key_char()? {
+            key @ ('1' | '2' | '3') => {
                 let index = key.to_digit(10).unwrap() as usize - 1;
                 let mastery = options[index].0;
                 set_mastery_for_skill(c, skill, mastery);
-                return format!("Unlocked {} for {skill}.", mastery.name());
+                return Ok(format!("Unlocked {} for {skill}.", mastery.name()));
             }
-            Ok('\u{1b}') => return "Mastery selection cancelled.".to_string(),
-            Ok(_) => {}
-            Err(err) => return format!("Input error: {err:#}"),
+            '\u{1b}' => return Ok("Mastery selection cancelled.".to_string()),
+            _ => message = "Unknown mastery command.".to_string(),
         }
     }
+}
+
+pub(crate) fn render_mastery_screen(frame: &mut Frame, c: &Character, skill: &str, message: &str) {
+    let mut lines = vec![
+        Line::styled(
+            format!("{skill} Mastery"),
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        ),
+        skill_line("Choose one free path. The other two will be locked out permanently."),
+        Line::from(""),
+    ];
+    lines.extend(mastery_options(c, skill).into_iter().enumerate().flat_map(
+        |(i, (mastery, details))| {
+            [
+                skill_line(format!("{}. {}", i + 1, mastery.name())),
+                skill_line(format!("   {details}")),
+            ]
+        },
+    ));
+    render_skill_lines_screen(
+        frame,
+        &format!("{skill} Mastery"),
+        "Mastery",
+        lines,
+        message,
+        "Mastery: 1-3=choose  Esc=back",
+    );
 }
 
 pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {

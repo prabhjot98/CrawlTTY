@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 pub(crate) fn quest_giver(c: &mut Character) -> String {
@@ -59,36 +59,74 @@ pub(crate) fn full_heal_on_town_return(c: &mut Character) {
     }
 }
 
-pub(crate) fn merchant(c: &mut Character) {
+fn render_lines_screen(
+    frame: &mut Frame,
+    screen_title: &str,
+    body_title: &str,
+    lines: Vec<Line<'static>>,
+    message: &str,
+    commands: &str,
+) {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(8),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    frame.render_widget(
+        Paragraph::new(screen_title.to_string())
+            .block(Block::default().borders(Borders::ALL).title(screen_title)),
+        layout[0],
+    );
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(Block::default().borders(Borders::ALL).title(body_title))
+            .wrap(Wrap { trim: false }),
+        layout[1],
+    );
+    let footer = if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
+}
+
+fn plain_line(text: impl Into<String>) -> Line<'static> {
+    Line::from(strip_ansi_codes(&text.into()))
+}
+
+fn selected_line(selected: bool, text: impl Into<String>) -> Line<'static> {
+    let prefix = if selected { "> " } else { "  " };
+    let style = if selected {
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    Line::styled(format!("{prefix}{}", strip_ansi_codes(&text.into())), style)
+}
+
+fn selected_numbered_line(selected: bool, index: usize, text: impl Into<String>) -> Line<'static> {
+    selected_line(selected, format!("{}. {}", index + 1, text.into()))
+}
+
+pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = ["Sell items"];
     loop {
         clamp_selection(&mut selected, options.len());
-        clear_screen();
-        println!("{BOLD}{YELLOW}Merchant{RESET} - {}", gold_text(c.gold));
-        println!("Gold funds town projects. Sell unwanted items here.");
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        println!("{BOLD}Services{RESET}");
-        for (i, option) in options.iter().enumerate() {
-            let marker = if i == selected {
-                format!("{GREEN}>{RESET}")
-            } else {
-                " ".to_string()
-            };
-            println!("{marker} {option}");
-        }
-        println!();
-        print_inventory_preview(c, inventory_visible_rows(12));
-        print_footer(&[&format!(
-            "{BOLD}Merchant:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_merchant_screen(frame, c, selected, &message))
+            .context("failed to draw merchant")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
@@ -99,15 +137,63 @@ pub(crate) fn merchant(c: &mut Character) {
             }
             '\n' => {
                 if selected == 0 {
-                    sell_item_screen(c);
+                    sell_item_screen(c, terminal)?;
                 }
             }
             _ => message = "Unknown merchant command.".to_string(),
         }
     }
+    Ok(())
 }
 
-pub(crate) fn blacksmith(c: &mut Character) {
+pub(crate) fn render_merchant_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let options = ["Sell items"];
+    let mut lines = vec![
+        plain_line(format!(
+            "Merchant - {}",
+            strip_ansi_codes(&gold_text(c.gold))
+        )),
+        plain_line("Gold funds town projects. Sell unwanted items here."),
+        Line::from(""),
+        Line::styled("Services", Style::default().add_modifier(Modifier::BOLD)),
+    ];
+    lines.extend(
+        options
+            .iter()
+            .enumerate()
+            .map(|(i, option)| selected_line(i == selected, *option)),
+    );
+    lines.push(Line::from(""));
+    lines.push(Line::styled(
+        "Inventory Preview",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    if c.inventory.is_empty() {
+        lines.push(plain_line("Empty"));
+    } else {
+        lines.extend(
+            c.inventory
+                .iter()
+                .take(inventory_visible_rows(12))
+                .map(|item| plain_line(item_summary(item))),
+        );
+    }
+    render_lines_screen(
+        frame,
+        "Merchant",
+        "Services",
+        lines,
+        message,
+        "Merchant: W/S or arrows=select  Enter=choose  Esc=back",
+    );
+}
+
+pub(crate) fn blacksmith(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = [
@@ -119,41 +205,11 @@ pub(crate) fn blacksmith(c: &mut Character) {
     ];
     loop {
         clamp_selection(&mut selected, options.len());
-        clear_screen();
-        println!("{BOLD}{WHITE}Blacksmith{RESET} - {}", gold_text(c.gold));
-        println!(
-            "{BOLD}Shards:{RESET} {}  {}  {}",
-            shard_text("weapon", c.weapon_shards),
-            shard_text("armor", c.armor_shards),
-            shard_text("shield", c.shield_shards)
-        );
-        println!(
-            "Town projects unlock smith services. Salvage gear into type shards, then spend shards to upgrade equipped gear."
-        );
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        println!("{BOLD}Services{RESET}");
-        for (i, option) in options.iter().enumerate() {
-            let marker = if i == selected {
-                format!("{GREEN}>{RESET}")
-            } else {
-                " ".to_string()
-            };
-            println!("{marker} {option}");
-        }
-        println!();
-        println!("{BOLD}Equipped{RESET}");
-        println!("Weapon: {}", item_summary(&c.equipped_weapon));
-        println!("Armor : {}", item_summary(&c.equipped_armor));
-        println!("Shield: {}", item_summary(&c.equipped_shield));
-        print_footer(&[&format!(
-            "{BOLD}Blacksmith:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_blacksmith_screen(frame, c, selected, &message))
+            .context("failed to draw blacksmith")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
@@ -163,7 +219,7 @@ pub(crate) fn blacksmith(c: &mut Character) {
                 }
             }
             '\n' => match selected {
-                0 => salvage_screen(c),
+                0 => salvage_screen(c, terminal)?,
                 1 => {
                     message = upgrade_equipped_message(c, UpgradeSlot::Weapon);
                     append_autosave_status(c, &mut message);
@@ -178,7 +234,7 @@ pub(crate) fn blacksmith(c: &mut Character) {
                 }
                 4 => {
                     if has_completed_project(c, TownProject::SocketBench) {
-                        socket_bench_screen(c);
+                        socket_bench_screen(c, terminal)?;
                     } else {
                         message =
                             "Complete the Socket Bench project before socketing gems.".to_string();
@@ -189,40 +245,75 @@ pub(crate) fn blacksmith(c: &mut Character) {
             _ => message = "Unknown blacksmith command.".to_string(),
         }
     }
+    Ok(())
 }
 
-pub(crate) fn town_projects_menu(c: &mut Character) {
+pub(crate) fn render_blacksmith_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let options = [
+        "Salvage carried gear for shards",
+        "Sharpen equipped weapon",
+        "Reinforce equipped armor",
+        "Brace equipped shield",
+        "Manage sockets",
+    ];
+    let mut lines = vec![
+        plain_line(format!(
+            "Blacksmith - {}",
+            strip_ansi_codes(&gold_text(c.gold))
+        )),
+        plain_line(format!(
+            "Shards: {}  {}  {}",
+            strip_ansi_codes(&shard_text("weapon", c.weapon_shards)),
+            strip_ansi_codes(&shard_text("armor", c.armor_shards)),
+            strip_ansi_codes(&shard_text("shield", c.shield_shards))
+        )),
+        plain_line(
+            "Town projects unlock smith services. Salvage gear into type shards, then spend shards to upgrade equipped gear.",
+        ),
+        Line::from(""),
+        Line::styled("Services", Style::default().add_modifier(Modifier::BOLD)),
+    ];
+    lines.extend(
+        options
+            .iter()
+            .enumerate()
+            .map(|(i, option)| selected_line(i == selected, *option)),
+    );
+    lines.extend([
+        Line::from(""),
+        Line::styled("Equipped", Style::default().add_modifier(Modifier::BOLD)),
+        plain_line(format!("Weapon: {}", item_summary(&c.equipped_weapon))),
+        plain_line(format!("Armor : {}", item_summary(&c.equipped_armor))),
+        plain_line(format!("Shield: {}", item_summary(&c.equipped_shield))),
+    ]);
+    render_lines_screen(
+        frame,
+        "Blacksmith",
+        "Services",
+        lines,
+        message,
+        "Blacksmith: W/S or arrows=select  Enter=choose  Esc=back",
+    );
+}
+
+pub(crate) fn town_projects_menu(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
         clamp_selection(&mut selected, TOWN_PROJECTS.len());
-        clear_screen();
-        println!("{BOLD}{CYAN}Town Projects{RESET} - {}", gold_text(c.gold));
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        for (i, definition) in TOWN_PROJECTS.iter().enumerate() {
-            let marker = if i == selected {
-                format!("{GREEN}>{RESET}")
-            } else {
-                " ".to_string()
-            };
-            println!("{marker} {}", town_project_row_text(c, definition.project));
-        }
-        println!();
-        let selected_project = TOWN_PROJECTS[selected].project;
-        println!(
-            "{BOLD}Selected:{RESET} {}",
-            town_project_definition(selected_project).name
-        );
-        println!("{}", town_project_definition(selected_project).benefit);
-        print_footer(&[&format!(
-            "{BOLD}Projects:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=fund project  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_town_projects_screen(frame, c, selected, &message))
+            .context("failed to draw town projects")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
@@ -238,6 +329,39 @@ pub(crate) fn town_projects_menu(c: &mut Character) {
             _ => message = "Unknown projects command.".to_string(),
         }
     }
+    Ok(())
+}
+
+pub(crate) fn render_town_projects_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let selected_project =
+        TOWN_PROJECTS[selected.min(TOWN_PROJECTS.len().saturating_sub(1))].project;
+    let mut lines = vec![plain_line(format!(
+        "Town Projects - {}",
+        strip_ansi_codes(&gold_text(c.gold))
+    ))];
+    lines.push(Line::from(""));
+    lines.extend(TOWN_PROJECTS.iter().enumerate().map(|(i, definition)| {
+        selected_line(i == selected, town_project_row_text(c, definition.project))
+    }));
+    lines.extend([
+        Line::from(""),
+        Line::styled("Selected", Style::default().add_modifier(Modifier::BOLD)),
+        plain_line(town_project_definition(selected_project).name),
+        plain_line(town_project_definition(selected_project).benefit),
+    ]);
+    render_lines_screen(
+        frame,
+        "Town Projects",
+        "Projects",
+        lines,
+        message,
+        "Projects: W/S or arrows=select  Enter=fund project  Esc=back",
+    );
 }
 
 #[derive(Clone, Copy)]
@@ -247,44 +371,19 @@ pub(crate) enum UpgradeSlot {
     Shield,
 }
 
-pub(crate) fn salvage_screen(c: &mut Character) {
+pub(crate) fn salvage_screen(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
         clamp_selection(&mut selected, c.inventory.len());
-        clear_screen();
-        println!("{BOLD}{WHITE}Salvage Gear{RESET}");
-        println!(
-            "{BOLD}Shards:{RESET} {}  {}  {}",
-            shard_text("weapon", c.weapon_shards),
-            shard_text("armor", c.armor_shards),
-            shard_text("shield", c.shield_shards)
-        );
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        if c.inventory.is_empty() {
-            println!("Inventory is empty.");
-        } else {
-            print_inventory_list(c, selected, inventory_visible_rows(8));
-            println!();
-            println!("Selected: {}", item_summary(&c.inventory[selected]));
-            if let Some(kind) = shard_kind(&c.inventory[selected]) {
-                println!(
-                    "Salvage yield: {} {} shard(s)",
-                    salvage_shard_yield(c, &c.inventory[selected]),
-                    shard_name(kind)
-                );
-            } else {
-                println!("Consumables cannot be salvaged.");
-            }
-        }
-        print_footer(&[&format!(
-            "{BOLD}Salvage:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=salvage  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_salvage_screen(frame, c, selected, &message))
+            .context("failed to draw salvage")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
@@ -300,6 +399,59 @@ pub(crate) fn salvage_screen(c: &mut Character) {
             _ => message = "Unknown salvage command.".to_string(),
         }
     }
+    Ok(())
+}
+
+pub(crate) fn render_salvage_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let mut lines = vec![
+        Line::styled(
+            "Salvage Gear",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+        plain_line(format!(
+            "Shards: {}  {}  {}",
+            strip_ansi_codes(&shard_text("weapon", c.weapon_shards)),
+            strip_ansi_codes(&shard_text("armor", c.armor_shards)),
+            strip_ansi_codes(&shard_text("shield", c.shield_shards))
+        )),
+        Line::from(""),
+    ];
+    if c.inventory.is_empty() {
+        lines.push(plain_line("Inventory is empty."));
+    } else {
+        lines.extend(
+            c.inventory
+                .iter()
+                .take(inventory_visible_rows(8))
+                .enumerate()
+                .map(|(i, item)| selected_line(i == selected, item_summary(item))),
+        );
+        let item = &c.inventory[selected.min(c.inventory.len() - 1)];
+        lines.push(Line::from(""));
+        lines.push(plain_line(format!("Selected: {}", item_summary(item))));
+        if let Some(kind) = shard_kind(item) {
+            lines.push(plain_line(format!(
+                "Salvage yield: {} {} shard(s)",
+                salvage_shard_yield(c, item),
+                shard_name(kind)
+            )));
+        } else {
+            lines.push(plain_line("Consumables cannot be salvaged."));
+        }
+    }
+    render_lines_screen(
+        frame,
+        "Salvage Gear",
+        "Inventory",
+        lines,
+        message,
+        "Salvage: W/S or arrows=select  Enter=salvage  Esc=back",
+    );
 }
 
 pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String {
@@ -699,13 +851,16 @@ fn target_label(target: SocketBenchTarget) -> &'static str {
     }
 }
 
-pub(crate) fn socket_bench_screen(c: &mut Character) {
+pub(crate) fn socket_bench_screen(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     if !has_completed_project(c, TownProject::SocketBench) {
         append_pending_town_message(
             c,
             "Complete the Socket Bench project before socketing gems.",
         );
-        return;
+        return Ok(());
     }
 
     let mut selected_item = 0usize;
@@ -723,50 +878,13 @@ pub(crate) fn socket_bench_screen(c: &mut Character) {
             selected_socket = 0;
         }
 
-        clear_screen();
-        println!("{BOLD}{WHITE}Socket Bench{RESET}");
-        println!("Free gem insertion, removal, and replacement.");
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-
-        if targets.is_empty() {
-            println!("No equipped or carried socketed gear.");
-        } else {
-            println!("{BOLD}Socketed Gear{RESET}");
-            for (i, target) in targets.iter().copied().enumerate() {
-                let marker = if i == selected_item {
-                    format!("{GREEN}>{RESET}")
-                } else {
-                    " ".to_string()
-                };
-                if let Some(item) = target_item(c, target) {
-                    println!("{marker} {}: {}", target_label(target), item.name);
-                }
-            }
-            println!();
-            if let Some(target) = targets.get(selected_item).copied() {
-                if let Some(item) = target_item(c, target) {
-                    println!("{BOLD}Sockets: {}{RESET}", item.name);
-                    for (i, socket) in item.sockets.iter().copied().enumerate() {
-                        let marker = if i == selected_socket {
-                            format!("{GREEN}>{RESET}")
-                        } else {
-                            " ".to_string()
-                        };
-                        println!("{marker} {}. {}", i + 1, socket_text(socket));
-                    }
-                }
-            }
-        }
-
-        print_footer(&[&format!(
-            "{BOLD}Sockets:{RESET} {GREEN}↑/↓ or w/s{RESET}=gear  {GREEN}←/→ or a/d{RESET}=socket  {YELLOW}Enter{RESET}=manage  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| {
+                render_socket_bench_screen(frame, c, selected_item, selected_socket, &message)
+            })
+            .context("failed to draw socket bench")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected_item = selected_item.saturating_sub(1),
@@ -791,11 +909,12 @@ pub(crate) fn socket_bench_screen(c: &mut Character) {
                 if let Some(target) = targets.get(selected_item).copied() {
                     match target_socket(c, target, selected_socket).flatten() {
                         Some(_) => {
-                            message = filled_socket_action_screen(c, target, selected_socket);
+                            message =
+                                filled_socket_action_screen(c, terminal, target, selected_socket)?;
                             append_autosave_status(c, &mut message);
                         }
                         None => {
-                            if let Some(gem_index) = gem_picker_screen(c) {
+                            if let Some(gem_index) = gem_picker_screen(c, terminal)? {
                                 message = insert_gem_from_socket_bench(
                                     c,
                                     target,
@@ -813,43 +932,94 @@ pub(crate) fn socket_bench_screen(c: &mut Character) {
             _ => message = "Unknown socket bench command.".to_string(),
         }
     }
+    Ok(())
+}
+
+pub(crate) fn render_socket_bench_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected_item: usize,
+    selected_socket: usize,
+    message: &str,
+) {
+    let targets = socketed_targets(c);
+    let mut lines = vec![
+        Line::styled(
+            "Socket Bench",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+        plain_line("Free gem insertion, removal, and replacement."),
+        Line::from(""),
+    ];
+    if targets.is_empty() {
+        lines.push(plain_line("No equipped or carried socketed gear."));
+        lines.push(Line::styled(
+            "Socketed Gear",
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+    } else {
+        lines.push(Line::styled(
+            "Socketed Gear",
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+        for (i, target) in targets.iter().copied().enumerate() {
+            if let Some(item) = target_item(c, target) {
+                lines.push(selected_line(
+                    i == selected_item,
+                    format!("{}: {}", target_label(target), item.name),
+                ));
+            }
+        }
+        lines.push(Line::from(""));
+        if let Some(target) = targets.get(selected_item).copied() {
+            if let Some(item) = target_item(c, target) {
+                lines.push(Line::styled(
+                    format!("Sockets: {}", item.name),
+                    Style::default().add_modifier(Modifier::BOLD),
+                ));
+                lines.extend(item.sockets.iter().copied().enumerate().map(|(i, socket)| {
+                    selected_numbered_line(i == selected_socket, i, socket_text(socket))
+                }));
+            }
+        }
+    }
+    render_lines_screen(
+        frame,
+        "Socket Bench",
+        "Sockets",
+        lines,
+        message,
+        "Sockets: W/S or arrows=gear  A/D or arrows=socket  Enter=manage  Esc=back",
+    );
 }
 
 fn filled_socket_action_screen(
     c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
     target: SocketBenchTarget,
     socket_index: usize,
-) -> String {
+) -> Result<String> {
     let mut selected = 0usize;
     let mut message = String::new();
     let options = ["Remove gem", "Replace gem"];
     loop {
         clamp_selection(&mut selected, options.len());
-        clear_screen();
-        println!("{BOLD}{WHITE}Filled Socket{RESET}");
-        if let Some(socket) = target_socket(c, target, socket_index).flatten() {
-            println!("Selected: {}", gem_socket_name(socket));
-        }
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        for (i, option) in options.iter().enumerate() {
-            let marker = if i == selected {
-                format!("{GREEN}>{RESET}")
-            } else {
-                " ".to_string()
-            };
-            println!("{marker} {option}");
-        }
-        print_footer(&[&format!(
-            "{BOLD}Socket:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            return String::new();
-        };
+        terminal
+            .draw(|frame| {
+                render_filled_socket_action_screen(
+                    frame,
+                    c,
+                    target,
+                    socket_index,
+                    selected,
+                    &message,
+                )
+            })
+            .context("failed to draw filled socket action")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
-            '\u{1b}' => return String::new(),
+            '\u{1b}' => return Ok(String::new()),
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
                 if selected + 1 < options.len() {
@@ -857,10 +1027,15 @@ fn filled_socket_action_screen(
                 }
             }
             '\n' => match selected {
-                0 => return remove_gem_from_socket_bench(c, target, socket_index),
+                0 => return Ok(remove_gem_from_socket_bench(c, target, socket_index)),
                 1 => {
-                    if let Some(gem_index) = gem_picker_screen(c) {
-                        return replace_gem_from_socket_bench(c, target, socket_index, gem_index);
+                    if let Some(gem_index) = gem_picker_screen(c, terminal)? {
+                        return Ok(replace_gem_from_socket_bench(
+                            c,
+                            target,
+                            socket_index,
+                            gem_index,
+                        ));
                     }
                 }
                 _ => {}
@@ -868,6 +1043,39 @@ fn filled_socket_action_screen(
             _ => message = "Unknown socket command.".to_string(),
         }
     }
+}
+
+fn render_filled_socket_action_screen(
+    frame: &mut Frame,
+    c: &Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+    selected: usize,
+    message: &str,
+) {
+    let options = ["Remove gem", "Replace gem"];
+    let mut lines = vec![Line::styled(
+        "Filled Socket",
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
+    if let Some(socket) = target_socket(c, target, socket_index).flatten() {
+        lines.push(plain_line(format!("Selected: {}", gem_socket_name(socket))));
+    }
+    lines.push(Line::from(""));
+    lines.extend(
+        options
+            .iter()
+            .enumerate()
+            .map(|(i, option)| selected_line(i == selected, *option)),
+    );
+    render_lines_screen(
+        frame,
+        "Filled Socket",
+        "Socket",
+        lines,
+        message,
+        "Socket: W/S or arrows=select  Enter=choose  Esc=back",
+    );
 }
 
 fn insert_gem_from_socket_bench(
@@ -913,7 +1121,10 @@ fn replace_gem_from_socket_bench(
     }
 }
 
-fn gem_picker_screen(c: &Character) -> Option<usize> {
+fn gem_picker_screen(
+    c: &Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<Option<usize>> {
     let gems: Vec<usize> = c
         .inventory
         .iter()
@@ -925,40 +1136,63 @@ fn gem_picker_screen(c: &Character) -> Option<usize> {
     let mut message = String::new();
     loop {
         clamp_selection(&mut selected, gems.len());
-        clear_screen();
-        println!("{BOLD}{WHITE}Select Gem{RESET}");
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        if gems.is_empty() {
-            println!("No gems in inventory.");
-        } else {
-            for (i, inventory_index) in gems.iter().copied().enumerate() {
-                let marker = if i == selected {
-                    format!("{GREEN}>{RESET}")
-                } else {
-                    " ".to_string()
-                };
-                println!("{marker} {}", item_summary(&c.inventory[inventory_index]));
-            }
-        }
-        print_footer(&[&format!(
-            "{BOLD}Gems:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
-        )]);
-        let key = read_key_char_nav_or_message(&mut message)?;
+        terminal
+            .draw(|frame| render_gem_picker_screen(frame, c, selected, &message))
+            .context("failed to draw gem picker")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
-            '\u{1b}' => return None,
+            '\u{1b}' => return Ok(None),
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
                 if selected + 1 < gems.len() {
                     selected += 1;
                 }
             }
-            '\n' => return gems.get(selected).copied(),
+            '\n' => return Ok(gems.get(selected).copied()),
             _ => message = "Unknown gem command.".to_string(),
         }
     }
+}
+
+pub(crate) fn render_gem_picker_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let gems: Vec<usize> = c
+        .inventory
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| matches!(item.kind, ItemKind::Gem))
+        .map(|(index, _)| index)
+        .collect();
+    let mut lines = vec![Line::styled(
+        "Select Gem",
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
+    lines.push(Line::from(""));
+    if gems.is_empty() {
+        lines.push(plain_line("No gems in inventory."));
+    } else {
+        lines.extend(
+            gems.iter()
+                .copied()
+                .enumerate()
+                .map(|(i, inventory_index)| {
+                    selected_line(i == selected, item_summary(&c.inventory[inventory_index]))
+                }),
+        );
+    }
+    render_lines_screen(
+        frame,
+        "Select Gem",
+        "Gems",
+        lines,
+        message,
+        "Gems: W/S or arrows=select  Enter=choose  Esc=back",
+    );
 }
 
 pub(crate) fn sell_value(c: &Character, item: &Item) -> u32 {
@@ -970,31 +1204,19 @@ pub(crate) fn sell_value(c: &Character, item: &Item) -> u32 {
     item.value.saturating_mul(percent) / 100
 }
 
-pub(crate) fn sell_item_screen(c: &mut Character) {
+pub(crate) fn sell_item_screen(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
         clamp_selection(&mut selected, c.inventory.len());
-        clear_screen();
-        println!("{BOLD}{YELLOW}Sell Items{RESET} - {}", gold_text(c.gold));
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        if c.inventory.is_empty() {
-            println!("Inventory is empty.");
-        } else {
-            print_inventory_list(c, selected, inventory_visible_rows(8));
-            let item = &c.inventory[selected];
-            println!();
-            println!("Selected: {}", item_summary(item));
-            println!("Sell value: {YELLOW}{} gold{RESET}", sell_value(c, item));
-        }
-        print_footer(&[&format!(
-            "{BOLD}Sell:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=sell  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_sell_items_screen(frame, c, selected, &message))
+            .context("failed to draw sell items")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
@@ -1017,6 +1239,48 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
             _ => message = "Unknown sell command.".to_string(),
         }
     }
+    Ok(())
+}
+
+pub(crate) fn render_sell_items_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let mut lines = vec![
+        plain_line(format!(
+            "Sell Items - {}",
+            strip_ansi_codes(&gold_text(c.gold))
+        )),
+        Line::from(""),
+    ];
+    if c.inventory.is_empty() {
+        lines.push(plain_line("Inventory is empty."));
+    } else {
+        lines.extend(
+            c.inventory
+                .iter()
+                .take(inventory_visible_rows(8))
+                .enumerate()
+                .map(|(i, item)| selected_line(i == selected, item_summary(item))),
+        );
+        let item = &c.inventory[selected.min(c.inventory.len() - 1)];
+        lines.push(Line::from(""));
+        lines.push(plain_line(format!("Selected: {}", item_summary(item))));
+        lines.push(plain_line(format!(
+            "Sell value: {} gold",
+            sell_value(c, item)
+        )));
+    }
+    render_lines_screen(
+        frame,
+        "Sell Items",
+        "Inventory",
+        lines,
+        message,
+        "Sell: W/S or arrows=select  Enter=sell  Esc=back",
+    );
 }
 
 pub(crate) fn stash_menu(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
@@ -1260,38 +1524,17 @@ pub(crate) fn move_selected(
     }
 }
 
-pub(crate) fn spend_attributes(c: &mut Character) {
+pub(crate) fn spend_attributes(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     let mut message = String::new();
     while c.unspent_attributes > 0 {
-        clear_screen();
-        println!(
-            "{BOLD}{CYAN}Spend attributes{RESET} ({CYAN}{} left{RESET})",
-            c.unspent_attributes
-        );
-        println!(
-            "{GREEN}1){RESET} {RED}Strength {} -> {}{RESET} ({RED}+5 max HP{RESET})",
-            c.strength,
-            c.strength + 1
-        );
-        println!(
-            "{GREEN}2){RESET} {GREEN}Dexterity {} -> {}{RESET} ({CYAN}+5 hit{RESET}, {YELLOW}+5 speed{RESET})",
-            c.dexterity,
-            c.dexterity + 1
-        );
-        println!(
-            "{GREEN}3){RESET} {BLUE}Intelligence {} -> {}{RESET} ({BLUE}+5 max mana{RESET})",
-            c.intelligence,
-            c.intelligence + 1
-        );
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        print_footer(&[&format!(
-            "{BOLD}Attributes:{RESET} {GREEN}1{RESET}={RED}Strength{RESET}  {GREEN}2{RESET}={GREEN}Dexterity{RESET}  {GREEN}3{RESET}={BLUE}Intelligence{RESET}  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_or_message(&mut message) else {
-            break;
-        };
+        terminal
+            .draw(|frame| render_spend_attributes_screen(frame, c, &message))
+            .context("failed to draw attributes")?;
+        let key = read_key_char()?;
+        message.clear();
         match key {
             '1' => {
                 c.strength += 1;
@@ -1317,4 +1560,40 @@ pub(crate) fn spend_attributes(c: &mut Character) {
             _ => message = "Unknown attribute command.".to_string(),
         }
     }
+    Ok(())
+}
+
+pub(crate) fn render_spend_attributes_screen(frame: &mut Frame, c: &Character, message: &str) {
+    let lines = vec![
+        Line::styled(
+            format!("Spend Attributes ({} left)", c.unspent_attributes),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Line::from(""),
+        plain_line(format!(
+            "1) Strength {} -> {} (+5 max HP)",
+            c.strength,
+            c.strength + 1
+        )),
+        plain_line(format!(
+            "2) Dexterity {} -> {} (+5 hit, +5 speed)",
+            c.dexterity,
+            c.dexterity + 1
+        )),
+        plain_line(format!(
+            "3) Intelligence {} -> {} (+5 max mana)",
+            c.intelligence,
+            c.intelligence + 1
+        )),
+    ];
+    render_lines_screen(
+        frame,
+        "Spend Attributes",
+        "Attributes",
+        lines,
+        message,
+        "Attributes: 1=Strength  2=Dexterity  3=Intelligence  Esc=back",
+    );
 }

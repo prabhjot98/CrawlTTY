@@ -467,7 +467,7 @@ Current direction:
 - The stash is also a grid, starts at `8 x 8`, and uses the same selected-item detail panel pattern.
 - Stash transfers require destination capacity. Moving an item into a full inventory or stash grid fails with `No room in destination.` and leaves both grids unchanged.
 - Future storage expansion beyond the first `8 x 8` bag should use tabs rather than one larger grid.
-- Ratatui should be used for inventory, stash, and ground-loot picker screens whenever possible. If a new inventory-adjacent screen cannot use ratatui, the implementation should explain the blocker before using a legacy ANSI fallback.
+- Ratatui is the standard renderer for interactive screens, including character creation, town, dungeon, merchant, blacksmith, projects, attributes, skills, inventory, stash, ground-loot, sell, salvage, socket, and gem-picking flows. Non-interactive process messages such as reset-save output, fatal exit notices, and final goodbye text may remain plain stdout.
 
 Recommended features:
 
@@ -860,10 +860,7 @@ Even without graphics, the game can feel responsive with:
 - Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow, boss red, elite magenta, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find.
-- The current implementation renders the parent town, dungeon, inventory, and stash screens with ratatui. Legacy ANSI submenu screens such as
-  merchant, projects, attributes, and skills must temporarily release ratatui's raw-mode ownership while
-  they run, then restore it and reset ratatui's terminal buffer before returning so legacy `println!` output stays
-  left-aligned and the next parent draw fully repaints instead of visually leaving the submenu on screen.
+- The current implementation renders interactive screens with ratatui. Character creation starts inside the ratatui terminal session, and town submenus such as merchant, blacksmith, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.
 - Important UI text should use color: green for safe/positive options, yellow for gold/items/messages, red for danger/quit/back, blue for mana, and cyan/magenta for headings or special screens.
 - Animated projectile movement using short delays

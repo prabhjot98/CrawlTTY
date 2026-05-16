@@ -1,4 +1,8 @@
 use crate::*;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
 pub(crate) const SAVE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LEGACY_SAVE_VERSION: &str = "0.0.0";
@@ -25,34 +29,137 @@ pub(crate) enum LoadedSave {
     Reset { warning: String },
 }
 
-pub(crate) fn load_or_create_character() -> Result<Character> {
+pub(crate) fn load_or_create_character(
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<Character> {
     if Path::new(SAVE_PATH).exists() {
         match load_character_from_path(Path::new(SAVE_PATH))? {
             LoadedSave::Loaded(character) => return Ok(*character),
-            LoadedSave::Reset { warning } => println!("{YELLOW}{warning}{RESET}"),
+            LoadedSave::Reset { warning } => return create_character(terminal, &warning),
         }
     }
-    create_character()
+    create_character(terminal, "")
 }
 
-fn create_character() -> Result<Character> {
-    println!("CrawlTTY");
-    println!("ASCII terminal action RPG prototype");
-    let name = prompt("Character name: ")?;
-    println!("{BOLD}Choose death mode:{RESET}");
-    println!("{GREEN}Softcore{RESET}: death returns you to town.");
-    println!("{RED}Hardcore{RESET}: death permanently ends the character.");
-    print_footer(&[&format!(
-        "{BOLD}Character creation:{RESET} {GREEN}1{RESET}=Softcore  {RED}2{RESET}=Hardcore"
-    )]);
-    let death_mode = loop {
-        match read_key_char()? {
-            '1' => break DeathMode::Softcore,
-            '2' => break DeathMode::Hardcore,
-            _ => println!("Choose 1 or 2."),
+fn create_character(
+    terminal: &mut ratatui::DefaultTerminal,
+    startup_message: &str,
+) -> Result<Character> {
+    let mut name = String::new();
+    let mut death_mode = DeathMode::Softcore;
+    let mut message = startup_message.to_string();
+    loop {
+        terminal
+            .draw(|frame| render_character_creation_screen(frame, &name, death_mode, &message))
+            .context("failed to draw character creation")?;
+        let key = read_key_char()?;
+        match key {
+            '\n' => {
+                if name.trim().is_empty() {
+                    message = "Enter a character name.".to_string();
+                } else {
+                    return Ok(Character::new(name.trim().to_string(), death_mode));
+                }
+            }
+            '1' => {
+                death_mode = DeathMode::Softcore;
+                message.clear();
+            }
+            '2' => {
+                death_mode = DeathMode::Hardcore;
+                message.clear();
+            }
+            '\t' => {
+                death_mode = match death_mode {
+                    DeathMode::Softcore => DeathMode::Hardcore,
+                    DeathMode::Hardcore => DeathMode::Softcore,
+                };
+                message.clear();
+            }
+            '\u{8}' | '\u{7f}' => {
+                name.pop();
+                message.clear();
+            }
+            '\u{1b}' => message = "Create a character to begin.".to_string(),
+            key if !key.is_control() && name.chars().count() < 32 => {
+                name.push(key);
+                message.clear();
+            }
+            _ => {}
         }
+    }
+}
+
+pub(crate) fn render_character_creation_screen(
+    frame: &mut Frame,
+    name: &str,
+    selected_death_mode: DeathMode,
+    message: &str,
+) {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(8),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    frame.render_widget(
+        Paragraph::new("CrawlTTY").block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Character Creation"),
+        ),
+        layout[0],
+    );
+
+    let softcore_marker = if selected_death_mode == DeathMode::Softcore {
+        ">"
+    } else {
+        " "
     };
-    Ok(Character::new(name.trim().to_string(), death_mode))
+    let hardcore_marker = if selected_death_mode == DeathMode::Hardcore {
+        ">"
+    } else {
+        " "
+    };
+    let lines = vec![
+        Line::from("ASCII terminal action RPG prototype"),
+        Line::from(""),
+        Line::from(format!(
+            "Name: {}",
+            if name.is_empty() { "_" } else { name }
+        )),
+        Line::from(""),
+        Line::styled(
+            format!("{softcore_marker} Softcore - death returns you to town."),
+            Style::default().fg(Color::Green),
+        ),
+        Line::styled(
+            format!("{hardcore_marker} Hardcore - death permanently ends the character."),
+            Style::default().fg(Color::Red),
+        ),
+    ];
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("New Character"),
+            )
+            .wrap(Wrap { trim: false }),
+        layout[1],
+    );
+
+    let commands = "Type=name  Backspace=delete  1/2 or Tab=mode  Enter=confirm";
+    let footer = if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
 }
 
 pub(crate) fn load_character_from_path(save_path: &Path) -> Result<LoadedSave> {

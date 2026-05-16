@@ -587,18 +587,6 @@ pub(crate) fn battle_cry_charge_count(c: &Character) -> u32 {
     }
 }
 
-pub(crate) fn print_footer(lines: &[&str]) {
-    let (_, height) = terminal_size().unwrap_or((80, 24));
-    let start_row = height
-        .saturating_sub(lines.len() as u16)
-        .saturating_add(1)
-        .max(1);
-    for (i, line) in lines.iter().enumerate() {
-        print!("\x1B[{};1H\x1B[2K{}", start_row + i as u16, line);
-    }
-    let _ = io::stdout().flush();
-}
-
 pub(crate) fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     let d = c.active_dungeon.as_mut().unwrap();
     let nx = d.player_x + dx;

@@ -196,55 +196,6 @@ pub(crate) fn log_inventory_action(c: &mut Character, message: &str) {
     }
 }
 
-pub(crate) fn print_inventory_preview(c: &Character, max_rows: usize) {
-    println!(
-        "{BOLD}Your Inventory{RESET} ({CYAN}{}{RESET})",
-        c.inventory.len()
-    );
-    if c.inventory.is_empty() {
-        println!("  Empty");
-        return;
-    }
-    let max_rows = max_rows.max(1);
-    for item in c.inventory.iter().take(max_rows) {
-        println!("  {}", item_summary(item));
-    }
-    if c.inventory.len() > max_rows {
-        println!(
-            "  ...{} more. Open sell to browse all.",
-            c.inventory.len() - max_rows
-        );
-    }
-}
-
-pub(crate) fn print_inventory_list(c: &Character, selected: usize, max_rows: usize) {
-    let total = c.inventory.len();
-    let max_rows = max_rows.max(1);
-    let offset = scroll_offset(selected, total, max_rows);
-    let end = (offset + max_rows).min(total);
-    if total > max_rows {
-        println!(
-            "{DIM}Showing items {}-{} of {}{RESET}",
-            offset + 1,
-            end,
-            total
-        );
-    }
-    for (i, item) in c.inventory.iter().enumerate().skip(offset).take(max_rows) {
-        let marker = if i == selected {
-            format!("{GREEN}>{RESET}")
-        } else {
-            " ".to_string()
-        };
-        println!("{marker} {}", item_summary(item));
-        if i == selected {
-            if let Some(compare) = item_comparison(c, item) {
-                println!("  {compare}");
-            }
-        }
-    }
-}
-
 pub(crate) fn inventory_visible_rows(reserved_rows: u16) -> usize {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     height.saturating_sub(reserved_rows).max(5) as usize
