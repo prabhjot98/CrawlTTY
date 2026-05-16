@@ -159,6 +159,130 @@ fn new_ironbound_matches_mvp_starting_state() {
 }
 
 #[test]
+fn new_character_has_no_completed_town_projects() {
+    let c = test_character();
+
+    assert!(c.completed_town_projects.is_empty());
+    assert!(!has_completed_project(&c, TownProject::RebuildForge));
+}
+
+#[test]
+fn town_project_availability_uses_completion_and_quest_gates() {
+    let mut c = test_character();
+
+    assert_eq!(
+        town_project_availability(&c, TownProject::RebuildForge),
+        ProjectAvailability::Available
+    );
+    assert_eq!(
+        town_project_availability(&c, TownProject::ReinforcedAnvil),
+        ProjectAvailability::Locked("Requires Rebuild the Forge.")
+    );
+    assert_eq!(
+        town_project_availability(&c, TownProject::HerbGarden),
+        ProjectAvailability::Locked("Requires Act I completed.")
+    );
+
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    assert_eq!(
+        town_project_availability(&c, TownProject::ReinforcedAnvil),
+        ProjectAvailability::Available
+    );
+
+    c.act1_completed = true;
+    assert_eq!(
+        town_project_availability(&c, TownProject::HerbGarden),
+        ProjectAvailability::Available
+    );
+}
+
+#[test]
+fn completing_town_project_spends_gold_and_records_completion() {
+    let mut c = test_character();
+    c.gold = 150;
+
+    let message = complete_town_project(&mut c, TownProject::RebuildForge);
+
+    assert_eq!(message, "Completed project: Rebuild the Forge.");
+    assert_eq!(c.gold, 0);
+    assert!(has_completed_project(&c, TownProject::RebuildForge));
+}
+
+#[test]
+fn completed_and_unaffordable_town_projects_do_not_change_state() {
+    let mut c = test_character();
+    c.gold = 149;
+
+    let message = complete_town_project(&mut c, TownProject::RebuildForge);
+
+    assert_eq!(message, "Need 150 gold to complete Rebuild the Forge.");
+    assert_eq!(c.gold, 149);
+    assert!(!has_completed_project(&c, TownProject::RebuildForge));
+
+    c.gold = 150;
+    assert_eq!(
+        complete_town_project(&mut c, TownProject::RebuildForge),
+        "Completed project: Rebuild the Forge."
+    );
+    assert_eq!(
+        complete_town_project(&mut c, TownProject::RebuildForge),
+        "Rebuild the Forge is already complete."
+    );
+    assert_eq!(c.gold, 0);
+    assert_eq!(
+        c.completed_town_projects
+            .iter()
+            .filter(|project| **project == TownProject::RebuildForge)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn saved_character_without_town_projects_defaults_to_empty_projects() {
+    let json = r#"{
+        "name": "Legacy",
+        "class_name": "Ironbound",
+        "death_mode": "Softcore",
+        "level": 1,
+        "xp": 0,
+        "gold": 50,
+        "strength": 6,
+        "dexterity": 3,
+        "intelligence": 1,
+        "hp": 40,
+        "mana": 15,
+        "inventory": [],
+        "stash": [],
+        "equipped_weapon": {
+            "name": "Rusted Sword",
+            "kind": "Weapon",
+            "value": 20,
+            "damage_min": 3,
+            "damage_max": 5
+        },
+        "equipped_armor": {
+            "name": "Cloth Tunic",
+            "kind": "Armor",
+            "value": 12,
+            "armor": 1
+        },
+        "equipped_shield": {
+            "name": "Worn Shield",
+            "kind": "Shield",
+            "value": 40,
+            "armor": 1,
+            "dodge": 2
+        },
+        "bellkeeper_defeated": false
+    }"#;
+
+    let c: Character = serde_json::from_str(json).unwrap();
+
+    assert!(c.completed_town_projects.is_empty());
+}
+
+#[test]
 fn xp_text_shows_current_and_needed_for_next_level() {
     assert_eq!(
         xp_text(8, xp_required_for_next_level(2)),

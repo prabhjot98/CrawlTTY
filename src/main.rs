@@ -17,6 +17,7 @@ mod model;
 mod save;
 mod skills;
 mod town;
+mod town_projects;
 mod ui;
 
 pub(crate) use dungeon::*;
@@ -31,6 +32,8 @@ pub(crate) use model::*;
 pub(crate) use save::*;
 pub(crate) use skills::*;
 pub(crate) use town::*;
+#[allow(unused_imports)]
+pub(crate) use town_projects::*;
 pub(crate) use ui::*;
 
 fn main() -> Result<()> {

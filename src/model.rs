@@ -28,6 +28,17 @@ pub(crate) enum DeathMode {
     Hardcore,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum TownProject {
+    RebuildForge,
+    ReinforcedAnvil,
+    SocketBench,
+    StorehouseShelves,
+    HireAppraiser,
+    HerbGarden,
+    Distillery,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Item {
     pub(crate) name: String,
@@ -225,6 +236,8 @@ pub(crate) struct Character {
     #[serde(default)]
     pub(crate) shield_shards: u32,
     #[serde(default)]
+    pub(crate) completed_town_projects: Vec<TownProject>,
+    #[serde(default)]
     pub(crate) cleave_mastery: Option<SkillMastery>,
     #[serde(default)]
     pub(crate) shield_bash_mastery: Option<SkillMastery>,
@@ -294,6 +307,7 @@ impl Character {
             weapon_shards: 0,
             armor_shards: 0,
             shield_shards: 0,
+            completed_town_projects: Vec::new(),
             cleave_mastery: None,
             shield_bash_mastery: None,
             battle_cry_mastery: None,
