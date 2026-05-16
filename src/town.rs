@@ -1466,9 +1466,9 @@ pub(crate) fn render_stash_screen(
 
     if frame.area().width >= 100 {
         let body = Layout::horizontal([
-            Constraint::Length(24),
-            Constraint::Min(34),
-            Constraint::Length(38),
+            Constraint::Length(item_grid_render_width(&c.inventory)),
+            Constraint::Length(item_grid_render_width(&c.stash)),
+            Constraint::Min(38),
         ])
         .split(layout[1]);
         render_item_grid(frame, &c.inventory, inv_selected, body[0], &inventory_title);
@@ -1476,8 +1476,22 @@ pub(crate) fn render_stash_screen(
         render_stash_details(frame, c, grid, label, selected_item, body[2]);
     } else {
         let body = Layout::vertical([Constraint::Length(10), Constraint::Min(3)]).split(layout[1]);
-        let grids = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(body[0]);
+        let inventory_width = item_grid_render_width(&c.inventory);
+        let stash_width = item_grid_render_width(&c.stash);
+        let grid_constraints = if body[0].width >= inventory_width.saturating_add(stash_width) {
+            [
+                Constraint::Length(inventory_width),
+                Constraint::Length(stash_width),
+                Constraint::Min(0),
+            ]
+        } else {
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+                Constraint::Min(0),
+            ]
+        };
+        let grids = Layout::horizontal(grid_constraints).split(body[0]);
         render_item_grid(
             frame,
             &c.inventory,

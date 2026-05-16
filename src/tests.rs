@@ -434,6 +434,26 @@ fn stash_render_80_columns_shows_both_grids_details_message_and_commands() {
 }
 
 #[test]
+fn wide_stash_render_keeps_stash_grid_content_sized() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_stash_screen(frame, &c, StashSide::Stash, 0, 0, ""))
+        .unwrap();
+    let lines = backend_lines(&terminal);
+    let body_top = &lines[3];
+
+    let stash_title_x = char_index(body_top, "Stash *");
+    let details_title_x = char_index(body_top, "Details");
+
+    assert_eq!(details_title_x - stash_title_x, 34);
+    assert!(details_title_x <= 60);
+}
+
+#[test]
 fn inventory_render_footer_shows_message_and_commands() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -1928,6 +1948,22 @@ fn backend_text(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> 
         .iter()
         .map(|cell| cell.symbol())
         .collect()
+}
+
+fn backend_lines(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> Vec<String> {
+    let buffer = terminal.backend().buffer();
+    let width = usize::from(buffer.area.width);
+    buffer
+        .content()
+        .chunks(width)
+        .map(|row| row.iter().map(|cell| cell.symbol()).collect())
+        .collect()
+}
+
+fn char_index(text: &str, needle: &str) -> usize {
+    text.find(needle)
+        .map(|byte_index| text[..byte_index].chars().count())
+        .unwrap()
 }
 
 #[test]

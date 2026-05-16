@@ -131,6 +131,10 @@ pub(crate) fn render_item_grid(
     );
 }
 
+pub(crate) fn item_grid_render_width(grid: &ItemGrid) -> u16 {
+    grid.columns.saturating_mul(4).saturating_add(2)
+}
+
 #[cfg(test)]
 pub(crate) fn inventory_screen_text_for_test(
     c: &Character,
