@@ -1792,6 +1792,18 @@ pub(crate) fn discard_ground_item_by_tile_index(c: &mut Character, tile_index: u
     format!("Discarded {}.", ground_item.item.name)
 }
 
+pub(crate) fn discard_selected_ground_loot_for_picker(
+    c: &mut Character,
+    selected: usize,
+) -> InventoryActionResult {
+    let message = discard_ground_item_by_tile_index(c, selected);
+    let spent_turn = message.starts_with("Discarded ");
+    InventoryActionResult {
+        message,
+        spent_turn,
+    }
+}
+
 pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
     let indices = ground_item_indices_at_player(c);
     if indices.is_empty() {
@@ -1871,11 +1883,18 @@ pub(crate) fn ground_loot_picker(
                 }
             }
             'd' | 'D' => {
-                message = discard_ground_item_by_tile_index(c, selected);
-                if let Some(d) = c.active_dungeon.as_mut() {
-                    log_event(&mut d.log, LogKind::Info, message.clone());
+                let result = discard_selected_ground_loot_for_picker(c, selected);
+                message = result.message;
+                if result.spent_turn {
+                    if let Some(d) = c.active_dungeon.as_mut() {
+                        log_event(&mut d.log, LogKind::Info, message.clone());
+                    }
+                    return Ok(true);
                 }
-                if item_count <= 1 {
+                if item_count <= 1
+                    && message != "No item selected."
+                    && message != "No active dungeon."
+                {
                     return Ok(false);
                 }
             }

@@ -1390,6 +1390,38 @@ fn ground_loot_picker_discard_removes_only_selected_item() {
 }
 
 #[test]
+fn ground_loot_picker_successful_discard_spends_turn() {
+    let mut c = test_character();
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: health_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    let result = discard_selected_ground_loot_for_picker(&mut c, 0);
+
+    assert_eq!(
+        result.message,
+        "Discarded Lesser Health Potion (restores 15% HP)."
+    );
+    assert!(result.spent_turn);
+    assert!(c.active_dungeon.as_ref().unwrap().ground_items.is_empty());
+}
+
+#[test]
+fn ground_loot_picker_invalid_discard_does_not_spend_turn() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    let result = discard_selected_ground_loot_for_picker(&mut c, 0);
+
+    assert_eq!(result.message, "No item selected.");
+    assert!(!result.spent_turn);
+}
+
+#[test]
 fn full_inventory_chest_loot_goes_to_ground() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
