@@ -456,7 +456,7 @@ The inventory should be **grid-based** while avoiding a manual packing puzzle.
 Current direction:
 
 - Current data model: `Character.inventory` and `Character.stash` use `ItemGrid` containers. The starter bag is `4 x 4`, the stash is `8 x 8`, and each grid stores compacted `items` in row-major order for gradual migration from older Vec-based inventory code.
-- Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile until later pickup UI is added.
+- Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile until later pickup UI is added. Dropping an inventory item inside a dungeon places it on the player tile; dropping in town still deletes the item.
 - The player bag is a ratatui grid screen with a cursor-selectable cell grid on the left and selected item details on the right.
 - Every item occupies exactly one cell.
 - The bag auto-compacts after pickups, drops, equips, selling, salvaging, stash transfers, and item use.

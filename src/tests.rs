@@ -1106,6 +1106,35 @@ fn full_inventory_monster_loot_goes_to_ground() {
 }
 
 #[test]
+fn dungeon_loot_goes_to_ground_when_inventory_is_full() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    let item = mana_potion();
+
+    let added_to_bag = add_loot_to_bag_or_ground(&mut c, &mut d, item, 2, 2, "Dropped");
+
+    assert!(!added_to_bag);
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (2, 2));
+    assert!(matches!(d.ground_items[0].item.kind, ItemKind::ManaPotion));
+}
+
+#[test]
+fn dungeon_loot_goes_to_bag_when_inventory_has_space() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(2, 1, vec![health_potion()]);
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+
+    let added_to_bag = add_loot_to_bag_or_ground(&mut c, &mut d, mana_potion(), 2, 2, "Dropped");
+
+    assert!(added_to_bag);
+    assert_eq!(c.inventory.len(), 2);
+    assert!(d.ground_items.is_empty());
+}
+
+#[test]
 fn full_inventory_chest_loot_goes_to_ground() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
@@ -1145,6 +1174,21 @@ fn full_inventory_boss_reward_goes_to_ground() {
     assert_eq!(c.inventory.len(), c.inventory.capacity());
     assert_eq!(d.ground_items.len(), 1);
     assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
+}
+
+#[test]
+fn dropping_inventory_item_in_dungeon_creates_ground_item() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(4, 5, Vec::new()));
+    let starting_len = c.inventory.len();
+
+    let result = drop_selected_inventory_item(&mut c, 0);
+
+    assert!(result.spent_turn);
+    assert_eq!(c.inventory.len(), starting_len - 1);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (4, 5));
 }
 
 #[test]

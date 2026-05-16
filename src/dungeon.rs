@@ -1003,33 +1003,11 @@ pub(crate) fn resolve_enemy_death(
     if was_boss {
         let loot = random_equipment_loot(d.floor, true);
         let loot_name = colored_item_name(&loot);
-        add_loot_to_inventory_or_ground(
-            &mut c.inventory,
-            &mut d.ground_items,
-            drop_x,
-            drop_y,
-            loot,
-        );
-        log_event(
-            &mut d.log,
-            LogKind::Loot,
-            format!("Boss reward dropped: {loot_name}."),
-        );
+        add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Boss reward dropped");
         let boss_gem_name = if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.25) {
             let gem = random_gem();
             let gem_name = colored_item_name(&gem);
-            add_loot_to_inventory_or_ground(
-                &mut c.inventory,
-                &mut d.ground_items,
-                drop_x,
-                drop_y,
-                gem,
-            );
-            log_event(
-                &mut d.log,
-                LogKind::Loot,
-                format!("Boss gem dropped: {gem_name}."),
-            );
+            add_loot_to_bag_or_ground(c, d, gem, drop_x, drop_y, "Boss gem dropped");
             Some(gem_name)
         } else {
             None
@@ -1697,15 +1675,7 @@ pub(crate) fn maybe_drop_loot_in_dungeon(
         } else {
             random_loot(d.floor, rng.gen_bool(0.30))
         };
-        let name = colored_item_name(&loot);
-        add_loot_to_inventory_or_ground(
-            &mut c.inventory,
-            &mut d.ground_items,
-            drop_x,
-            drop_y,
-            loot,
-        );
-        log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
+        add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Dropped");
     }
 
     if !can_drop_gem_on_floor(d.floor) {
@@ -1723,23 +1693,46 @@ pub(crate) fn maybe_drop_loot_in_dungeon(
     };
     if rng.gen_bool(gem_chance) {
         let gem = random_gem();
-        let name = colored_item_name(&gem);
-        add_loot_to_inventory_or_ground(&mut c.inventory, &mut d.ground_items, drop_x, drop_y, gem);
-        log_event(&mut d.log, LogKind::Loot, format!("Gem dropped: {name}."));
+        add_loot_to_bag_or_ground(c, d, gem, drop_x, drop_y, "Gem dropped");
     }
 }
 
-pub(crate) fn add_loot_to_inventory_or_ground(
-    inventory: &mut ItemGrid,
-    ground_items: &mut Vec<GroundItem>,
+pub(crate) fn add_ground_item(d: &mut Dungeon, x: i32, y: i32, item: Item) {
+    d.ground_items.push(GroundItem { x, y, item });
+}
+
+pub(crate) fn add_loot_to_bag_or_ground(
+    c: &mut Character,
+    d: &mut Dungeon,
+    item: Item,
     x: i32,
     y: i32,
-    item: Item,
+    verb: &str,
 ) -> bool {
+    add_loot_to_inventory_or_ground(&mut c.inventory, d, item, x, y, verb)
+}
+
+fn add_loot_to_inventory_or_ground(
+    inventory: &mut ItemGrid,
+    d: &mut Dungeon,
+    item: Item,
+    x: i32,
+    y: i32,
+    verb: &str,
+) -> bool {
+    let name = colored_item_name(&item);
     match inventory.try_push(item) {
-        Ok(_) => true,
+        Ok(_) => {
+            log_event(&mut d.log, LogKind::Loot, format!("{verb}: {name}."));
+            true
+        }
         Err(item) => {
-            ground_items.push(GroundItem { x, y, item });
+            add_ground_item(d, x, y, item);
+            log_event(
+                &mut d.log,
+                LogKind::Loot,
+                format!("Inventory full. {name} fell to the ground."),
+            );
             false
         }
     }
@@ -1969,30 +1962,22 @@ pub(crate) fn open_chest_on_player(c: &mut Character) {
         let d = c.active_dungeon.as_mut().unwrap();
         d.chests[chest_index].opened = true;
         let loot = random_loot(d.floor, rng.gen_bool(0.35));
-        let name = colored_item_name(&loot);
         log_event(
             &mut d.log,
             LogKind::Loot,
-            format!("Opened chest: found {} and {name}.", gold_reward_text(gold)),
+            format!("Opened chest: found {}.", gold_reward_text(gold)),
         );
         let (chest_x, chest_y) = (d.chests[chest_index].x, d.chests[chest_index].y);
-        add_loot_to_inventory_or_ground(
-            &mut c.inventory,
-            &mut d.ground_items,
-            chest_x,
-            chest_y,
-            loot,
-        );
+        add_loot_to_inventory_or_ground(&mut c.inventory, d, loot, chest_x, chest_y, "Chest loot");
         if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.06) {
             let gem = random_gem();
-            let name = colored_item_name(&gem);
-            log_event(&mut d.log, LogKind::Loot, format!("Chest gem: {name}."));
             add_loot_to_inventory_or_ground(
                 &mut c.inventory,
-                &mut d.ground_items,
+                d,
+                gem,
                 chest_x,
                 chest_y,
-                gem,
+                "Chest gem",
             );
         }
     }
