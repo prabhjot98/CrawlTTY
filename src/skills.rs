@@ -69,6 +69,7 @@ pub(crate) fn render_skill_tree_screen(
     ];
     append_skill_choice_lines(&mut lines, selected, "Cleave", c.cleave_rank);
     append_mastery_status_lines(&mut lines, c, "Cleave");
+    append_passive_unlock_line(&mut lines, c, "Deep Cut");
     append_skill_choice_lines(&mut lines, selected, "Deep Cut", c.deep_cut_rank);
     append_mastery_status_lines(&mut lines, c, "Deep Cut");
     lines.push(Line::styled(
@@ -77,6 +78,7 @@ pub(crate) fn render_skill_tree_screen(
     ));
     append_skill_choice_lines(&mut lines, selected, "Shield Bash", c.shield_bash_rank);
     append_mastery_status_lines(&mut lines, c, "Shield Bash");
+    append_passive_unlock_line(&mut lines, c, "Iron Guard");
     append_skill_choice_lines(&mut lines, selected, "Iron Guard", c.iron_guard_rank);
     append_mastery_status_lines(&mut lines, c, "Iron Guard");
     lines.push(Line::styled(
@@ -85,10 +87,13 @@ pub(crate) fn render_skill_tree_screen(
     ));
     append_skill_choice_lines(&mut lines, selected, "Battle Cry", c.battle_cry_rank);
     append_mastery_status_lines(&mut lines, c, "Battle Cry");
+    append_passive_unlock_line(&mut lines, c, "Second Wind");
     append_skill_choice_lines(&mut lines, selected, "Second Wind", c.second_wind_rank);
     append_mastery_status_lines(&mut lines, c, "Second Wind");
     lines.push(Line::from(""));
-    lines.push(skill_line("Each rank upgrade costs 1 skill point. Masteries are free at rank 5. Passive upgrades require rank 2 in their branch starter."));
+    lines.push(skill_line(
+        "Each rank upgrade costs 1 skill point. Masteries are free at rank 5.",
+    ));
 
     render_skill_tree_layout(
         frame,
@@ -132,6 +137,23 @@ fn append_skill_choice_lines(
         selected == index,
         format!("{name} rank {rank}/5"),
     ));
+}
+
+fn append_passive_unlock_line(lines: &mut Vec<Line<'static>>, c: &Character, passive: &str) {
+    if let Some(prerequisite) = passive_prerequisite(c, passive) {
+        let marker = if prerequisite.current_rank < prerequisite.required_rank {
+            "🔒︎ "
+        } else {
+            ""
+        };
+        lines.push(skill_line(format!(
+            "   └─{marker}{passive} unlocks at {} rank {} ({}/{})",
+            prerequisite.starter,
+            prerequisite.required_rank,
+            prerequisite.current_rank.min(prerequisite.required_rank),
+            prerequisite.required_rank
+        )));
+    }
 }
 
 fn append_mastery_status_lines(lines: &mut Vec<Line<'static>>, c: &Character, skill: &str) {
@@ -205,6 +227,14 @@ fn selected_skill_detail_lines(c: &Character, skill: &str) -> Vec<Line<'static>>
         ),
         skill_line(format!("{skill} rank {rank}/5")),
     ];
+    if let Some(prerequisite) = passive_prerequisite(c, skill) {
+        lines.push(skill_line(format!(
+            "Unlock: {} rank {}/{}",
+            prerequisite.starter,
+            prerequisite.current_rank.min(prerequisite.required_rank),
+            prerequisite.required_rank
+        )));
+    }
     lines.extend(
         skill_effect_lines(c, skill, rank)
             .into_iter()
@@ -585,19 +615,42 @@ pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {
     }
 }
 
-pub(crate) fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
+struct SkillPrerequisite {
+    starter: &'static str,
+    current_rank: u32,
+    required_rank: u32,
+}
+
+fn passive_prerequisite(c: &Character, skill: &str) -> Option<SkillPrerequisite> {
     match skill {
-        "Deep Cut" if c.cleave_rank < 2 => {
-            Some("Deep Cut upgrades require Cleave rank 2.".to_string())
-        }
-        "Iron Guard" if c.shield_bash_rank < 2 => {
-            Some("Iron Guard upgrades require Shield Bash rank 2.".to_string())
-        }
-        "Second Wind" if c.battle_cry_rank < 2 => {
-            Some("Second Wind upgrades require Battle Cry rank 2.".to_string())
-        }
+        "Deep Cut" => Some(SkillPrerequisite {
+            starter: "Cleave",
+            current_rank: c.cleave_rank,
+            required_rank: 2,
+        }),
+        "Iron Guard" => Some(SkillPrerequisite {
+            starter: "Shield Bash",
+            current_rank: c.shield_bash_rank,
+            required_rank: 2,
+        }),
+        "Second Wind" => Some(SkillPrerequisite {
+            starter: "Battle Cry",
+            current_rank: c.battle_cry_rank,
+            required_rank: 2,
+        }),
         _ => None,
     }
+}
+
+pub(crate) fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<String> {
+    passive_prerequisite(c, skill).and_then(|prerequisite| {
+        (prerequisite.current_rank < prerequisite.required_rank).then(|| {
+            format!(
+                "{skill} upgrades require {} rank {}.",
+                prerequisite.starter, prerequisite.required_rank
+            )
+        })
+    })
 }
 
 pub(crate) fn next_skill_rank(rank: u32) -> u32 {

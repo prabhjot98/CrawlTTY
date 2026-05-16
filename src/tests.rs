@@ -743,6 +743,23 @@ fn skill_screens_render_with_ratatui() {
         .unwrap();
     assert_eq!(char_index(skill_header, "Details"), 51);
 
+    c.cleave_rank = 1;
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, 1, ""))
+        .unwrap();
+    let locked_passive_tree = backend_text(&terminal);
+    let locked_passive_lines = backend_lines(&terminal)
+        .into_iter()
+        .filter(|line| line.contains("Deep Cut") || line.contains("Unlock"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        locked_passive_tree.contains("└─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"),
+        "{locked_passive_lines}"
+    );
+    assert!(locked_passive_tree.contains("Unlock: Cleave rank 1/2"));
+    assert!(!locked_passive_tree.contains("branch starter"));
+
     c.cleave_rank = 5;
     terminal
         .draw(|frame| render_mastery_screen(frame, &c, "Cleave", ""))
