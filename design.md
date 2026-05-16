@@ -733,7 +733,7 @@ Socket roll odds:
 - Magic gear: 20% chance for 1 socket, 5% chance for 2 sockets
 - Rare gear: 25% chance for 1 socket, 10% chance for 2 sockets
 
-The Socket Bench town project unlocks free gem insertion, removal, and replacement in town. Removing a gem returns it to inventory. Replacing a gem returns the old gem to inventory and inserts the selected new gem. Removing a socketed gem requires one free bag cell; if the bag is full, the action fails and the gem remains socketed. Replacing a socketed gem also preserves the replaced gem in the bag; if the bag cannot accept it, the replacement fails without changing the socket.
+The Socket Bench town project unlocks free gem insertion, removal, and replacement in town. Removing a gem returns it to inventory. Replacing a gem returns the old gem to inventory and inserts the selected new gem. Removing a socketed gem requires one free bag cell; if the bag is full, the action fails and the gem remains socketed. Replacing a socketed gem with a bag gem is capacity-neutral because removing the selected new gem frees the cell used for the replaced gem.
 
 ### Gems
 
@@ -1005,7 +1005,7 @@ Other MVP items:
 
 ### MVP Equipment Interaction
 
-The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory when capacity allows; equipping replacement gear fails without consuming an action when the bag cannot accept the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
+The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory. Full-bag replacement gear equips are allowed because removing the selected carried item frees the cell reused for the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
 
 Loot should feel rewarding:
 

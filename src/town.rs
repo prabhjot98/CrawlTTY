@@ -557,14 +557,12 @@ fn replace_gem_in_target(
         return gem_inventory_error(c, inventory_index).to_string();
     };
     let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
-    let new_gem = c.inventory.remove(inventory_index);
-    if !c
-        .inventory
-        .push(gem_item(old_gem.gem_kind, old_gem.gem_tier))
-    {
-        let _ = c.inventory.insert(inventory_index, new_gem);
-        return "No room in inventory for replaced gem.".to_string();
-    }
+    c.inventory.remove(inventory_index);
+    assert!(
+        c.inventory
+            .push(gem_item(old_gem.gem_kind, old_gem.gem_tier)),
+        "ItemGrid invariant broken: replacing socketed gem should free inventory capacity for replaced gem"
+    );
     let adjusted_target = adjust_target_after_inventory_remove(target, inventory_index);
     if let Some(socket) = target_socket_mut(c, adjusted_target, socket_index) {
         *socket = Some(GemSocket::filled(new_kind, new_tier));

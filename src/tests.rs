@@ -453,6 +453,28 @@ fn removing_socketed_gem_requires_bag_capacity() {
 }
 
 #[test]
+fn replacing_socketed_gem_when_bag_is_full_reuses_selected_gem_cell() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::SocketBench);
+    c.equipped_weapon.sockets = vec![Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))];
+    c.inventory = ItemGrid::new(1, 1, vec![gem_item(GemKind::Topaz, GemTier::Flawed)]);
+
+    let message = replace_gem_in_equipped(&mut c, UpgradeSlot::Weapon, 0, 0);
+
+    assert_eq!(
+        message,
+        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg, STR F, DEX F)."
+    );
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(c.inventory[0].gem_kind, Some(GemKind::Ruby));
+    assert_eq!(c.inventory[0].gem_tier, Some(GemTier::Chipped));
+    assert_eq!(
+        c.equipped_weapon.sockets[0],
+        Some(GemSocket::filled(GemKind::Topaz, GemTier::Flawed))
+    );
+}
+
+#[test]
 fn socket_bench_rejects_gem_items_with_incomplete_metadata() {
     let mut c = test_character();
     complete_project_for_test(&mut c, TownProject::SocketBench);
@@ -1000,16 +1022,17 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
 }
 
 #[test]
-fn equipping_when_bag_is_full_keeps_selected_item_if_old_gear_cannot_fit() {
+fn equipping_when_bag_is_full_reuses_selected_cell_for_old_gear() {
     let mut c = test_character();
     c.inventory = ItemGrid::new(1, 1, vec![crude_axe()]);
 
     let result = equip_or_use_inventory_item(&mut c, 0);
 
-    assert_eq!(result.message, "Need one free bag cell to swap equipment.");
-    assert!(!result.spent_turn);
-    assert!(c.equipped_weapon.name.starts_with("Rusted Sword"));
-    assert!(c.inventory[0].name.starts_with("Crude Axe"));
+    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg, STR F).");
+    assert!(result.spent_turn);
+    assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
+    assert_eq!(c.inventory.len(), 1);
+    assert!(c.inventory[0].name.starts_with("Rusted Sword"));
 }
 
 #[test]
