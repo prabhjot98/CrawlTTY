@@ -3,7 +3,16 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use std::io;
+use std::{
+    io,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+static RATATUI_OWNS_RAW_MODE: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn set_ratatui_owns_raw_mode(owns_raw_mode: bool) {
+    RATATUI_OWNS_RAW_MODE.store(owns_raw_mode, Ordering::Relaxed);
+}
 
 struct RawModeGuard;
 
@@ -55,7 +64,11 @@ pub(crate) fn read_key_char_or_message(message: &mut String) -> Option<char> {
 }
 
 fn read_key_char_with_navigation(navigation: bool) -> Result<char> {
-    let _raw_mode = RawModeGuard::new().context("failed to enable raw mode")?;
+    let _raw_mode = if RATATUI_OWNS_RAW_MODE.load(Ordering::Relaxed) {
+        None
+    } else {
+        Some(RawModeGuard::new().context("failed to enable raw mode")?)
+    };
     loop {
         if let Event::Key(KeyEvent {
             code, modifiers, ..

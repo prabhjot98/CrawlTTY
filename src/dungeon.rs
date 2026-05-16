@@ -1,4 +1,8 @@
 use crate::*;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_LOG_LINE: &str = "[WARN] Unknown dungeon command.";
@@ -57,12 +61,14 @@ pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
     true
 }
 
-pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
+pub(crate) fn dungeon_loop(
+    c: &mut Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<()> {
     loop {
-        clear_screen();
-        draw_dungeon(c);
-        print_skill_help(c);
-        print_dungeon_footer();
+        terminal
+            .draw(|frame| render_dungeon(frame, c))
+            .context("failed to draw dungeon")?;
         let key = match read_key_char() {
             Ok(key) => key,
             Err(err) => {
@@ -116,18 +122,108 @@ pub(crate) fn dungeon_loop(c: &mut Character) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn draw_dungeon(c: &Character) {
-    let d = c.active_dungeon.as_ref().unwrap();
-    println!(
-        "{BOLD}{} Floor {}{RESET}  {} {} {} {}",
-        act_name(d.floor),
-        act_floor(d.floor),
-        hp_text(c.hp, c.max_hp()),
-        mana_text(c.mana, c.max_mana()),
-        gold_text(c.gold),
-        xp_text(c.xp, xp_required_for_next_level(c.level))
-    );
+pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
+    let Some(d) = c.active_dungeon.as_ref() else {
+        return;
+    };
+
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(6),
+        Constraint::Length(4),
+    ])
+    .split(frame.area());
+
+    let header = Paragraph::new(Line::from(vec![
+        Span::styled(
+            format!("{} Floor {}", act_name(d.floor), act_floor(d.floor)),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("  "),
+        stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
+        Span::raw("  "),
+        stat_span(format!("Mana {}/{}", c.mana, c.max_mana()), Color::Blue),
+        Span::raw("  "),
+        stat_span(format!("Gold {}", c.gold), Color::Yellow),
+        Span::raw("  "),
+        stat_span(
+            format!("XP {}/{}", c.xp, xp_required_for_next_level(c.level)),
+            Color::Magenta,
+        ),
+    ]))
+    .block(Block::default().borders(Borders::ALL).title("Dungeon"));
+    frame.render_widget(header, layout[0]);
+
+    if layout[1].width >= 88 {
+        let body = Layout::horizontal([Constraint::Length(MAP_W as u16 + 2), Constraint::Min(24)])
+            .split(layout[1]);
+        render_dungeon_map(frame, d, body[0]);
+        render_dungeon_log(frame, d, body[1]);
+    } else {
+        let body = Layout::vertical([Constraint::Length(MAP_H as u16 + 2), Constraint::Min(5)])
+            .split(layout[1]);
+        render_dungeon_map(frame, d, body[0]);
+        render_dungeon_log(frame, d, body[1]);
+    }
+
+    let help = Paragraph::new(dungeon_skill_help_lines(c))
+        .block(Block::default().borders(Borders::ALL).title("Skills"))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(help, layout[2]);
+
+    let footer = Paragraph::new(vec![
+        command_line(
+            "Dungeon",
+            &[
+                ("w/a/s/d", "move/attack"),
+                ("1", "Cleave"),
+                ("2", "Bash"),
+                ("3", "Cry"),
+                ("p", "potion"),
+                ("i", "inventory"),
+                ("Esc", "town"),
+            ],
+        ),
+        Line::from(vec![
+            Span::styled("Legend: ", Style::default().add_modifier(Modifier::BOLD)),
+            tile_span('@'),
+            Span::raw("=you  "),
+            tile_span('#'),
+            Span::raw("=wall  "),
+            tile_span('.'),
+            Span::raw("=floor  "),
+            tile_span('$'),
+            Span::raw("=chest  "),
+            tile_span('E'),
+            Span::raw("=elite  "),
+            tile_span('B'),
+            Span::raw("=boss"),
+        ]),
+    ])
+    .block(Block::default().borders(Borders::ALL).title("Commands"));
+    frame.render_widget(footer, layout[3]);
+}
+
+fn render_dungeon_map(frame: &mut Frame, d: &Dungeon, area: Rect) {
+    let map = Paragraph::new(dungeon_map_lines(d))
+        .block(Block::default().borders(Borders::ALL).title("Map"));
+    frame.render_widget(map, area);
+}
+
+fn render_dungeon_log(frame: &mut Frame, d: &Dungeon, area: Rect) {
+    let log = Paragraph::new(combat_log_lines(d))
+        .block(Block::default().borders(Borders::ALL).title("Combat Log"))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(log, area);
+}
+
+fn dungeon_map_lines(d: &Dungeon) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
     for y in 0..MAP_H {
+        let mut spans = Vec::new();
         for x in 0..MAP_W {
             let mut ch = dungeon_tile(d, x, y);
             if x == d.stairs_x && y == d.stairs_y {
@@ -148,11 +244,160 @@ pub(crate) fn draw_dungeon(c: &Character) {
             if x == d.player_x && y == d.player_y {
                 ch = '@';
             }
-            print_colored_tile(ch);
+            spans.push(tile_span(ch));
         }
-        println!();
+        lines.push(Line::from(spans));
     }
-    print_combat_log(d);
+    lines
+}
+
+fn combat_log_lines(d: &Dungeon) -> Vec<Line<'static>> {
+    const MAX_LOG_LINES_ON_SCREEN: usize = 12;
+    let Some(latest_header) = d.log.iter().rposition(|line| is_log_header(line)) else {
+        return d
+            .log
+            .iter()
+            .rev()
+            .take(MAX_LOG_LINES_ON_SCREEN)
+            .rev()
+            .map(|line| log_line(line, false))
+            .collect();
+    };
+
+    let current = &d.log[latest_header..];
+    let current_start = current.len().saturating_sub(MAX_LOG_LINES_ON_SCREEN);
+    let mut lines: Vec<_> = current[current_start..]
+        .iter()
+        .map(|line| log_line(line, true))
+        .collect();
+
+    let printed_current = current.len().min(MAX_LOG_LINES_ON_SCREEN);
+    let remaining = MAX_LOG_LINES_ON_SCREEN.saturating_sub(printed_current);
+    if remaining > 1 && latest_header > 0 {
+        lines.push(Line::styled(
+            "--- Previous ---",
+            Style::default().fg(Color::DarkGray),
+        ));
+        let previous_count = remaining - 1;
+        let previous_start = latest_header.saturating_sub(previous_count);
+        for msg in &d.log[previous_start..latest_header] {
+            lines.push(log_line(msg, false));
+        }
+    }
+
+    lines
+}
+
+fn log_line(line: &str, current_group: bool) -> Line<'static> {
+    let text = strip_ansi_codes(line);
+    if is_log_header(&text) {
+        let color = if text.contains("No turn spent") {
+            Color::Yellow
+        } else {
+            Color::Cyan
+        };
+        return Line::styled(
+            text,
+            Style::default().fg(color).add_modifier(Modifier::BOLD),
+        );
+    }
+
+    let mut style = Style::default().fg(log_color(&text));
+    if !current_group {
+        style = Style::default().fg(Color::DarkGray);
+    }
+    Line::styled(format!("  {text}"), style)
+}
+
+fn log_color(line: &str) -> Color {
+    if line.starts_with("[HIT]") || line.starts_with("[HEAL]") {
+        Color::Green
+    } else if line.starts_with("[ENEMY]") {
+        Color::Red
+    } else if line.starts_with("[MISS]") {
+        Color::DarkGray
+    } else if line.starts_with("[KILL]")
+        || line.starts_with("[STATUS]")
+        || line.starts_with("[BOSS]")
+    {
+        Color::Magenta
+    } else if line.starts_with("[LOOT]") || line.starts_with("[WARN]") {
+        Color::Yellow
+    } else {
+        Color::White
+    }
+}
+
+fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+    vec![
+        Line::from(format!(
+            "1 Cleave r{}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
+            c.cleave_rank,
+            cleave_target_help(c),
+            cleave_percent(c),
+            c.cleave_cooldown
+        )),
+        Line::from(format!(
+            "2 Shield Bash r{}: cost 6 mana, cd 3. Hit {} for {}% damage and stun {}. Ready in {}.",
+            c.shield_bash_rank,
+            shield_bash_range_help(c),
+            shield_bash_percent(c),
+            shield_bash_stun_help(c),
+            c.shield_bash_cooldown
+        )),
+        Line::from(format!(
+            "3 Battle Cry r{}: cost 8 mana, cd 6. Next {} attacks gain +{}% damage; Second Wind r{} heals {}%. Ready in {}, charges {}.",
+            c.battle_cry_rank,
+            battle_cry_charge_count(c),
+            battle_cry_bonus_percent(c),
+            c.second_wind_rank,
+            second_wind_heal_percent_for_rank(c.second_wind_rank),
+            c.battle_cry_cooldown,
+            c.battle_cry_charges
+        )),
+        Line::from(format!(
+            "Passives: Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
+            c.deep_cut_rank,
+            deep_cut_chance_for_rank(c.deep_cut_rank),
+            deep_cut_damage_for_rank(c.deep_cut_rank),
+            c.iron_guard_rank,
+            iron_guard_armor_bonus(c)
+        )),
+    ]
+}
+
+fn tile_span(ch: char) -> Span<'static> {
+    Span::styled(ch.to_string(), tile_style(ch))
+}
+
+fn tile_style(ch: char) -> Style {
+    match ch {
+        '@' => Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD),
+        '#' => Style::default().fg(Color::DarkGray),
+        '.' => Style::default().fg(Color::DarkGray),
+        '>' => Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+        '$' => Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+        '*' => Style::default()
+            .fg(Color::Magenta)
+            .add_modifier(Modifier::BOLD),
+        'r' | 'g' => Style::default().fg(Color::Yellow),
+        's' => Style::default().fg(Color::White),
+        'c' | 'E' => Style::default().fg(Color::Magenta),
+        'b' => Style::default().fg(Color::Blue),
+        'w' => Style::default().fg(Color::Cyan),
+        'm' | 'B' => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        'o' => Style::default().fg(Color::DarkGray),
+        'T' => Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+        _ => Style::default(),
+    }
 }
 
 pub(crate) fn current_dungeon_log_len(c: &Character) -> usize {
@@ -268,133 +513,9 @@ pub(crate) fn trim_dungeon_log(log: &mut Vec<String>) {
     }
 }
 
-pub(crate) fn print_combat_log(d: &Dungeon) {
-    const MAX_LOG_LINES_ON_SCREEN: usize = 8;
-    println!("{BOLD}{CYAN}+== Combat Log: latest command ==+{RESET}");
-
-    let Some(latest_header) = d.log.iter().rposition(|line| is_log_header(line)) else {
-        for msg in d.log.iter().rev().take(MAX_LOG_LINES_ON_SCREEN).rev() {
-            print_log_line(msg, false);
-        }
-        return;
-    };
-
-    let current = &d.log[latest_header..];
-    let current_start = current.len().saturating_sub(MAX_LOG_LINES_ON_SCREEN);
-    for msg in &current[current_start..] {
-        print_log_line(msg, true);
-    }
-
-    let printed_current = current.len().min(MAX_LOG_LINES_ON_SCREEN);
-    let remaining = MAX_LOG_LINES_ON_SCREEN.saturating_sub(printed_current);
-    if remaining > 1 && latest_header > 0 {
-        println!("{DIM}--- Previous ---{RESET}");
-        let previous_count = remaining - 1;
-        let previous_start = latest_header.saturating_sub(previous_count);
-        for msg in &d.log[previous_start..latest_header] {
-            print_log_line(msg, false);
-        }
-    }
-}
-
 pub(crate) fn is_log_header(line: &str) -> bool {
     (line.starts_with("== ") && line.ends_with(" =="))
         || (line.starts_with("=== ") && line.ends_with(" ==="))
-}
-
-pub(crate) fn print_log_line(line: &str, current_group: bool) {
-    if is_log_header(line) {
-        let color = if line.contains("No turn spent") {
-            YELLOW
-        } else {
-            CYAN
-        };
-        println!("{BOLD}{color}{line}{RESET}");
-        return;
-    }
-
-    let color = log_line_color(line);
-    if current_group {
-        println!("  {color}{line}{RESET}");
-    } else {
-        println!("{DIM}  {line}{RESET}");
-    }
-}
-
-pub(crate) fn log_line_color(line: &str) -> &'static str {
-    if line.starts_with("[HIT]") || line.starts_with("[HEAL]") {
-        GREEN
-    } else if line.starts_with("[ENEMY]") {
-        RED
-    } else if line.starts_with("[MISS]") {
-        BRIGHT_BLACK
-    } else if line.starts_with("[KILL]") || line.starts_with("[STATUS]") {
-        MAGENTA
-    } else if line.starts_with("[LOOT]") {
-        YELLOW
-    } else if line.starts_with("[BOSS]") {
-        MAGENTA
-    } else if line.starts_with("[WARN]") {
-        YELLOW
-    } else {
-        WHITE
-    }
-}
-
-pub(crate) fn print_dungeon_footer() {
-    print_footer(&[
-        &format!(
-            "{BOLD}Dungeon:{RESET} {GREEN}w/a/s/d{RESET}=move/attack  {GREEN}1{RESET}=Cleave  {GREEN}2{RESET}=Bash  {GREEN}3{RESET}=Cry  {BLUE}p{RESET}=potion  i=inventory  {RED}Esc{RESET}=town"
-        ),
-        &format!(
-            "{BOLD}Legend:{RESET} {GREEN}@{RESET}=you {BRIGHT_BLACK}#{RESET}=wall {DIM}.{RESET}=floor {YELLOW}${RESET}=chest {MAGENTA}E{RESET}=elite {RED}B{RESET}=boss"
-        ),
-    ]);
-}
-
-pub(crate) fn print_skill_help(c: &Character) {
-    let cleave_line = format!(
-        "{GREEN}1 Cleave r{}{RESET}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
-        c.cleave_rank,
-        cleave_target_help(c),
-        cleave_percent(c),
-        c.cleave_cooldown
-    );
-    let shield_bash_line = format!(
-        "{GREEN}2 Shield Bash r{}{RESET}: cost 6 mana, cd 3. Hit {} for {}% damage and stun {}. Ready in {}.",
-        c.shield_bash_rank,
-        shield_bash_range_help(c),
-        shield_bash_percent(c),
-        shield_bash_stun_help(c),
-        c.shield_bash_cooldown
-    );
-    let battle_cry_line = format!(
-        "{GREEN}3 Battle Cry r{}{RESET}: cost 8 mana, cd 6. Next {} attacks gain +{}% damage and enemies deal -10%, Second Wind r{} heals {}%. Ready in {}, charges {}.",
-        c.battle_cry_rank,
-        battle_cry_charge_count(c),
-        battle_cry_bonus_percent(c),
-        c.second_wind_rank,
-        second_wind_heal_percent_for_rank(c.second_wind_rank),
-        c.battle_cry_cooldown,
-        c.battle_cry_charges
-    );
-    let passives_line = format!(
-        "{GREEN}Passives:{RESET} Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
-        c.deep_cut_rank,
-        deep_cut_chance_for_rank(c.deep_cut_rank),
-        deep_cut_damage_for_rank(c.deep_cut_rank),
-        c.iron_guard_rank,
-        iron_guard_armor_bonus(c)
-    );
-    print_above_footer(
-        &[
-            &cleave_line,
-            &shield_bash_line,
-            &battle_cry_line,
-            &passives_line,
-        ],
-        2,
-    );
 }
 
 pub(crate) fn cleave_target_help(c: &Character) -> &'static str {
@@ -437,19 +558,6 @@ pub(crate) fn battle_cry_charge_count(c: &Character) -> u32 {
     }
 }
 
-pub(crate) fn print_above_footer(lines: &[&str], footer_lines: u16) {
-    let (_, height) = terminal_size().unwrap_or((80, 24));
-    let start_row = height
-        .saturating_sub(footer_lines)
-        .saturating_sub(lines.len() as u16)
-        .saturating_add(1)
-        .max(1);
-    for (i, line) in lines.iter().enumerate() {
-        print!("\x1B[{};1H\x1B[2K{}", start_row + i as u16, line);
-    }
-    let _ = io::stdout().flush();
-}
-
 pub(crate) fn print_footer(lines: &[&str]) {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     let start_row = height
@@ -460,29 +568,6 @@ pub(crate) fn print_footer(lines: &[&str]) {
         print!("\x1B[{};1H\x1B[2K{}", start_row + i as u16, line);
     }
     let _ = io::stdout().flush();
-}
-
-pub(crate) fn print_colored_tile(ch: char) {
-    match ch {
-        '@' => print!("{BOLD}{GREEN}@{RESET}"),
-        '#' => print!("{BRIGHT_BLACK}#{RESET}"),
-        '.' => print!("{DIM}.{RESET}"),
-        '>' => print!("{BOLD}{CYAN}>{RESET}"),
-        '$' => print!("{BOLD}{YELLOW}${RESET}"),
-        '*' => print!("{BOLD}{MAGENTA}*{RESET}"),
-        'r' => print!("{YELLOW}r{RESET}"),
-        's' => print!("{WHITE}s{RESET}"),
-        'c' => print!("{MAGENTA}c{RESET}"),
-        'b' => print!("{BLUE}b{RESET}"),
-        'g' => print!("{YELLOW}g{RESET}"),
-        'w' => print!("{CYAN}w{RESET}"),
-        'm' => print!("{RED}m{RESET}"),
-        'o' => print!("{BRIGHT_BLACK}o{RESET}"),
-        'E' => print!("{BOLD}{MAGENTA}E{RESET}"),
-        'B' => print!("{BOLD}{RED}B{RESET}"),
-        'T' => print!("{BOLD}{CYAN}T{RESET}"),
-        other => print!("{other}"),
-    }
 }
 
 pub(crate) fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {

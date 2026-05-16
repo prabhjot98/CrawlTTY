@@ -21,7 +21,6 @@ pub(crate) const BLUE: &str = "\x1b[34m";
 pub(crate) const MAGENTA: &str = "\x1b[35m";
 pub(crate) const CYAN: &str = "\x1b[36m";
 pub(crate) const WHITE: &str = "\x1b[37m";
-pub(crate) const BRIGHT_BLACK: &str = "\x1b[90m";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum DeathMode {

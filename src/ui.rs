@@ -1,66 +1,224 @@
 use crate::*;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
-pub(crate) fn print_town(c: &Character) {
-    println!("{BOLD}{CYAN}+--------------------------------------------------+{RESET}");
-    println!("{BOLD}{CYAN}| Town: Hollow's Rest                              |{RESET}");
-    println!("{BOLD}{CYAN}+--------------------------------------------------+{RESET}");
-    println!(
-        "{BOLD}{}{RESET} the {GREEN}{}{RESET}  {}  {}  {}",
-        c.name,
-        c.class_name,
-        level_text(c.level),
-        xp_text(c.xp, xp_required_for_next_level(c.level)),
-        gold_text(c.gold)
-    );
-    println!(
-        "{}  {}",
-        hp_text(c.hp, c.max_hp()),
-        mana_text(c.mana, c.max_mana())
-    );
-    println!(
-        "{}  {}  {}  {}  {}  {}",
-        strength_text(c.strength),
-        dexterity_text(c.dexterity),
-        intelligence_text(c.intelligence),
-        hit_text(c.hit_rating()),
-        dodge_text(c.dodge_rating()),
-        speed_text(c.speed())
-    );
-    println!(
-        "{}  {}",
-        unspent_attributes_text(c.unspent_attributes),
-        unspent_skills_text(c.unspent_skills)
-    );
-    println!(
-        "{BOLD}Weapon:{RESET} {}",
-        colored_item_name(&c.equipped_weapon)
-    );
-    println!(
-        "{BOLD}Armor :{RESET} {}",
-        colored_item_name(&c.equipped_armor)
-    );
-    println!(
-        "{BOLD}Shield:{RESET} {}",
-        colored_item_name(&c.equipped_shield)
-    );
+pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) {
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(4),
+    ])
+    .split(frame.area());
+
+    let title = Paragraph::new(Line::from(vec![
+        Span::styled(
+            "CrawlTTY",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("  Hollow's Rest"),
+    ]))
+    .block(Block::default().borders(Borders::ALL).title("Town"));
+    frame.render_widget(title, layout[0]);
+
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled(
+                c.name.clone(),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" the "),
+            Span::styled(c.class_name.clone(), Style::default().fg(Color::Green)),
+            Span::raw("  "),
+            stat_span(format!("Level {}", c.level), Color::Cyan),
+            Span::raw("  "),
+            stat_span(
+                format!("XP {}/{}", c.xp, xp_required_for_next_level(c.level)),
+                Color::Magenta,
+            ),
+            Span::raw("  "),
+            stat_span(format!("Gold {}", c.gold), Color::Yellow),
+        ]),
+        Line::from(vec![
+            stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
+            Span::raw("  "),
+            stat_span(format!("Mana {}/{}", c.mana, c.max_mana()), Color::Blue),
+        ]),
+        Line::from(vec![
+            stat_span(format!("STR {}", c.strength), Color::Red),
+            Span::raw("  "),
+            stat_span(format!("DEX {}", c.dexterity), Color::Green),
+            Span::raw("  "),
+            stat_span(format!("INT {}", c.intelligence), Color::Blue),
+            Span::raw("  "),
+            stat_span(format!("Hit {}", c.hit_rating()), Color::Cyan),
+            Span::raw("  "),
+            stat_span(format!("Dodge {}", c.dodge_rating()), Color::Green),
+            Span::raw("  "),
+            stat_span(format!("Speed {}", c.speed()), Color::Yellow),
+        ]),
+        Line::from(vec![
+            stat_span(
+                format!("Unspent attributes: {}", c.unspent_attributes),
+                Color::Cyan,
+            ),
+            Span::raw("  "),
+            stat_span(
+                format!("Unspent skills: {}", c.unspent_skills),
+                Color::Magenta,
+            ),
+        ]),
+        Line::from(""),
+        equipment_line("Weapon", &c.equipped_weapon),
+        equipment_line("Armor ", &c.equipped_armor),
+        equipment_line("Shield", &c.equipped_shield),
+        Line::from(""),
+        town_quest_line(c),
+    ];
+
+    if !town_message.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::styled(
+            strip_ansi_codes(town_message),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::styled(
+        "Town services: use the footer commands below to choose a service.",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+
+    let body = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(body, layout[1]);
+
+    let footer = Paragraph::new(vec![
+        command_line(
+            "Town",
+            &[
+                ("m", "merchant"),
+                ("b", "blacksmith"),
+                ("s", "stash"),
+                ("t", "quest"),
+                ("d", "dungeon"),
+            ],
+        ),
+        command_line(
+            "",
+            &[
+                ("i", "inventory"),
+                ("a", "attributes"),
+                ("k", "skill tree"),
+                ("q", "save+quit"),
+            ],
+        ),
+    ])
+    .block(Block::default().borders(Borders::ALL).title("Commands"));
+    frame.render_widget(footer, layout[2]);
+}
+
+pub(crate) fn strip_ansi_codes(text: &str) -> String {
+    let mut stripped = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for code_ch in chars.by_ref() {
+                if code_ch.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            stripped.push(ch);
+        }
+    }
+    stripped
+}
+
+pub(crate) fn rarity_color(rarity: &Rarity) -> Color {
+    match rarity {
+        Rarity::Common => Color::White,
+        Rarity::Magic => Color::Blue,
+        Rarity::Rare => Color::Yellow,
+    }
+}
+
+pub(crate) fn stat_span(text: impl Into<String>, color: Color) -> Span<'static> {
+    Span::styled(text.into(), Style::default().fg(color))
+}
+
+pub(crate) fn command_line(title: &str, commands: &[(&str, &str)]) -> Line<'static> {
+    let mut spans = Vec::new();
+    if !title.is_empty() {
+        spans.push(Span::styled(
+            format!("{title}: "),
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+    }
+    for (index, (key, label)) in commands.iter().enumerate() {
+        if index > 0 {
+            spans.push(Span::raw("  "));
+        }
+        let color = if *key == "q" {
+            Color::Red
+        } else {
+            Color::Green
+        };
+        spans.push(Span::styled(
+            (*key).to_string(),
+            Style::default().fg(color).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::raw(format!("={label}")));
+    }
+    Line::from(spans)
+}
+
+fn equipment_line(label: &str, item: &Item) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(
+            format!("{label}: "),
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            item.name.clone(),
+            Style::default().fg(rarity_color(&item.rarity)),
+        ),
+    ])
+}
+
+fn town_quest_line(c: &Character) -> Line<'static> {
     if c.act2_completed {
-        println!("{GREEN}Act II complete:{RESET} The Glass Wastes lie quiet under a cold dawn.");
+        Line::styled(
+            "Act II complete: The Glass Wastes lie quiet under a cold dawn.",
+            Style::default().fg(Color::Green),
+        )
     } else if c.glass_tyrant_defeated {
-        println!(
-            "{YELLOW}Quest ready to turn in:{RESET} Speak with Warden Mara ({GREEN}t{RESET}) about the Glass Tyrant."
-        );
+        Line::styled(
+            "Quest ready to turn in: Speak with Warden Mara (t) about the Glass Tyrant.",
+            Style::default().fg(Color::Yellow),
+        )
     } else if c.act1_completed {
-        println!(
-            "{CYAN}Act II:{RESET} Cross the Glass Wastes and shatter the Glass Tyrant on floor {FINAL_FLOOR}."
-        );
+        Line::styled(
+            format!(
+                "Act II: Cross the Glass Wastes and shatter the Glass Tyrant on floor {FINAL_FLOOR}."
+            ),
+            Style::default().fg(Color::Cyan),
+        )
     } else if c.bellkeeper_defeated {
-        println!(
-            "{YELLOW}Quest ready to turn in:{RESET} Speak with Warden Mara ({GREEN}t{RESET}) about the Bellkeeper."
-        );
+        Line::styled(
+            "Quest ready to turn in: Speak with Warden Mara (t) about the Bellkeeper.",
+            Style::default().fg(Color::Yellow),
+        )
     } else {
-        println!(
-            "Quest: Kill the Bellkeeper below the crypt. Speak with Warden Mara ({GREEN}t{RESET}) for details."
-        );
+        Line::from(
+            "Quest: Kill the Bellkeeper below the crypt. Speak with Warden Mara (t) for details.",
+        )
     }
 }
 
@@ -68,40 +226,13 @@ pub(crate) fn colored_stat(label: &str, value: impl std::fmt::Display, color: &s
     format!("{color}{label} {value}{RESET}")
 }
 
-pub(crate) fn strength_text(value: u32) -> String {
-    colored_stat("STR", value, RED)
-}
-
-pub(crate) fn dexterity_text(value: u32) -> String {
-    colored_stat("DEX", value, GREEN)
-}
-
-pub(crate) fn intelligence_text(value: u32) -> String {
-    colored_stat("INT", value, BLUE)
-}
-
-pub(crate) fn hp_text(current: u32, max: u32) -> String {
-    format!("{RED}HP {current}/{max}{RESET}")
-}
-
-pub(crate) fn mana_text(current: u32, max: u32) -> String {
-    format!("{BLUE}Mana {current}/{max}{RESET}")
-}
-
 pub(crate) fn gold_text(value: u32) -> String {
     format!("{YELLOW}Gold {value}{RESET}")
 }
 
+#[cfg(test)]
 pub(crate) fn xp_text(current: u32, needed: u32) -> String {
     format!("{MAGENTA}XP {current}/{needed}{RESET}")
-}
-
-pub(crate) fn level_text(value: u32) -> String {
-    format!("{CYAN}Level {value}{RESET}")
-}
-
-pub(crate) fn hit_text(value: u32) -> String {
-    colored_stat("Hit", value, CYAN)
 }
 
 pub(crate) fn dodge_text(value: u32) -> String {
@@ -114,10 +245,6 @@ pub(crate) fn speed_text(value: u32) -> String {
 
 pub(crate) fn armor_text(value: i32) -> String {
     colored_stat("Armor", value, WHITE)
-}
-
-pub(crate) fn unspent_attributes_text(value: u32) -> String {
-    format!("{CYAN}Unspent attributes: {value}{RESET}")
 }
 
 pub(crate) fn unspent_skills_text(value: u32) -> String {
