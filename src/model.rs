@@ -282,10 +282,6 @@ impl ItemGrid {
         self.items.iter()
     }
 
-    pub(crate) fn as_slice(&self) -> &[Item] {
-        &self.items
-    }
-
     #[allow(dead_code)]
     pub(crate) fn clear(&mut self) {
         self.items.clear();
