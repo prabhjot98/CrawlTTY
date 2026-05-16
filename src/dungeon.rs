@@ -400,23 +400,23 @@ fn warrior_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
 fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
     vec![
         Line::from(format!(
-            "Energy {}/{} | CP {}/{} | 1 Backstab r{}: cost 25 Energy. Build +1 CP.",
-            c.current_resource(),
-            c.max_resource(),
-            c.rogue.combo_points,
-            ROGUE_MAX_COMBO_POINTS,
+            "Rogue: Energy {}/{}  CP {}/{}",
+            c.rogue.energy, ROGUE_MAX_ENERGY, c.rogue.combo_points, ROGUE_MAX_COMBO_POINTS
+        )),
+        Line::from(format!(
+            "1 Backstab r{}: cost 25 Energy. Build 1 CP; empowered after movement, smoke, or poison.",
             c.rogue.backstab_rank
         )),
         Line::from(format!(
-            "2 Venom Edge r{}: cost 30 Energy. Poison and build +1 CP.",
+            "2 Venom Edge r{}: cost 30 Energy. Build 1 CP and poison for 3 turns.",
             c.rogue.venom_edge_rank
         )),
         Line::from(format!(
-            "3 Eviscerate r{}: cost 35 Energy, spend CP for heavy burst.",
+            "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage.",
             c.rogue.eviscerate_rank
         )),
         Line::from(format!(
-            "4 Smoke Step r{}: cost 25 Energy, cd 4. Dash, gain protection, empower Backstab. Ready in {}.",
+            "4 Smoke Step r{}: cost 35 Energy, cd 4. Dash 2 tiles. Ready in {}.",
             c.rogue.smoke_step_rank, c.rogue.smoke_step_cooldown
         )),
     ]
@@ -540,11 +540,15 @@ pub(crate) fn handle_class_skill_key(c: &mut Character, key: char) -> bool {
         (CharacterClass::Rogue, '3') => use_eviscerate(c),
         (CharacterClass::Rogue, '4') => use_smoke_step(c),
         _ => {
-            if let Some(d) = c.active_dungeon.as_mut() {
-                log_event(&mut d.log, LogKind::Warn, "Unknown class skill.");
-            }
+            log_unknown_class_skill(c);
             false
         }
+    }
+}
+
+fn log_unknown_class_skill(c: &mut Character) {
+    if let Some(d) = c.active_dungeon.as_mut() {
+        log_event(&mut d.log, LogKind::Warn, "Unknown class skill.");
     }
 }
 

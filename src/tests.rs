@@ -141,7 +141,6 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
         DeathMode::Softcore,
     );
     rogue.rogue.energy = 45;
-    rogue.rogue.combo_points = 3;
     rogue.rogue.smoke_step_cooldown = 2;
 
     let rendered = dungeon_skill_help_lines(&rogue)
@@ -150,12 +149,15 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(rendered.contains("Energy 45/100"));
-    assert!(rendered.contains("CP 3/5"));
-    assert!(rendered.contains("1 Backstab"));
-    assert!(rendered.contains("2 Venom Edge"));
-    assert!(rendered.contains("3 Eviscerate"));
-    assert!(rendered.contains("4 Smoke Step"));
+    assert!(rendered.contains("Rogue: Energy 45/100  CP 0/5"));
+    assert!(rendered.contains(
+        "1 Backstab r1: cost 25 Energy. Build 1 CP; empowered after movement, smoke, or poison."
+    ));
+    assert!(
+        rendered.contains("2 Venom Edge r1: cost 30 Energy. Build 1 CP and poison for 3 turns.")
+    );
+    assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage."));
+    assert!(rendered.contains("4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles. Ready in 2."));
 }
 
 #[test]
