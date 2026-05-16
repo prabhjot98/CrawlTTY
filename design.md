@@ -451,23 +451,33 @@ Loot should support build experimentation. A weapon that adds fire damage should
 
 ## Inventory
 
-The inventory should be **list-based**, not grid-based.
+The inventory should be **grid-based** while avoiding a manual packing puzzle.
 
-Recommended first version:
+Current direction:
 
-- Simple scrollable list of carried items.
-- Item categories: weapons, armor, jewelry, consumables, crafting materials, quest items.
-- Weight or slot limit.
-- Equipment screen.
-- Compare item to currently equipped item.
-- Sort by type, rarity, value, or newest.
+- The player bag is a ratatui grid screen with a cursor-selectable cell grid on the left and selected item details on the right.
+- Every item occupies exactly one cell.
+- The bag auto-compacts after pickups, drops, equips, selling, salvaging, stash transfers, and item use.
+- Empty cells remain visible so capacity is clear.
+- The player bag starts at `4 x 4` and caps at `8 x 8`.
+- Bag expansion comes from Quartermaster town projects, including the Storehouse Shelves project line.
+- The stash is also a grid, starts at `8 x 8`, and uses the same selected-item detail panel pattern.
+- Future storage expansion beyond the first `8 x 8` bag should use tabs rather than one larger grid.
+- Ratatui should be used for inventory, stash, and ground-loot picker screens whenever possible. If a new inventory-adjacent screen cannot use ratatui, the implementation should explain the blocker before using a legacy ANSI fallback.
+
+Recommended features:
+
+- Cursor movement through cells with WASD and arrow keys.
+- Equipment slots: weapon, off-hand, helm, armor, gloves, boots, belt, amulet, rings.
+- Compare selected gear to currently equipped gear in the side panel.
+- Sort by type, rarity, level, or value.
 - Mark items as favorite to avoid selling them by mistake.
 
-Possible advanced version:
+Later expansion:
 
-- Stash in town.
-- Shared stash between characters.
+- Inventory and stash tabs.
 - Search/filter by stat, rarity, or item type.
+- Optional grid views for vendor, salvage, and socket-management screens after the core bag and stash grids are stable.
 
 ## World Structure
 
@@ -867,6 +877,7 @@ Save data should include:
 - Current act and quest state
 - Current dungeon seed or map state
 - Gold and stash
+- Ground items in the active dungeon
 
 Recommended format:
 
@@ -880,6 +891,7 @@ MVP save/load behavior:
 - Load the latest save automatically on startup if one exists.
 - Save active dungeon state, including map, enemies, items on the ground, player position, HP, mana, cooldowns, inventory, equipment, gold, XP, and quest progress.
 - If the player leaves or abandons the dungeon from town, clear the active dungeon state so the next dungeon entry generates a fresh dungeon.
+- The inventory grid rework may break older save files. During development, existing local saves can be deleted or reset instead of migrated.
 
 ## Minimum Viable Product
 
@@ -990,14 +1002,14 @@ Other MVP items:
 
 ### MVP Equipment Interaction
 
-The inventory screen should show currently equipped weapon, armor, and shield. Pressing an item number equips weapons, armor, or shields and swaps the old equipped item back into inventory. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed.
+The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory when capacity allows. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
 
 Loot should feel rewarding:
 
 - Enemies have a chance to drop equipment or potions.
 - Enemy health and damage are doubled across the board and scale up by floor, reaching roughly 4x base values on floor 10.
 - XP and gold rewards scale up by floor, reaching roughly double values on floor 10.
-- Chests always drop gold and an item.
+- Chests always drop gold and an item. Gold is always collected; if the bag is full, the item remains as ground loot on the chest tile.
 - Bellkeeper drops guaranteed better loot.
 - Items can be Common, Magic, or Rare.
 - Magic and Rare loot has better stats and value.
@@ -1117,7 +1129,7 @@ design.md
 - Turn order uses a simple speed/energy system.
 - Display is ASCII only.
 - Movement is cardinal only; no diagonal movement.
-- Inventory is list-based.
+- Inventory is grid-based with one-cell items, auto-compaction, and ratatui screens.
 - Skills use both mana costs and cooldowns.
 - The game starts in a safe town hub.
 - The first dungeon has 10 floors and ends with the Bellkeeper boss.
