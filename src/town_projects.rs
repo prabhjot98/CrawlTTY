@@ -36,7 +36,7 @@ pub(crate) const TOWN_PROJECTS: &[TownProjectDefinition] = &[
         group: "Smith",
         name: "Socket Bench",
         cost: 600,
-        benefit: "Unlock socket infrastructure for future gem and rune systems.",
+        benefit: "Unlock free gem insertion, removal, and replacement.",
     },
     TownProjectDefinition {
         project: TownProject::StorehouseShelves,

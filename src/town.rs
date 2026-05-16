@@ -108,6 +108,7 @@ pub(crate) fn blacksmith(c: &mut Character) {
         "Sharpen equipped weapon",
         "Reinforce equipped armor",
         "Brace equipped shield",
+        "Manage sockets",
     ];
     loop {
         clamp_selection(&mut selected, options.len());
@@ -167,6 +168,14 @@ pub(crate) fn blacksmith(c: &mut Character) {
                 3 => {
                     message = upgrade_equipped_message(c, UpgradeSlot::Shield);
                     append_autosave_status(c, &mut message);
+                }
+                4 => {
+                    if has_completed_project(c, TownProject::SocketBench) {
+                        socket_bench_screen(c);
+                    } else {
+                        message =
+                            "Complete the Socket Bench project before socketing gems.".to_string();
+                    }
                 }
                 _ => {}
             },
@@ -416,6 +425,523 @@ pub(crate) fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
         ItemKind::Armor => c.armor_shards = c.armor_shards.saturating_sub(amount),
         ItemKind::Shield => c.shield_shards = c.shield_shards.saturating_sub(amount),
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
+    }
+}
+
+pub(crate) fn insert_gem_into_equipped(
+    c: &mut Character,
+    slot: UpgradeSlot,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    insert_gem_into_target(
+        c,
+        SocketBenchTarget::Equipped(slot),
+        socket_index,
+        inventory_index,
+    )
+}
+
+pub(crate) fn remove_gem_from_equipped(
+    c: &mut Character,
+    slot: UpgradeSlot,
+    socket_index: usize,
+) -> String {
+    remove_gem_from_target(c, SocketBenchTarget::Equipped(slot), socket_index)
+}
+
+pub(crate) fn replace_gem_in_equipped(
+    c: &mut Character,
+    slot: UpgradeSlot,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    replace_gem_in_target(
+        c,
+        SocketBenchTarget::Equipped(slot),
+        socket_index,
+        inventory_index,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum SocketBenchTarget {
+    Equipped(UpgradeSlot),
+    Inventory(usize),
+}
+
+fn insert_gem_into_target(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    if !has_completed_project(c, TownProject::SocketBench) {
+        return "Complete the Socket Bench project before socketing gems.".to_string();
+    }
+    let Some(socket) = target_socket(c, target, socket_index) else {
+        return "No socket selected.".to_string();
+    };
+    if socket.is_some() {
+        return "That socket is already filled.".to_string();
+    }
+    let Ok((gem_kind, gem_tier)) = gem_metadata_from_inventory(c, inventory_index) else {
+        return gem_inventory_error(c, inventory_index).to_string();
+    };
+    let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
+    c.inventory.remove(inventory_index);
+    let adjusted_target = adjust_target_after_inventory_remove(target, inventory_index);
+    if let Some(socket) = target_socket_mut(c, adjusted_target, socket_index) {
+        *socket = Some(GemSocket::filled(gem_kind, gem_tier));
+    }
+    clamp_resources_to_current_max(c);
+    format!(
+        "Inserted {} into {}.",
+        gem_socket_name(GemSocket::filled(gem_kind, gem_tier)),
+        item_name
+    )
+}
+
+fn remove_gem_from_target(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+) -> String {
+    if !has_completed_project(c, TownProject::SocketBench) {
+        return "Complete the Socket Bench project before socketing gems.".to_string();
+    }
+    let Some(socket) = target_socket(c, target, socket_index) else {
+        return "No socket selected.".to_string();
+    };
+    let Some(gem_socket) = socket else {
+        return "That socket is already empty.".to_string();
+    };
+    let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
+    if let Some(socket) = target_socket_mut(c, target, socket_index) {
+        *socket = None;
+    }
+    c.inventory
+        .push(gem_item(gem_socket.gem_kind, gem_socket.gem_tier));
+    clamp_resources_to_current_max(c);
+    format!(
+        "Removed {} from {}.",
+        gem_socket_name(gem_socket),
+        item_name
+    )
+}
+
+fn replace_gem_in_target(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    if !has_completed_project(c, TownProject::SocketBench) {
+        return "Complete the Socket Bench project before socketing gems.".to_string();
+    }
+    let Some(socket) = target_socket(c, target, socket_index) else {
+        return "No socket selected.".to_string();
+    };
+    let Some(old_gem) = socket else {
+        return "That socket is already empty.".to_string();
+    };
+    let Ok((new_kind, new_tier)) = gem_metadata_from_inventory(c, inventory_index) else {
+        return gem_inventory_error(c, inventory_index).to_string();
+    };
+    let item_name = target_item_name(c, target).unwrap_or_else(|| "item".to_string());
+    c.inventory.remove(inventory_index);
+    c.inventory
+        .push(gem_item(old_gem.gem_kind, old_gem.gem_tier));
+    let adjusted_target = adjust_target_after_inventory_remove(target, inventory_index);
+    if let Some(socket) = target_socket_mut(c, adjusted_target, socket_index) {
+        *socket = Some(GemSocket::filled(new_kind, new_tier));
+    }
+    clamp_resources_to_current_max(c);
+    format!(
+        "Replaced {} with {} in {}.",
+        gem_socket_name(old_gem),
+        gem_socket_name(GemSocket::filled(new_kind, new_tier)),
+        item_name
+    )
+}
+
+fn target_item(c: &Character, target: SocketBenchTarget) -> Option<&Item> {
+    match target {
+        SocketBenchTarget::Equipped(slot) => Some(equipped_item(c, slot)),
+        SocketBenchTarget::Inventory(index) => c.inventory.get(index),
+    }
+}
+
+fn target_item_mut(c: &mut Character, target: SocketBenchTarget) -> Option<&mut Item> {
+    match target {
+        SocketBenchTarget::Equipped(slot) => Some(equipped_item_mut(c, slot)),
+        SocketBenchTarget::Inventory(index) => c.inventory.get_mut(index),
+    }
+}
+
+fn target_socket(
+    c: &Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+) -> Option<Option<GemSocket>> {
+    target_item(c, target)?.sockets.get(socket_index).copied()
+}
+
+fn target_socket_mut(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+) -> Option<&mut Option<GemSocket>> {
+    target_item_mut(c, target)?.sockets.get_mut(socket_index)
+}
+
+fn target_item_name(c: &Character, target: SocketBenchTarget) -> Option<String> {
+    Some(target_item(c, target)?.name.clone())
+}
+
+fn adjust_target_after_inventory_remove(
+    target: SocketBenchTarget,
+    removed_index: usize,
+) -> SocketBenchTarget {
+    match target {
+        SocketBenchTarget::Inventory(index) if removed_index < index => {
+            SocketBenchTarget::Inventory(index - 1)
+        }
+        _ => target,
+    }
+}
+
+fn gem_metadata_from_inventory(
+    c: &Character,
+    inventory_index: usize,
+) -> Result<(GemKind, GemTier), &'static str> {
+    let Some(item) = c.inventory.get(inventory_index) else {
+        return Err("Select a gem from inventory.");
+    };
+    if !matches!(item.kind, ItemKind::Gem) {
+        return Err("Select a gem from inventory.");
+    }
+    match (item.gem_kind, item.gem_tier) {
+        (Some(kind), Some(tier)) => Ok((kind, tier)),
+        _ => Err("Select a valid gem from inventory."),
+    }
+}
+
+fn gem_inventory_error(c: &Character, inventory_index: usize) -> &'static str {
+    gem_metadata_from_inventory(c, inventory_index).unwrap_err()
+}
+
+fn gem_socket_name(socket: GemSocket) -> String {
+    format!(
+        "{} {}",
+        gem_tier_name(socket.gem_tier),
+        gem_kind_name(socket.gem_kind)
+    )
+}
+
+fn socket_text(socket: Option<GemSocket>) -> String {
+    match socket {
+        Some(socket) => gem_socket_name(socket),
+        None => "Empty".to_string(),
+    }
+}
+
+fn clamp_resources_to_current_max(c: &mut Character) {
+    c.hp = c.hp.min(c.max_hp());
+    c.mana = c.mana.min(c.max_mana());
+}
+
+fn socketed_targets(c: &Character) -> Vec<SocketBenchTarget> {
+    let mut targets = Vec::new();
+    if !c.equipped_weapon.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Weapon));
+    }
+    if !c.equipped_armor.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Armor));
+    }
+    if !c.equipped_shield.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Shield));
+    }
+    targets.extend(
+        c.inventory
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| !item.sockets.is_empty())
+            .map(|(index, _)| SocketBenchTarget::Inventory(index)),
+    );
+    targets
+}
+
+fn target_label(target: SocketBenchTarget) -> &'static str {
+    match target {
+        SocketBenchTarget::Equipped(UpgradeSlot::Weapon) => "Equipped weapon",
+        SocketBenchTarget::Equipped(UpgradeSlot::Armor) => "Equipped armor",
+        SocketBenchTarget::Equipped(UpgradeSlot::Shield) => "Equipped shield",
+        SocketBenchTarget::Inventory(_) => "Carried gear",
+    }
+}
+
+pub(crate) fn socket_bench_screen(c: &mut Character) {
+    if !has_completed_project(c, TownProject::SocketBench) {
+        append_pending_town_message(
+            c,
+            "Complete the Socket Bench project before socketing gems.",
+        );
+        return;
+    }
+
+    let mut selected_item = 0usize;
+    let mut selected_socket = 0usize;
+    let mut message = String::new();
+    loop {
+        let targets = socketed_targets(c);
+        clamp_selection(&mut selected_item, targets.len());
+        if let Some(target) = targets.get(selected_item).copied() {
+            let socket_count = target_item(c, target)
+                .map(|item| item.sockets.len())
+                .unwrap_or_default();
+            clamp_selection(&mut selected_socket, socket_count);
+        } else {
+            selected_socket = 0;
+        }
+
+        clear_screen();
+        println!("{BOLD}{WHITE}Socket Bench{RESET}");
+        println!("Free gem insertion, removal, and replacement.");
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        println!();
+
+        if targets.is_empty() {
+            println!("No equipped or carried socketed gear.");
+        } else {
+            println!("{BOLD}Socketed Gear{RESET}");
+            for (i, target) in targets.iter().copied().enumerate() {
+                let marker = if i == selected_item {
+                    format!("{GREEN}>{RESET}")
+                } else {
+                    " ".to_string()
+                };
+                if let Some(item) = target_item(c, target) {
+                    println!("{marker} {}: {}", target_label(target), item.name);
+                }
+            }
+            println!();
+            if let Some(target) = targets.get(selected_item).copied() {
+                if let Some(item) = target_item(c, target) {
+                    println!("{BOLD}Sockets: {}{RESET}", item.name);
+                    for (i, socket) in item.sockets.iter().copied().enumerate() {
+                        let marker = if i == selected_socket {
+                            format!("{GREEN}>{RESET}")
+                        } else {
+                            " ".to_string()
+                        };
+                        println!("{marker} {}. {}", i + 1, socket_text(socket));
+                    }
+                }
+            }
+        }
+
+        print_footer(&[&format!(
+            "{BOLD}Sockets:{RESET} {GREEN}↑/↓ or w/s{RESET}=gear  {GREEN}←/→ or a/d{RESET}=socket  {YELLOW}Enter{RESET}=manage  {RED}Esc{RESET}=back"
+        )]);
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            break;
+        };
+        match key {
+            '\u{1b}' => break,
+            'w' | 'W' => selected_item = selected_item.saturating_sub(1),
+            's' | 'S' => {
+                if selected_item + 1 < targets.len() {
+                    selected_item += 1;
+                    selected_socket = 0;
+                }
+            }
+            'a' | 'A' => selected_socket = selected_socket.saturating_sub(1),
+            'd' | 'D' => {
+                if let Some(target) = targets.get(selected_item).copied() {
+                    let socket_count = target_item(c, target)
+                        .map(|item| item.sockets.len())
+                        .unwrap_or_default();
+                    if selected_socket + 1 < socket_count {
+                        selected_socket += 1;
+                    }
+                }
+            }
+            '\n' => {
+                if let Some(target) = targets.get(selected_item).copied() {
+                    match target_socket(c, target, selected_socket).flatten() {
+                        Some(_) => {
+                            message = filled_socket_action_screen(c, target, selected_socket);
+                            append_autosave_status(c, &mut message);
+                        }
+                        None => {
+                            if let Some(gem_index) = gem_picker_screen(c) {
+                                message = insert_gem_from_socket_bench(
+                                    c,
+                                    target,
+                                    selected_socket,
+                                    gem_index,
+                                );
+                                append_autosave_status(c, &mut message);
+                            }
+                        }
+                    }
+                } else {
+                    message = "No socket selected.".to_string();
+                }
+            }
+            _ => message = "Unknown socket bench command.".to_string(),
+        }
+    }
+}
+
+fn filled_socket_action_screen(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+) -> String {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    let options = ["Remove gem", "Replace gem"];
+    loop {
+        clamp_selection(&mut selected, options.len());
+        clear_screen();
+        println!("{BOLD}{WHITE}Filled Socket{RESET}");
+        if let Some(socket) = target_socket(c, target, socket_index).flatten() {
+            println!("Selected: {}", gem_socket_name(socket));
+        }
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        println!();
+        for (i, option) in options.iter().enumerate() {
+            let marker = if i == selected {
+                format!("{GREEN}>{RESET}")
+            } else {
+                " ".to_string()
+            };
+            println!("{marker} {option}");
+        }
+        print_footer(&[&format!(
+            "{BOLD}Socket:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
+        )]);
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            return String::new();
+        };
+        match key {
+            '\u{1b}' => return String::new(),
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < options.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => match selected {
+                0 => return remove_gem_from_socket_bench(c, target, socket_index),
+                1 => {
+                    if let Some(gem_index) = gem_picker_screen(c) {
+                        return replace_gem_from_socket_bench(c, target, socket_index, gem_index);
+                    }
+                }
+                _ => {}
+            },
+            _ => message = "Unknown socket command.".to_string(),
+        }
+    }
+}
+
+fn insert_gem_from_socket_bench(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    match target {
+        SocketBenchTarget::Equipped(slot) => {
+            insert_gem_into_equipped(c, slot, socket_index, inventory_index)
+        }
+        SocketBenchTarget::Inventory(_) => {
+            insert_gem_into_target(c, target, socket_index, inventory_index)
+        }
+    }
+}
+
+fn remove_gem_from_socket_bench(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+) -> String {
+    match target {
+        SocketBenchTarget::Equipped(slot) => remove_gem_from_equipped(c, slot, socket_index),
+        SocketBenchTarget::Inventory(_) => remove_gem_from_target(c, target, socket_index),
+    }
+}
+
+fn replace_gem_from_socket_bench(
+    c: &mut Character,
+    target: SocketBenchTarget,
+    socket_index: usize,
+    inventory_index: usize,
+) -> String {
+    match target {
+        SocketBenchTarget::Equipped(slot) => {
+            replace_gem_in_equipped(c, slot, socket_index, inventory_index)
+        }
+        SocketBenchTarget::Inventory(_) => {
+            replace_gem_in_target(c, target, socket_index, inventory_index)
+        }
+    }
+}
+
+fn gem_picker_screen(c: &Character) -> Option<usize> {
+    let gems: Vec<usize> = c
+        .inventory
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| matches!(item.kind, ItemKind::Gem))
+        .map(|(index, _)| index)
+        .collect();
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        clamp_selection(&mut selected, gems.len());
+        clear_screen();
+        println!("{BOLD}{WHITE}Select Gem{RESET}");
+        if !message.is_empty() {
+            println!("{YELLOW}{message}{RESET}");
+        }
+        println!();
+        if gems.is_empty() {
+            println!("No gems in inventory.");
+        } else {
+            for (i, inventory_index) in gems.iter().copied().enumerate() {
+                let marker = if i == selected {
+                    format!("{GREEN}>{RESET}")
+                } else {
+                    " ".to_string()
+                };
+                println!("{marker} {}", item_summary(&c.inventory[inventory_index]));
+            }
+        }
+        print_footer(&[&format!(
+            "{BOLD}Gems:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {YELLOW}Enter{RESET}=choose  {RED}Esc{RESET}=back"
+        )]);
+        let Some(key) = read_key_char_nav_or_message(&mut message) else {
+            return None;
+        };
+        match key {
+            '\u{1b}' => return None,
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < gems.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => return gems.get(selected).copied(),
+            _ => message = "Unknown gem command.".to_string(),
+        }
     }
 }
 

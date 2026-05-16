@@ -242,6 +242,86 @@ fn opal_socket_bonus_increases_variable_gold_drops() {
 }
 
 #[test]
+fn socket_bench_requires_completed_project() {
+    let mut c = test_character();
+    c.equipped_weapon.sockets = vec![None];
+    c.inventory.push(gem_item(GemKind::Ruby, GemTier::Chipped));
+
+    assert_eq!(
+        insert_gem_into_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
+        "Complete the Socket Bench project before socketing gems."
+    );
+}
+
+#[test]
+fn socket_bench_inserts_removes_and_replaces_gems_for_free() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::SocketBench);
+    c.equipped_weapon.sockets = vec![None];
+    c.inventory.clear();
+    c.inventory.push(gem_item(GemKind::Ruby, GemTier::Chipped));
+    c.inventory.push(gem_item(GemKind::Topaz, GemTier::Flawed));
+
+    assert_eq!(
+        insert_gem_into_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
+        "Inserted Chipped Ruby into Rusted Sword (3-5 dmg, STR F, DEX F)."
+    );
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(
+        c.equipped_weapon.sockets[0],
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped))
+    );
+
+    assert_eq!(
+        replace_gem_in_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
+        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg, STR F, DEX F)."
+    );
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(c.inventory[0].gem_kind, Some(GemKind::Ruby));
+    assert_eq!(
+        c.equipped_weapon.sockets[0],
+        Some(GemSocket::filled(GemKind::Topaz, GemTier::Flawed))
+    );
+
+    assert_eq!(
+        remove_gem_from_equipped(&mut c, UpgradeSlot::Weapon, 0),
+        "Removed Flawed Topaz from Rusted Sword (3-5 dmg, STR F, DEX F)."
+    );
+    assert_eq!(c.inventory.len(), 2);
+    assert!(c.equipped_weapon.sockets[0].is_none());
+}
+
+#[test]
+fn removing_hp_or_mana_gem_clamps_current_resources() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::SocketBench);
+    c.equipped_armor.sockets = vec![Some(GemSocket::filled(GemKind::Ruby, GemTier::Pristine))];
+    c.hp = c.max_hp();
+
+    remove_gem_from_equipped(&mut c, UpgradeSlot::Armor, 0);
+
+    assert_eq!(c.hp, c.max_hp());
+}
+
+#[test]
+fn socket_bench_rejects_gem_items_with_incomplete_metadata() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::SocketBench);
+    c.equipped_weapon.sockets = vec![None];
+    c.inventory.clear();
+    let mut gem = gem_item(GemKind::Ruby, GemTier::Chipped);
+    gem.gem_tier = None;
+    c.inventory.push(gem);
+
+    assert_eq!(
+        insert_gem_into_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
+        "Select a valid gem from inventory."
+    );
+    assert!(c.equipped_weapon.sockets[0].is_none());
+    assert_eq!(c.inventory.len(), 1);
+}
+
+#[test]
 fn new_character_has_no_completed_town_projects() {
     let c = test_character();
 
