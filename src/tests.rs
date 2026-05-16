@@ -336,6 +336,72 @@ fn eviscerate_requires_and_spends_combo_points() {
 }
 
 #[test]
+fn rogue_skills_spend_energy_on_valid_targets() {
+    let mut backstabber = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    backstabber.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+    assert!(use_backstab(&mut backstabber));
+    assert_eq!(backstabber.rogue.energy, ROGUE_MAX_ENERGY - 25);
+
+    let mut venom = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    venom.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+    assert!(use_venom_edge(&mut venom));
+    assert_eq!(venom.rogue.energy, ROGUE_MAX_ENERGY - 30);
+
+    let mut finisher = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    finisher.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+    finisher.rogue.combo_points = 3;
+    assert!(use_eviscerate(&mut finisher));
+    assert_eq!(finisher.rogue.energy, ROGUE_MAX_ENERGY - 35);
+}
+
+#[test]
+fn rogue_skills_refund_energy_without_adjacent_target() {
+    let mut backstabber = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    backstabber.rogue.energy = 40;
+    backstabber.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    assert!(!use_backstab(&mut backstabber));
+    assert_eq!(backstabber.rogue.energy, 40);
+
+    let mut venom = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    venom.rogue.energy = 40;
+    venom.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    assert!(!use_venom_edge(&mut venom));
+    assert_eq!(venom.rogue.energy, 40);
+
+    let mut finisher = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    finisher.rogue.energy = 40;
+    finisher.rogue.combo_points = 3;
+    finisher.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    assert!(!use_eviscerate(&mut finisher));
+    assert_eq!(finisher.rogue.energy, 40);
+    assert_eq!(finisher.rogue.combo_points, 3);
+}
+
+#[test]
 fn venom_edge_applies_poison_and_grants_combo_point() {
     let enemy = armored_training_dummy(3, 2);
     let mut c = Character::new(
@@ -351,6 +417,44 @@ fn venom_edge_applies_poison_and_grants_combo_point() {
     assert_eq!(c.rogue.combo_points, 1);
     assert_eq!(d.enemies[0].poison_turns, 3);
     assert!(d.enemies[0].poison_damage > 0);
+}
+
+#[test]
+fn poison_tick_damages_decrements_and_awards_rewards() {
+    let mut enemy = enemy(
+        "Poison Tick Dummy",
+        'p',
+        12,
+        12,
+        enemy_stats(3, 0, 0, 0, 10),
+        enemy_rewards(10, 1, 1),
+        false,
+    );
+    enemy.hp = 2;
+    enemy.max_hp = 2;
+    enemy.poison_turns = 2;
+    enemy.poison_damage = 1;
+
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    enemy_turns(&mut c);
+    {
+        let d = c.active_dungeon.as_ref().unwrap();
+        assert_eq!(d.enemies[0].hp, 1);
+        assert_eq!(d.enemies[0].poison_turns, 1);
+    }
+    assert_eq!(c.xp, 0);
+
+    enemy_turns(&mut c);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(living_monster_count(d), 0);
+    assert!(c.xp >= 10);
 }
 
 #[test]
