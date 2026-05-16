@@ -477,7 +477,9 @@ fn town_service_screens_render_with_ratatui() {
         .unwrap();
     let merchant = backend_text(&terminal);
     assert!(merchant.contains("Merchant"));
-    assert!(merchant.contains("> Sell items"));
+    assert!(merchant.contains("> Buy Lesser Health Potion - 50 gold"));
+    assert!(merchant.contains("Buy Lesser Mana Potion - 100 gold"));
+    assert!(merchant.contains("Sell items"));
 
     terminal
         .draw(|frame| render_blacksmith_screen(frame, &c, 4, ""))
@@ -499,6 +501,56 @@ fn town_service_screens_render_with_ratatui() {
     let attributes = backend_text(&terminal);
     assert!(attributes.contains("Spend Attributes"));
     assert!(attributes.contains("Strength"));
+}
+
+#[test]
+fn merchant_sells_lesser_health_and_mana_potions() {
+    let mut c = test_character();
+    c.gold = HEALTH_POTION_COST + MANA_POTION_COST;
+    let starting_inventory = c.inventory.len();
+
+    let message = buy_merchant_offer(&mut c, MerchantOffer::LesserHealthPotion);
+
+    assert_eq!(message, "Bought Lesser Health Potion for 50 gold.");
+    assert_eq!(c.gold, MANA_POTION_COST);
+    assert_eq!(c.inventory.len(), starting_inventory + 1);
+    assert!(matches!(
+        c.inventory.items.last().map(|item| item.kind),
+        Some(ItemKind::HealthPotion)
+    ));
+
+    let message = buy_merchant_offer(&mut c, MerchantOffer::LesserManaPotion);
+
+    assert_eq!(message, "Bought Lesser Mana Potion for 100 gold.");
+    assert_eq!(c.gold, 0);
+    assert_eq!(c.inventory.len(), starting_inventory + 2);
+    assert!(matches!(
+        c.inventory.items.last().map(|item| item.kind),
+        Some(ItemKind::ManaPotion)
+    ));
+}
+
+#[test]
+fn merchant_purchase_failures_do_not_spend_gold() {
+    let mut c = test_character();
+    c.gold = HEALTH_POTION_COST - 1;
+    let starting_inventory = c.inventory.len();
+
+    let message = buy_merchant_offer(&mut c, MerchantOffer::LesserHealthPotion);
+
+    assert_eq!(message, "Need 50 gold to buy Lesser Health Potion.");
+    assert_eq!(c.gold, HEALTH_POTION_COST - 1);
+    assert_eq!(c.inventory.len(), starting_inventory);
+
+    c.gold = MANA_POTION_COST;
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+
+    let message = buy_merchant_offer(&mut c, MerchantOffer::LesserManaPotion);
+
+    assert_eq!(message, "No room in inventory.");
+    assert_eq!(c.gold, MANA_POTION_COST);
+    assert_eq!(c.inventory.len(), 1);
+    assert!(matches!(c.inventory[0].kind, ItemKind::HealthPotion));
 }
 
 #[test]

@@ -119,7 +119,7 @@ fn selected_numbered_line(selected: bool, index: usize, text: impl Into<String>)
 pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
-    let options = ["Sell items"];
+    let options = merchant_actions();
     loop {
         clamp_selection(&mut selected, options.len());
         terminal
@@ -138,15 +138,89 @@ pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTermina
                     selected += 1;
                 }
             }
-            '\n' => {
-                if selected == 0 {
+            '\n' => match options[selected] {
+                MerchantAction::Buy(offer) => {
+                    let before_gold = c.gold;
+                    message = buy_merchant_offer(c, offer);
+                    if c.gold != before_gold {
+                        append_autosave_status(c, &mut message);
+                    }
+                }
+                MerchantAction::SellItems => {
                     sell_item_screen(c, terminal)?;
                 }
-            }
+            },
             _ => message = "Unknown merchant command.".to_string(),
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum MerchantAction {
+    Buy(MerchantOffer),
+    SellItems,
+}
+
+impl MerchantAction {
+    fn label(self) -> String {
+        match self {
+            MerchantAction::Buy(offer) => format!("Buy {} - {} gold", offer.name(), offer.cost()),
+            MerchantAction::SellItems => "Sell items".to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum MerchantOffer {
+    LesserHealthPotion,
+    LesserManaPotion,
+}
+
+impl MerchantOffer {
+    fn name(self) -> &'static str {
+        match self {
+            MerchantOffer::LesserHealthPotion => "Lesser Health Potion",
+            MerchantOffer::LesserManaPotion => "Lesser Mana Potion",
+        }
+    }
+
+    fn cost(self) -> u32 {
+        match self {
+            MerchantOffer::LesserHealthPotion => HEALTH_POTION_COST,
+            MerchantOffer::LesserManaPotion => MANA_POTION_COST,
+        }
+    }
+
+    fn item(self) -> Item {
+        match self {
+            MerchantOffer::LesserHealthPotion => health_potion(),
+            MerchantOffer::LesserManaPotion => mana_potion(),
+        }
+    }
+}
+
+fn merchant_actions() -> [MerchantAction; 3] {
+    [
+        MerchantAction::Buy(MerchantOffer::LesserHealthPotion),
+        MerchantAction::Buy(MerchantOffer::LesserManaPotion),
+        MerchantAction::SellItems,
+    ]
+}
+
+pub(crate) fn buy_merchant_offer(c: &mut Character, offer: MerchantOffer) -> String {
+    if c.gold < offer.cost() {
+        return format!("Need {} gold to buy {}.", offer.cost(), offer.name());
+    }
+    if !c.inventory.has_space() {
+        return "No room in inventory.".to_string();
+    }
+
+    c.gold -= offer.cost();
+    let item = offer.item();
+    let item_name = offer.name();
+    let _ = c.inventory.push(item);
+    format!("Bought {item_name} for {} gold.", offer.cost())
 }
 
 pub(crate) fn render_merchant_screen(
@@ -155,7 +229,7 @@ pub(crate) fn render_merchant_screen(
     selected: usize,
     message: &str,
 ) {
-    let options = ["Sell items"];
+    let options = merchant_actions();
     let mut lines = vec![
         plain_line(format!(
             "Merchant - {}",
@@ -169,7 +243,7 @@ pub(crate) fn render_merchant_screen(
         options
             .iter()
             .enumerate()
-            .map(|(i, option)| selected_line(i == selected, *option)),
+            .map(|(i, option)| selected_line(i == selected, option.label())),
     );
     lines.push(Line::from(""));
     lines.push(Line::styled(
