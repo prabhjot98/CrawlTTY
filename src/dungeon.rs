@@ -1012,7 +1012,8 @@ pub(crate) fn resolve_enemy_death(
         enemy_death_message(&name, xp, gold, cause),
     );
     push_level_up_logs(&mut d.log, &levels_gained);
-    if matches!(cause, EnemyDeathCause::Bleed)
+    if c.is_warrior()
+        && matches!(cause, EnemyDeathCause::Bleed)
         && c.warrior.deep_cut_mastery == Some(SkillMastery::Bloodletting)
     {
         let heal = (c.max_hp() / 10).max(1);
@@ -1163,7 +1164,8 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         d.enemies[i].armor_shred_turns = d.enemies[i].armor_shred_turns.saturating_sub(1);
         d.enemies[i].vulnerable_turns = d.enemies[i].vulnerable_turns.saturating_sub(1);
         if d.enemies[i].bleed_turns > 0 {
-            let bleed_damage = if c.warrior.deep_cut_mastery == Some(SkillMastery::Hemorrhage)
+            let bleed_damage = if c.is_warrior()
+                && c.warrior.deep_cut_mastery == Some(SkillMastery::Hemorrhage)
                 && d.enemies[i].hp * 2 <= d.enemies[i].max_hp
             {
                 d.enemies[i].bleed_damage + 2
@@ -1508,7 +1510,7 @@ pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index
         if c.hp == 0 {
             return false;
         }
-        if c.warrior.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
+        if c.is_warrior() && c.warrior.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
             let thorn_damage = 2;
             d.enemies[enemy_index].hp -= thorn_damage;
             log_event(

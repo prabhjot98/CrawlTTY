@@ -898,6 +898,24 @@ fn rogue_ignores_warrior_shared_stat_and_shield_effects() {
 }
 
 #[test]
+fn rogue_ignores_warrior_hemorrhage_bleed_bonus() {
+    let mut c = test_character();
+    c.class = CharacterClass::Rogue;
+    c.warrior.deep_cut_mastery = Some(SkillMastery::Hemorrhage);
+    let mut enemy = skeleton(10, 10);
+    enemy.hp = 4;
+    enemy.max_hp = 10;
+    enemy.bleed_turns = 1;
+    enemy.bleed_damage = 1;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    enemy_turns(&mut c);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.enemies[0].hp, 3);
+}
+
+#[test]
 fn saved_items_without_socket_fields_default_to_no_sockets_or_gem_metadata() {
     let json = r#"{
         "name": "Old Sword",
