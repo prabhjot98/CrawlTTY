@@ -64,6 +64,14 @@ pub(crate) fn empowered_backstab_ready(c: &Character) -> bool {
     c.rogue.empowered_backstab_turns > 0
 }
 
+pub(crate) fn grant_rogue_movement_backstab(c: &mut Character) {
+    if c.class == CharacterClass::Rogue {
+        // Movement is a player action, so the dungeon loop immediately ticks this
+        // down once. Two turns here leaves one empowered Backstab window.
+        c.rogue.empowered_backstab_turns = c.rogue.empowered_backstab_turns.max(2);
+    }
+}
+
 fn adjacent_rogue_target(c: &mut Character, skill: &str) -> Option<usize> {
     c.active_dungeon.as_ref()?;
     let target = adjacent_enemy_indices(c).first().copied();

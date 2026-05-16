@@ -729,6 +729,7 @@ pub(crate) fn try_move(c: &mut Character, dx: i32, dy: i32) -> bool {
     let d = c.active_dungeon.as_mut().unwrap();
     d.player_x = nx;
     d.player_y = ny;
+    grant_rogue_movement_backstab(c);
     auto_interact_tile(c);
     true
 }

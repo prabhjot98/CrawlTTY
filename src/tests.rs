@@ -257,6 +257,41 @@ fn poisoned_target_empowers_backstab_multiplier() {
 }
 
 #[test]
+fn rogue_movement_enables_next_backstab_after_turn_tick() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(try_move(&mut c, 1, 0));
+    tick_player_effects(&mut c);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (3, 2));
+    assert_eq!(c.rogue.empowered_backstab_turns, 1);
+    assert_eq!(backstab_multiplier(&c), 1.20);
+}
+
+#[test]
+fn rogue_movement_attack_does_not_enable_backstab() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(try_move(&mut c, 1, 0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!((d.player_x, d.player_y), (2, 2));
+    assert_eq!(c.rogue.empowered_backstab_turns, 0);
+}
+
+#[test]
 fn backstab_boss_kill_leaves_combo_cleared() {
     for _ in 0..200 {
         let mut c = Character::new(
