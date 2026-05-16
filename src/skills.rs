@@ -170,7 +170,8 @@ fn render_skill_tree_layout(
         layout[0],
     );
 
-    let body = Layout::horizontal([Constraint::Min(42), Constraint::Length(44)]).split(layout[1]);
+    let body = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(layout[1]);
     frame.render_widget(
         Paragraph::new(skill_lines)
             .block(Block::default().borders(Borders::ALL).title("Skills"))
@@ -179,7 +180,7 @@ fn render_skill_tree_layout(
     );
     frame.render_widget(
         Paragraph::new(detail_lines)
-            .block(Block::default().borders(Borders::ALL).title("Comparison"))
+            .block(Block::default().borders(Borders::ALL).title("Details"))
             .wrap(Wrap { trim: false }),
         body[1],
     );
