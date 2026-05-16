@@ -87,6 +87,39 @@ fn dungeon_action_label_names_inventory_commands() {
 }
 
 #[test]
+fn class_resource_labels_match_active_class() {
+    let warrior = Character::new(
+        "War".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    let rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+
+    assert_eq!(warrior.resource_label(), "Mana");
+    assert_eq!(rogue.resource_label(), "Energy");
+    assert_eq!(rogue.current_resource(), ROGUE_MAX_ENERGY);
+    assert_eq!(rogue.max_resource(), ROGUE_MAX_ENERGY);
+}
+
+#[test]
+fn rogue_dungeon_action_labels_include_four_active_skills() {
+    let rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+
+    assert_eq!(dungeon_action_label_for(&rogue, '1'), "Backstab");
+    assert_eq!(dungeon_action_label_for(&rogue, '2'), "Venom Edge");
+    assert_eq!(dungeon_action_label_for(&rogue, '3'), "Eviscerate");
+    assert_eq!(dungeon_action_label_for(&rogue, '4'), "Smoke Step");
+}
+
+#[test]
 fn terminal_resize_event_requests_redraw() {
     use crossterm::event::Event;
 

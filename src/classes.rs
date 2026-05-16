@@ -151,3 +151,43 @@ impl Default for RogueState {
 fn default_rogue_energy() -> u32 {
     ROGUE_MAX_ENERGY
 }
+
+impl Character {
+    #[allow(dead_code)]
+    pub(crate) fn resource_label(&self) -> &'static str {
+        match self.class {
+            CharacterClass::Warrior => "Mana",
+            CharacterClass::Rogue => "Energy",
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn current_resource(&self) -> u32 {
+        match self.class {
+            CharacterClass::Warrior => self.mana,
+            CharacterClass::Rogue => self.rogue.energy,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn max_resource(&self) -> u32 {
+        match self.class {
+            CharacterClass::Warrior => self.max_mana(),
+            CharacterClass::Rogue => ROGUE_MAX_ENERGY,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn spend_rogue_energy(&mut self, amount: u32) -> bool {
+        if self.rogue.energy < amount {
+            false
+        } else {
+            self.rogue.energy -= amount;
+            true
+        }
+    }
+
+    pub(crate) fn restore_rogue_energy(&mut self, amount: u32) {
+        self.rogue.energy = (self.rogue.energy + amount).min(ROGUE_MAX_ENERGY);
+    }
+}

@@ -13,6 +13,10 @@ pub(crate) fn clear_combat_state(c: &mut Character) {
     c.warrior.battle_cry_cooldown = 0;
     c.warrior.battle_cry_charges = 0;
     c.warrior.second_wind_shield = 0;
+    c.rogue.combo_points = 0;
+    c.rogue.smoke_step_cooldown = 0;
+    c.rogue.smoke_protection_turns = 0;
+    c.rogue.empowered_backstab_turns = 0;
 }
 
 pub(crate) fn leave_dungeon(c: &mut Character) {
@@ -82,7 +86,7 @@ pub(crate) fn dungeon_loop(
         }
         let before_floor = current_dungeon_floor(c);
         let before_log_len = current_dungeon_log_len(c);
-        let action_label = dungeon_action_label(key);
+        let action_label = dungeon_action_label_for(c, key);
         let mut took_turn = false;
         match key {
             'w' | 'W' => took_turn = try_move(c, 0, -1),
@@ -444,20 +448,34 @@ pub(crate) fn should_resolve_enemy_turns_after_action(
     current_dungeon_floor(c).is_some_and(|after_floor| Some(after_floor) == before_floor)
 }
 
-pub(crate) fn dungeon_action_label(key: char) -> &'static str {
-    match key {
-        'w' | 'W' => "Move north / attack",
-        's' | 'S' => "Move south / attack",
-        'a' | 'A' => "Move west / attack",
-        'd' | 'D' => "Move east / attack",
-        '1' => "Cleave",
-        '2' => "Shield Bash",
-        '3' => "Battle Cry",
-        'p' | 'P' => "Drink potion",
-        'g' | 'G' => "Pick up",
-        'i' | 'I' => "Inventory",
+pub(crate) fn dungeon_action_label_for(c: &Character, key: char) -> &'static str {
+    match (c.class, key) {
+        (_, 'w' | 'W') => "Move north / attack",
+        (_, 's' | 'S') => "Move south / attack",
+        (_, 'a' | 'A') => "Move west / attack",
+        (_, 'd' | 'D') => "Move east / attack",
+        (CharacterClass::Warrior, '1') => "Cleave",
+        (CharacterClass::Warrior, '2') => "Shield Bash",
+        (CharacterClass::Warrior, '3') => "Battle Cry",
+        (CharacterClass::Rogue, '1') => "Backstab",
+        (CharacterClass::Rogue, '2') => "Venom Edge",
+        (CharacterClass::Rogue, '3') => "Eviscerate",
+        (CharacterClass::Rogue, '4') => "Smoke Step",
+        (_, 'p' | 'P') => "Drink potion",
+        (_, 'g' | 'G') => "Pick up",
+        (_, 'i' | 'I') => "Inventory",
         _ => "Command",
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn dungeon_action_label(key: char) -> &'static str {
+    let warrior = Character::new(
+        "Label".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    dungeon_action_label_for(&warrior, key)
 }
 
 pub(crate) fn is_known_dungeon_command(key: char) -> bool {
@@ -473,6 +491,7 @@ pub(crate) fn is_known_dungeon_command(key: char) -> bool {
             | '1'
             | '2'
             | '3'
+            | '4'
             | 'p'
             | 'P'
             | 'g'
@@ -1143,6 +1162,11 @@ pub(crate) fn tick_player_effects(c: &mut Character) {
     c.warrior.cleave_cooldown = c.warrior.cleave_cooldown.saturating_sub(1);
     c.warrior.shield_bash_cooldown = c.warrior.shield_bash_cooldown.saturating_sub(1);
     c.warrior.battle_cry_cooldown = c.warrior.battle_cry_cooldown.saturating_sub(1);
+    c.rogue.smoke_step_cooldown = c.rogue.smoke_step_cooldown.saturating_sub(1);
+    c.rogue.empowered_backstab_turns = c.rogue.empowered_backstab_turns.saturating_sub(1);
+    if c.class == CharacterClass::Rogue {
+        c.restore_rogue_energy(15);
+    }
 }
 
 pub(crate) fn enemy_turns(c: &mut Character) {
@@ -1270,6 +1294,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         }
     }
     d.enemies.retain(|e| e.hp > 0);
+    c.rogue.smoke_protection_turns = c.rogue.smoke_protection_turns.saturating_sub(1);
     c.active_dungeon = Some(d);
 }
 

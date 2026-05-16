@@ -225,7 +225,7 @@ Example skills:
 
 ### 4. Rogue
 
-A fast dagger fighter using internal combo points, poison setup, burst finishers, and smoke-assisted mobility.
+A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy and regenerates it during dungeon turns.
 
 Possible builds:
 
