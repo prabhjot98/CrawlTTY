@@ -109,7 +109,8 @@ fn run_game(
                 town_message.clear();
             }
             's' | 'S' => {
-                run_legacy_screen(terminal, || stash_menu(character))?;
+                stash_menu(character, terminal)?;
+                terminal.clear()?;
                 town_message.clear();
             }
             'p' | 'P' => {

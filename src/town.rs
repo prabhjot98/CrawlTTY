@@ -1,4 +1,8 @@
 use crate::*;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Paragraph},
+};
 
 pub(crate) fn quest_giver(c: &mut Character) -> String {
     if c.act2_completed {
@@ -1016,64 +1020,32 @@ pub(crate) fn sell_item_screen(c: &mut Character) {
     }
 }
 
-pub(crate) fn stash_menu(c: &mut Character) {
+pub(crate) fn stash_menu(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let mut side = StashSide::Inventory;
     let mut inv_selected = 0usize;
     let mut stash_selected = 0usize;
     let mut message = String::new();
     loop {
-        clamp_selection(&mut inv_selected, c.inventory.len());
-        clamp_selection(&mut stash_selected, c.stash.len());
-        clear_screen();
-        println!("{BOLD}{MAGENTA}Stash{RESET}");
-        println!(
-            "{CYAN}Inventory items: {}{RESET}   {MAGENTA}Stash items: {}{RESET}",
-            c.inventory.len(),
-            c.stash.len()
-        );
-        if !message.is_empty() {
-            println!("{YELLOW}{message}{RESET}");
-        }
-        println!();
-        let visible_rows = (inventory_visible_rows(12) / 2).max(4);
-        print_stash_column(
-            "Inventory",
-            c.inventory.as_slice(),
-            inv_selected,
-            side == StashSide::Inventory,
-            visible_rows,
-        );
-        println!();
-        print_stash_column(
-            "Stash",
-            c.stash.as_slice(),
-            stash_selected,
-            side == StashSide::Stash,
-            visible_rows,
-        );
-        print_footer(&[&format!(
-            "{BOLD}Stash:{RESET} {GREEN}↑/↓ or w/s{RESET}=select  {CYAN}Tab{RESET}=switch list  {YELLOW}Enter{RESET}=move selected  {RED}Esc{RESET}=back"
-        )]);
-        let Some(key) = read_key_char_nav_or_message(&mut message) else {
-            break;
-        };
+        clamp_grid_cursor(&mut inv_selected, &c.inventory);
+        clamp_grid_cursor(&mut stash_selected, &c.stash);
+        terminal
+            .draw(|frame| {
+                render_stash_screen(frame, c, side, inv_selected, stash_selected, &message)
+            })
+            .context("failed to draw stash")?;
+        let key = read_key_char_nav()?;
+        message.clear();
         match key {
-            '\u{1b}' => break,
+            '\u{1b}' => return Ok(()),
             '\t' => side = side.other(),
-            'w' | 'W' => match side {
-                StashSide::Inventory => inv_selected = inv_selected.saturating_sub(1),
-                StashSide::Stash => stash_selected = stash_selected.saturating_sub(1),
-            },
-            's' | 'S' => match side {
+            'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => match side {
                 StashSide::Inventory => {
-                    if inv_selected + 1 < c.inventory.len() {
-                        inv_selected += 1;
-                    }
+                    inv_selected =
+                        move_grid_cursor(inv_selected, c.inventory.columns, c.inventory.rows, key);
                 }
                 StashSide::Stash => {
-                    if stash_selected + 1 < c.stash.len() {
-                        stash_selected += 1;
-                    }
+                    stash_selected =
+                        move_grid_cursor(stash_selected, c.stash.columns, c.stash.rows, key);
                 }
             },
             '\n' => {
@@ -1092,7 +1064,122 @@ pub(crate) fn stash_menu(c: &mut Character) {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) fn render_stash_screen(
+    frame: &mut Frame,
+    c: &Character,
+    side: StashSide,
+    inv_selected: usize,
+    stash_selected: usize,
+    message: &str,
+) {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    let title = Paragraph::new(format!(
+        "Stash - Inventory {} / {} - Stash {} / {}",
+        c.inventory.len(),
+        c.inventory.capacity(),
+        c.stash.len(),
+        c.stash.capacity()
+    ))
+    .block(Block::default().borders(Borders::ALL).title("Stash"));
+    frame.render_widget(title, layout[0]);
+
+    let body = Layout::horizontal([
+        Constraint::Min(24),
+        Constraint::Min(24),
+        Constraint::Length(38),
+    ])
+    .split(layout[1]);
+    render_item_grid(frame, &c.inventory, inv_selected, body[0], "Inventory");
+    render_item_grid(frame, &c.stash, stash_selected, body[1], "Stash");
+    let selected_item = match side {
+        StashSide::Inventory => c.inventory.get(inv_selected),
+        StashSide::Stash => c.stash.get(stash_selected),
+    };
+    let (grid, label) = match side {
+        StashSide::Inventory => (&c.inventory, "Inventory"),
+        StashSide::Stash => (&c.stash, "Stash"),
+    };
+    frame.render_widget(
+        Paragraph::new(selected_item_detail_lines(c, grid, label, selected_item))
+            .block(Block::default().borders(Borders::ALL).title("Details")),
+        body[2],
+    );
+
+    let commands = "Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back";
+    let footer = if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn stash_screen_text_for_test(
+    c: &Character,
+    side: StashSide,
+    inv_selected: usize,
+    stash_selected: usize,
+    message: &str,
+) -> Vec<String> {
+    let mut lines = vec![format!(
+        "Stash - Inventory {} / {} - Stash {} / {}",
+        c.inventory.len(),
+        c.inventory.capacity(),
+        c.stash.len(),
+        c.stash.capacity()
+    )];
+    append_grid_text_for_test(&mut lines, "Inventory", &c.inventory);
+    append_grid_text_for_test(&mut lines, "Stash", &c.stash);
+
+    let selected_item = match side {
+        StashSide::Inventory => c.inventory.get(inv_selected),
+        StashSide::Stash => c.stash.get(stash_selected),
+    };
+    let (grid, label) = match side {
+        StashSide::Inventory => (&c.inventory, "Inventory"),
+        StashSide::Stash => (&c.stash, "Stash"),
+    };
+    lines.extend(
+        selected_item_detail_lines(c, grid, label, selected_item)
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|span| span.content.to_string())
+                    .collect()
+            }),
+    );
+    if !message.is_empty() {
+        lines.push(message.to_string());
+    }
+    lines.push("Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back".to_string());
+    lines
+}
+
+#[cfg(test)]
+fn append_grid_text_for_test(lines: &mut Vec<String>, title: &str, grid: &ItemGrid) {
+    lines.push(format!("{title} {} / {}", grid.len(), grid.capacity()));
+    for row in 0..grid.rows {
+        let mut line = String::new();
+        for col in 0..grid.columns {
+            let index = usize::from(row) * usize::from(grid.columns) + usize::from(col);
+            line.push_str(&format!("[{}] ", inventory_cell_label(grid, index)));
+        }
+        lines.push(line);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StashSide {
     Inventory,
     Stash,

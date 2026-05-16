@@ -456,7 +456,7 @@ The inventory should be **grid-based** while avoiding a manual packing puzzle.
 Current direction:
 
 - Current data model: `Character.inventory` and `Character.stash` use `ItemGrid` containers. The starter bag is `4 x 4`, the stash is `8 x 8`, and each grid stores compacted `items` in row-major order for gradual migration from older Vec-based inventory code.
-- Current implementation status: the player bag renders as a ratatui grid with cursor movement and a selected-item detail panel. Stash still renders through the legacy list menu until the next migration step.
+- Current implementation status: the player bag and stash both render as ratatui grids with cursor movement and selected-item detail panels. Stash shows the bag grid, stash grid, and active-side details in one screen.
 - Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile as visible `!` ground loot. A single item on the player tile can be picked up with `g=pickup` or by walking over it when inventory space exists; multi-item and full-bag picker behavior remains future work. If boss reward loot falls to ground, the completed dungeon is retained instead of immediately returning to town so the reward stays accessible; remaining enemies are cleared so the player can leave after resolving loot. Dropping an inventory item inside a dungeon places it on the player tile; dropping in town still deletes the item.
 - The player bag is a ratatui grid screen with a cursor-selectable cell grid on the left and selected item details on the right.
 - Every item occupies exactly one cell.
@@ -860,8 +860,8 @@ Even without graphics, the game can feel responsive with:
 - Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow, boss red, elite magenta, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find.
-- The current implementation renders the parent town and dungeon screens with ratatui. Legacy ANSI submenu screens such as
-  merchant, stash, projects, attributes, and skills must temporarily release ratatui's raw-mode ownership while
+- The current implementation renders the parent town, dungeon, inventory, and stash screens with ratatui. Legacy ANSI submenu screens such as
+  merchant, projects, attributes, and skills must temporarily release ratatui's raw-mode ownership while
   they run, then restore it and reset ratatui's terminal buffer before returning so legacy `println!` output stays
   left-aligned and the next parent draw fully repaints instead of visually leaving the submenu on screen.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.

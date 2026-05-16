@@ -245,44 +245,6 @@ pub(crate) fn print_inventory_list(c: &Character, selected: usize, max_rows: usi
     }
 }
 
-pub(crate) fn print_stash_column(
-    title: &str,
-    items: &[Item],
-    selected: usize,
-    active: bool,
-    max_rows: usize,
-) {
-    let heading = if active {
-        format!("{BOLD}{GREEN}>{RESET} {BOLD}{title}{RESET}")
-    } else {
-        format!("  {BOLD}{title}{RESET}")
-    };
-    println!("{heading}");
-    if items.is_empty() {
-        println!("  Empty");
-        return;
-    }
-    let max_rows = max_rows.max(1);
-    let offset = scroll_offset(selected, items.len(), max_rows);
-    let end = (offset + max_rows).min(items.len());
-    if items.len() > max_rows {
-        println!(
-            "  {DIM}Showing items {}-{} of {}{RESET}",
-            offset + 1,
-            end,
-            items.len()
-        );
-    }
-    for (i, item) in items.iter().enumerate().skip(offset).take(max_rows) {
-        let marker = if active && i == selected {
-            format!("{GREEN}>{RESET}")
-        } else {
-            " ".to_string()
-        };
-        println!("{marker} {}", item_summary(item));
-    }
-}
-
 pub(crate) fn inventory_visible_rows(reserved_rows: u16) -> usize {
     let (_, height) = terminal_size().unwrap_or((80, 24));
     height.saturating_sub(reserved_rows).max(5) as usize

@@ -267,6 +267,17 @@ fn inventory_render_lines_include_message_and_full_commands() {
 }
 
 #[test]
+fn stash_render_lines_include_both_grid_capacities() {
+    let c = test_character();
+    let lines = stash_screen_text_for_test(&c, StashSide::Inventory, 0, 0, "");
+    let rendered = lines.join("\n");
+
+    assert!(rendered.contains("Inventory 3 / 16"));
+    assert!(rendered.contains("Stash 0 / 64"));
+    assert!(rendered.contains("Tab=switch"));
+}
+
+#[test]
 fn inventory_render_footer_shows_message_and_commands() {
     use ratatui::{Terminal, backend::TestBackend};
 
