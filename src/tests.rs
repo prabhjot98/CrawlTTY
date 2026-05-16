@@ -1155,10 +1155,9 @@ fn full_inventory_chest_loot_goes_to_ground() {
 }
 
 #[test]
-fn full_inventory_boss_reward_expands_bag_instead_of_going_to_ground() {
+fn full_inventory_boss_reward_goes_to_ground() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
-    let starting_capacity = c.inventory.capacity();
     let mut boss = skeleton(7, 6);
     boss.name = "Test Boss".to_string();
     boss.hp = 0;
@@ -1172,13 +1171,13 @@ fn full_inventory_boss_reward_expands_bag_instead_of_going_to_ground() {
         EnemyDeathCause::Effect { source: "test" },
     ));
 
-    assert_eq!(c.inventory.len(), starting_capacity + 1);
-    assert!(c.inventory.capacity() >= c.inventory.len());
-    assert!(d.ground_items.is_empty());
+    assert_eq!(c.inventory.len(), c.inventory.capacity());
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
 }
 
 #[test]
-fn full_inventory_boss_reward_survives_dungeon_clear_after_gameplay_kill() {
+fn full_inventory_boss_reward_retains_dungeon_after_gameplay_kill() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);
     let starting_capacity = c.inventory.capacity();
@@ -1192,40 +1191,37 @@ fn full_inventory_boss_reward_survives_dungeon_clear_after_gameplay_kill() {
 
     enemy_turns(&mut c);
 
-    assert!(c.active_dungeon.is_none());
-    assert_eq!(c.inventory.len(), starting_capacity + 1);
-    assert!(c.inventory.capacity() >= c.inventory.len());
-    assert!(c.inventory.iter().any(|item| matches!(
-        item.kind,
-        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
-    )));
+    assert_eq!(c.inventory.len(), starting_capacity);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
+    assert_eq!(living_monster_count(d), 0);
 }
 
 #[test]
-fn capped_full_inventory_boss_reward_uses_emergency_overflow_capacity() {
+fn capped_full_inventory_boss_reward_stays_grounded_without_expanding_bag() {
     let mut c = test_character();
     c.inventory = ItemGrid::new(MAX_BAG_COLUMNS, MAX_BAG_ROWS, Vec::new());
     fill_inventory_to_capacity(&mut c);
     let starting_capacity = c.inventory.capacity();
     let mut boss = skeleton(7, 6);
     boss.name = "Test Boss".to_string();
-    boss.hp = 0;
+    boss.hp = 1;
     boss.is_boss = true;
-    let mut d = open_test_dungeon(2, 2, vec![boss]);
+    boss.bleed_turns = 1;
+    boss.bleed_damage = 1;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss]));
 
-    assert!(resolve_enemy_death(
-        &mut c,
-        &mut d,
-        0,
-        EnemyDeathCause::Effect { source: "test" },
-    ));
+    enemy_turns(&mut c);
 
     assert_eq!(starting_capacity, 64);
-    assert_eq!(c.inventory.len(), 65);
+    assert_eq!(c.inventory.len(), 64);
     assert_eq!(c.inventory.columns, MAX_BAG_COLUMNS);
-    assert!(c.inventory.rows > MAX_BAG_ROWS);
-    assert!(c.inventory.capacity() >= c.inventory.len());
-    assert!(d.ground_items.is_empty());
+    assert_eq!(c.inventory.rows, MAX_BAG_ROWS);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (7, 6));
+    assert_eq!(living_monster_count(d), 0);
 }
 
 #[test]

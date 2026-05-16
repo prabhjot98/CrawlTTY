@@ -913,6 +913,7 @@ pub(crate) fn damage_enemy(
     };
 
     if killed {
+        let ground_items_before_death = d.ground_items.len();
         let boss_defeated = resolve_enemy_death(
             c,
             &mut d,
@@ -931,6 +932,9 @@ pub(crate) fn damage_enemy(
             maybe_drop_loot_in_dungeon(c, &mut d, enemy_index, false);
             c.active_dungeon = Some(d);
             DamageEnemyOutcome::Killed
+        } else if boss_death_added_ground_loot(&d, ground_items_before_death) {
+            retain_boss_overflow_dungeon(c, d);
+            DamageEnemyOutcome::BossDefeated
         } else {
             DamageEnemyOutcome::BossDefeated
         }
@@ -977,6 +981,8 @@ pub(crate) fn resolve_enemy_death(
     let name = enemy.name.clone();
     let xp = enemy.xp;
     let was_boss = enemy.is_boss;
+    let drop_x = enemy.x;
+    let drop_y = enemy.y;
     let mut rng = rand::thread_rng();
     let gold = apply_gold_find_bonus(c, rng.gen_range(enemy.gold_min..=enemy.gold_max));
     c.gold += gold;
@@ -1001,11 +1007,11 @@ pub(crate) fn resolve_enemy_death(
     if was_boss {
         let loot = random_equipment_loot(d.floor, true);
         let loot_name = colored_item_name(&loot);
-        add_boss_loot_to_bag(c, d, loot, "Boss reward dropped");
+        add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Boss reward dropped");
         let boss_gem_name = if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.25) {
             let gem = random_gem();
             let gem_name = colored_item_name(&gem);
-            add_boss_loot_to_bag(c, d, gem, "Boss gem dropped");
+            add_loot_to_bag_or_ground(c, d, gem, drop_x, drop_y, "Boss gem dropped");
             Some(gem_name)
         } else {
             None
@@ -1155,7 +1161,11 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 ),
             );
             if d.enemies[i].hp <= 0 {
+                let ground_items_before_death = d.ground_items.len();
                 if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Bleed) {
+                    if boss_death_added_ground_loot(&d, ground_items_before_death) {
+                        retain_boss_overflow_dungeon(c, d);
+                    }
                     return;
                 }
                 continue;
@@ -1736,25 +1746,15 @@ fn add_loot_to_inventory_or_ground(
     }
 }
 
-fn add_boss_loot_to_bag(c: &mut Character, d: &mut Dungeon, item: Item, verb: &str) {
-    let name = colored_item_name(&item);
-    ensure_bag_space_for_boss_loot(&mut c.inventory, 1);
-    assert!(
-        c.inventory.push(item),
-        "boss loot bag expansion must create an inventory slot"
-    );
-    log_event(&mut d.log, LogKind::Loot, format!("{verb}: {name}."));
+fn boss_death_added_ground_loot(d: &Dungeon, ground_items_before_death: usize) -> bool {
+    d.ground_items.len() > ground_items_before_death
 }
 
-fn ensure_bag_space_for_boss_loot(inventory: &mut ItemGrid, needed_slots: usize) {
-    let required_capacity = inventory.len() + needed_slots;
-    while inventory.capacity() < required_capacity {
-        if inventory.columns < MAX_BAG_COLUMNS {
-            inventory.columns += 1;
-        } else {
-            inventory.rows += 1;
-        }
+fn retain_boss_overflow_dungeon(c: &mut Character, mut d: Dungeon) {
+    for enemy in &mut d.enemies {
+        enemy.hp = 0;
     }
+    c.active_dungeon = Some(d);
 }
 
 pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
