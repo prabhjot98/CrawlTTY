@@ -1368,6 +1368,24 @@ fn battle_cry_adds_flat_crit_chance_to_equipped_weapon() {
 }
 
 #[test]
+fn player_crit_chance_includes_topaz_socket_bonus() {
+    let mut c = test_character();
+    c.equipped_weapon.crit_chance = 8;
+    c.equipped_weapon.sockets = vec![Some(GemSocket::filled(GemKind::Topaz, GemTier::Pristine))];
+
+    assert_eq!(player_crit_chance(&c), 12);
+    assert_eq!(c.equipped_weapon.crit_chance, 8);
+
+    c.battle_cry_charges = 1;
+    assert_eq!(player_crit_chance(&c), 17);
+    assert_eq!(c.equipped_weapon.crit_chance, 8);
+
+    c.equipped_weapon.crit_chance = 98;
+    assert_eq!(player_crit_chance(&c), 100);
+    assert_eq!(c.equipped_weapon.crit_chance, 98);
+}
+
+#[test]
 fn critical_damage_enemy_doubles_post_armor_damage_and_logs_hit() {
     for _ in 0..200 {
         let mut c = critical_combat_test_character();

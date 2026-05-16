@@ -1642,8 +1642,7 @@ pub(crate) fn crit_roll(crit_chance: u32) -> bool {
 
 pub(crate) fn player_crit_chance(c: &Character) -> u32 {
     let battle_cry_bonus = if c.battle_cry_charges > 0 { 5 } else { 0 };
-    c.equipped_weapon
-        .crit_chance
+    c.weapon_crit_chance()
         .saturating_add(battle_cry_bonus)
         .min(100)
 }
