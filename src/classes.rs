@@ -1,0 +1,153 @@
+use crate::*;
+
+#[allow(dead_code)]
+pub(crate) const ROGUE_MAX_ENERGY: u32 = 100;
+#[allow(dead_code)]
+pub(crate) const ROGUE_MAX_COMBO_POINTS: u32 = 5;
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum CharacterClass {
+    Warrior,
+    Rogue,
+}
+
+impl CharacterClass {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            CharacterClass::Warrior => "Warrior",
+            CharacterClass::Rogue => "Rogue",
+        }
+    }
+
+    pub(crate) fn from_save_name(name: &str) -> Self {
+        match name {
+            "Warrior" | "Ironbound" => CharacterClass::Warrior,
+            "Rogue" => CharacterClass::Rogue,
+            _ => CharacterClass::Warrior,
+        }
+    }
+}
+
+pub(crate) fn default_character_class() -> CharacterClass {
+    CharacterClass::Warrior
+}
+
+pub(crate) fn deserialize_character_class<'de, D>(
+    deserializer: D,
+) -> std::result::Result<CharacterClass, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let class_name = String::deserialize(deserializer)?;
+    Ok(CharacterClass::from_save_name(&class_name))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct WarriorState {
+    #[serde(default = "default_skill_rank")]
+    pub(crate) cleave_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) shield_bash_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) battle_cry_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) deep_cut_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) iron_guard_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) second_wind_rank: u32,
+    #[serde(default)]
+    pub(crate) cleave_cooldown: u32,
+    #[serde(default)]
+    pub(crate) shield_bash_cooldown: u32,
+    #[serde(default)]
+    pub(crate) battle_cry_cooldown: u32,
+    #[serde(default, alias = "battle_cry_turns")]
+    pub(crate) battle_cry_charges: u32,
+    #[serde(default)]
+    pub(crate) cleave_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) shield_bash_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) battle_cry_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) deep_cut_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) iron_guard_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) second_wind_mastery: Option<SkillMastery>,
+    #[serde(default)]
+    pub(crate) second_wind_shield: u32,
+}
+
+impl Default for WarriorState {
+    fn default() -> Self {
+        Self {
+            cleave_rank: 1,
+            shield_bash_rank: 1,
+            battle_cry_rank: 1,
+            deep_cut_rank: 1,
+            iron_guard_rank: 1,
+            second_wind_rank: 1,
+            cleave_cooldown: 0,
+            shield_bash_cooldown: 0,
+            battle_cry_cooldown: 0,
+            battle_cry_charges: 0,
+            cleave_mastery: None,
+            shield_bash_mastery: None,
+            battle_cry_mastery: None,
+            deep_cut_mastery: None,
+            iron_guard_mastery: None,
+            second_wind_mastery: None,
+            second_wind_shield: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct RogueState {
+    #[serde(default = "default_rogue_energy")]
+    pub(crate) energy: u32,
+    #[serde(default)]
+    pub(crate) combo_points: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) backstab_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) venom_edge_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) eviscerate_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) smoke_step_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) rupture_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) slip_away_rank: u32,
+    #[serde(default)]
+    pub(crate) smoke_step_cooldown: u32,
+    #[serde(default)]
+    pub(crate) smoke_protection_turns: u32,
+    #[serde(default)]
+    pub(crate) empowered_backstab_turns: u32,
+}
+
+impl Default for RogueState {
+    fn default() -> Self {
+        Self {
+            energy: ROGUE_MAX_ENERGY,
+            combo_points: 0,
+            backstab_rank: 1,
+            venom_edge_rank: 1,
+            eviscerate_rank: 1,
+            smoke_step_rank: 1,
+            rupture_rank: 1,
+            slip_away_rank: 1,
+            smoke_step_cooldown: 0,
+            smoke_protection_turns: 0,
+            empowered_backstab_turns: 0,
+        }
+    }
+}
+
+fn default_rogue_energy() -> u32 {
+    ROGUE_MAX_ENERGY
+}

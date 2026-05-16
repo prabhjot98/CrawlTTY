@@ -229,8 +229,9 @@ fn bad_legacy_save_resets_instead_of_erroring() {
 
     match loaded {
         LoadedSave::Reset { warning } => {
-            assert!(warning.contains("could not be loaded"));
+            assert!(warning.contains("is incompatible"));
             assert!(warning.contains("0.0.0"));
+            assert!(warning.contains(SAVE_VERSION));
         }
         LoadedSave::Loaded(_) => panic!("bad legacy save should reset"),
     }
@@ -720,7 +721,7 @@ fn skill_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
     let mut c = test_character();
-    c.cleave_rank = 4;
+    c.warrior.cleave_rank = 4;
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
 
     terminal
@@ -744,7 +745,7 @@ fn skill_screens_render_with_ratatui() {
         .unwrap();
     assert_eq!(char_index(skill_header, "Details"), 51);
 
-    c.cleave_rank = 1;
+    c.warrior.cleave_rank = 1;
     terminal
         .draw(|frame| render_skill_tree_screen(frame, &c, 1, ""))
         .unwrap();
@@ -761,7 +762,7 @@ fn skill_screens_render_with_ratatui() {
     assert!(locked_passive_tree.contains("Unlock: Cleave rank 1/2"));
     assert!(!locked_passive_tree.contains("branch starter"));
 
-    c.cleave_rank = 5;
+    c.warrior.cleave_rank = 5;
     terminal
         .draw(|frame| render_mastery_screen(frame, &c, "Cleave", ""))
         .unwrap();
@@ -799,7 +800,7 @@ fn item_grid_new_panics_when_initial_items_exceed_capacity() {
 fn new_warrior_matches_mvp_starting_state() {
     let c = test_character();
 
-    assert_eq!(c.class_name, "Warrior");
+    assert_eq!(c.class_name(), "Warrior");
     assert_eq!(c.level, 1);
     assert_eq!(c.gold, 50);
     assert_eq!((c.strength, c.dexterity, c.intelligence), (6, 3, 1));
@@ -812,11 +813,55 @@ fn new_warrior_matches_mvp_starting_state() {
     assert_eq!(c.equipped_weapon.damage_max, 5);
     assert_eq!(c.armor(), 4); // cloth 1 + shield 1 + Iron Guard rank 1 (+2)
     assert_eq!(
-        (c.deep_cut_rank, c.iron_guard_rank, c.second_wind_rank),
+        (
+            c.warrior.deep_cut_rank,
+            c.warrior.iron_guard_rank,
+            c.warrior.second_wind_rank
+        ),
         (1, 1, 1)
     );
     assert!(!c.bellkeeper_defeated);
     assert!(!c.act1_completed);
+}
+
+#[test]
+fn class_names_parse_current_and_legacy_values() {
+    assert_eq!(
+        CharacterClass::from_save_name("Warrior"),
+        CharacterClass::Warrior
+    );
+    assert_eq!(
+        CharacterClass::from_save_name("Ironbound"),
+        CharacterClass::Warrior
+    );
+    assert_eq!(
+        CharacterClass::from_save_name("Rogue"),
+        CharacterClass::Rogue
+    );
+    assert_eq!(CharacterClass::Warrior.name(), "Warrior");
+    assert_eq!(CharacterClass::Rogue.name(), "Rogue");
+}
+
+#[test]
+fn package_version_is_major_one_for_save_breaking_rogue_release() {
+    assert!(SAVE_VERSION.starts_with("1."));
+}
+
+#[test]
+fn warrior_state_defaults_match_existing_rank_baseline() {
+    let state = WarriorState::default();
+
+    assert_eq!(state.cleave_rank, 1);
+    assert_eq!(state.shield_bash_rank, 1);
+    assert_eq!(state.battle_cry_rank, 1);
+    assert_eq!(state.deep_cut_rank, 1);
+    assert_eq!(state.iron_guard_rank, 1);
+    assert_eq!(state.second_wind_rank, 1);
+    assert_eq!(state.cleave_cooldown, 0);
+    assert_eq!(state.shield_bash_cooldown, 0);
+    assert_eq!(state.battle_cry_cooldown, 0);
+    assert_eq!(state.battle_cry_charges, 0);
+    assert_eq!(state.second_wind_shield, 0);
 }
 
 #[test]
@@ -1305,7 +1350,7 @@ fn saved_character_without_town_projects_defaults_to_empty_projects() {
 
     let c: Character = serde_json::from_str(json).unwrap();
 
-    assert_eq!(c.class_name, "Warrior");
+    assert_eq!(c.class_name(), "Warrior");
     assert!(c.completed_town_projects.is_empty());
 }
 
@@ -1375,9 +1420,9 @@ fn skill_help_helpers_reflect_masteries() {
     assert_eq!(shield_bash_stun_help(&c), "1 turn");
     assert_eq!(battle_cry_charge_count(&c), 5);
 
-    c.cleave_mastery = Some(SkillMastery::ReapingCleave);
-    c.shield_bash_mastery = Some(SkillMastery::LongBash);
-    c.battle_cry_mastery = Some(SkillMastery::WarpathCry);
+    c.warrior.cleave_mastery = Some(SkillMastery::ReapingCleave);
+    c.warrior.shield_bash_mastery = Some(SkillMastery::LongBash);
+    c.warrior.battle_cry_mastery = Some(SkillMastery::WarpathCry);
     assert_eq!(cleave_target_help(&c), "every adjacent enemy");
     assert_eq!(
         shield_bash_range_help(&c),
@@ -1385,7 +1430,7 @@ fn skill_help_helpers_reflect_masteries() {
     );
     assert_eq!(battle_cry_charge_count(&c), 7);
 
-    c.shield_bash_mastery = Some(SkillMastery::DazingBash);
+    c.warrior.shield_bash_mastery = Some(SkillMastery::DazingBash);
     assert_eq!(shield_bash_stun_turns(&c), 2);
     assert_eq!(shield_bash_stun_help(&c), "2 turns");
 }
@@ -1396,14 +1441,14 @@ fn battle_cry_charges_survive_movement_and_spend_on_attacks() {
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![rat(4, 2)]));
 
     assert!(use_battle_cry(&mut c));
-    assert_eq!(c.battle_cry_charges, 5);
+    assert_eq!(c.warrior.battle_cry_charges, 5);
 
     assert!(try_move(&mut c, 1, 0));
     tick_player_effects(&mut c);
-    assert_eq!(c.battle_cry_charges, 5);
+    assert_eq!(c.warrior.battle_cry_charges, 5);
 
     assert!(try_move(&mut c, 1, 0));
-    assert_eq!(c.battle_cry_charges, 4);
+    assert_eq!(c.warrior.battle_cry_charges, 4);
 }
 
 #[test]
@@ -1414,16 +1459,16 @@ fn passive_skill_upgrades_require_branch_starter_rank_two() {
     assert!(unmet_skill_prerequisite(&c, "Second Wind").is_some());
 
     c.unspent_skills = 6;
-    c.cleave_rank = 2;
-    c.shield_bash_rank = 2;
-    c.battle_cry_rank = 2;
+    c.warrior.cleave_rank = 2;
+    c.warrior.shield_bash_rank = 2;
+    c.warrior.battle_cry_rank = 2;
     upgrade_skill(&mut c, "Deep Cut");
     upgrade_skill(&mut c, "Iron Guard");
     upgrade_skill(&mut c, "Second Wind");
 
-    assert_eq!(c.deep_cut_rank, 2);
-    assert_eq!(c.iron_guard_rank, 2);
-    assert_eq!(c.second_wind_rank, 2);
+    assert_eq!(c.warrior.deep_cut_rank, 2);
+    assert_eq!(c.warrior.iron_guard_rank, 2);
+    assert_eq!(c.warrior.second_wind_rank, 2);
     assert_eq!(c.armor(), 5);
 }
 
@@ -2551,7 +2596,7 @@ fn cultist_shadow_bolt_requires_clear_cardinal_line() {
 #[test]
 fn long_shield_bash_requires_clear_cardinal_line() {
     let mut c = test_character();
-    c.shield_bash_mastery = Some(SkillMastery::LongBash);
+    c.warrior.shield_bash_mastery = Some(SkillMastery::LongBash);
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![skeleton(4, 2)]));
 
     assert_eq!(shield_bash_target_index(&c, 2), Some(0));
@@ -2573,7 +2618,7 @@ fn shield_bash_only_stuns_after_surviving_hit() {
 #[test]
 fn shield_bash_stun_only_applies_to_surviving_targets() {
     let mut c = test_character();
-    c.shield_bash_mastery = Some(SkillMastery::DazingBash);
+    c.warrior.shield_bash_mastery = Some(SkillMastery::DazingBash);
     let mut dead = skeleton(3, 2);
     dead.hp = 0;
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![dead, skeleton(4, 2)]));
@@ -2666,16 +2711,16 @@ fn bellkeeper_bleed_death_completes_boss_fight_even_with_mobs_left() {
     boss.bleed_turns = 1;
     boss.bleed_damage = 2;
     let mut c = test_character();
-    c.battle_cry_charges = 3;
-    c.second_wind_shield = 5;
+    c.warrior.battle_cry_charges = 3;
+    c.warrior.second_wind_shield = 5;
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![boss, skeleton(4, 2)]));
 
     enemy_turns(&mut c);
 
     assert!(c.bellkeeper_defeated);
     assert!(c.active_dungeon.is_none());
-    assert_eq!(c.battle_cry_charges, 0);
-    assert_eq!(c.second_wind_shield, 0);
+    assert_eq!(c.warrior.battle_cry_charges, 0);
+    assert_eq!(c.warrior.second_wind_shield, 0);
     assert_eq!(c.hp, c.max_hp());
     assert_eq!(c.mana, c.max_mana());
     assert!(c.pending_town_message.contains("Defeated Bellkeeper"));
@@ -2733,7 +2778,7 @@ fn battle_cry_adds_flat_crit_chance_to_equipped_weapon() {
 
     assert_eq!(player_crit_chance(&c), 8);
 
-    c.battle_cry_charges = 1;
+    c.warrior.battle_cry_charges = 1;
     assert_eq!(player_crit_chance(&c), 13);
 
     c.equipped_weapon.crit_chance = 98;
@@ -2749,7 +2794,7 @@ fn player_crit_chance_includes_topaz_socket_bonus() {
     assert_eq!(player_crit_chance(&c), 12);
     assert_eq!(c.equipped_weapon.crit_chance, 8);
 
-    c.battle_cry_charges = 1;
+    c.warrior.battle_cry_charges = 1;
     assert_eq!(player_crit_chance(&c), 17);
     assert_eq!(c.equipped_weapon.crit_chance, 8);
 
@@ -2783,7 +2828,7 @@ fn critical_damage_enemy_doubles_post_armor_damage_and_logs_hit() {
 fn critical_cleave_uses_shared_damage_path() {
     for _ in 0..200 {
         let mut c = critical_combat_test_character();
-        c.cleave_rank = 3;
+        c.warrior.cleave_rank = 3;
         c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
 
         assert!(use_cleave(&mut c));
@@ -2809,21 +2854,21 @@ fn critical_cleave_uses_shared_damage_path() {
 #[test]
 fn entering_dungeon_clears_stale_combat_state() {
     let mut c = test_character();
-    c.cleave_cooldown = 1;
-    c.shield_bash_cooldown = 2;
-    c.battle_cry_cooldown = 3;
-    c.battle_cry_charges = 4;
-    c.second_wind_shield = 5;
+    c.warrior.cleave_cooldown = 1;
+    c.warrior.shield_bash_cooldown = 2;
+    c.warrior.battle_cry_cooldown = 3;
+    c.warrior.battle_cry_charges = 4;
+    c.warrior.second_wind_shield = 5;
     c.pending_town_message = "old news".to_string();
 
     assert_eq!(enter_dungeon(&mut c), "");
 
     assert!(c.active_dungeon.is_some());
-    assert_eq!(c.cleave_cooldown, 0);
-    assert_eq!(c.shield_bash_cooldown, 0);
-    assert_eq!(c.battle_cry_cooldown, 0);
-    assert_eq!(c.battle_cry_charges, 0);
-    assert_eq!(c.second_wind_shield, 0);
+    assert_eq!(c.warrior.cleave_cooldown, 0);
+    assert_eq!(c.warrior.shield_bash_cooldown, 0);
+    assert_eq!(c.warrior.battle_cry_cooldown, 0);
+    assert_eq!(c.warrior.battle_cry_charges, 0);
+    assert_eq!(c.warrior.second_wind_shield, 0);
     assert!(c.pending_town_message.is_empty());
 }
 
@@ -2832,9 +2877,9 @@ fn softcore_death_clears_dungeon_and_combat_state() {
     let mut c = test_character();
     c.hp = 0;
     c.gold = 100;
-    c.cleave_cooldown = 1;
-    c.battle_cry_charges = 4;
-    c.second_wind_shield = 5;
+    c.warrior.cleave_cooldown = 1;
+    c.warrior.battle_cry_charges = 4;
+    c.warrior.second_wind_shield = 5;
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
     check_death(&mut c);
@@ -2843,9 +2888,9 @@ fn softcore_death_clears_dungeon_and_combat_state() {
     assert_eq!(c.hp, c.max_hp());
     assert_eq!(c.mana, c.max_mana());
     assert_eq!(c.gold, 90);
-    assert_eq!(c.cleave_cooldown, 0);
-    assert_eq!(c.battle_cry_charges, 0);
-    assert_eq!(c.second_wind_shield, 0);
+    assert_eq!(c.warrior.cleave_cooldown, 0);
+    assert_eq!(c.warrior.battle_cry_charges, 0);
+    assert_eq!(c.warrior.second_wind_shield, 0);
     assert!(c.pending_town_message.contains("returned to town"));
     assert!(c.pending_town_message.contains(TOWN_FULL_HEAL_MESSAGE));
 }

@@ -429,8 +429,12 @@ pub(crate) struct Dungeon {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Character {
     pub(crate) name: String,
-    #[serde(deserialize_with = "deserialize_class_name")]
-    pub(crate) class_name: String,
+    #[serde(
+        default = "default_character_class",
+        alias = "class_name",
+        deserialize_with = "deserialize_character_class"
+    )]
+    pub(crate) class: CharacterClass,
     pub(crate) death_mode: DeathMode,
     pub(crate) level: u32,
     pub(crate) xp: u32,
@@ -442,18 +446,10 @@ pub(crate) struct Character {
     pub(crate) unspent_attributes: u32,
     #[serde(default)]
     pub(crate) unspent_skills: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) cleave_rank: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) shield_bash_rank: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) battle_cry_rank: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) deep_cut_rank: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) iron_guard_rank: u32,
-    #[serde(default = "default_skill_rank")]
-    pub(crate) second_wind_rank: u32,
+    #[serde(default)]
+    pub(crate) warrior: WarriorState,
+    #[serde(default)]
+    pub(crate) rogue: RogueState,
     pub(crate) hp: u32,
     pub(crate) mana: u32,
     pub(crate) inventory: ItemGrid,
@@ -469,14 +465,6 @@ pub(crate) struct Character {
     #[serde(default)]
     pub(crate) act2_completed: bool,
     #[serde(default)]
-    pub(crate) cleave_cooldown: u32,
-    #[serde(default)]
-    pub(crate) shield_bash_cooldown: u32,
-    #[serde(default)]
-    pub(crate) battle_cry_cooldown: u32,
-    #[serde(default, alias = "battle_cry_turns")]
-    pub(crate) battle_cry_charges: u32,
-    #[serde(default)]
     pub(crate) active_dungeon: Option<Dungeon>,
     #[serde(default)]
     pub(crate) weapon_shards: u32,
@@ -486,20 +474,6 @@ pub(crate) struct Character {
     pub(crate) shield_shards: u32,
     #[serde(default)]
     pub(crate) completed_town_projects: Vec<TownProject>,
-    #[serde(default)]
-    pub(crate) cleave_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) shield_bash_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) battle_cry_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) deep_cut_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) iron_guard_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) second_wind_mastery: Option<SkillMastery>,
-    #[serde(default)]
-    pub(crate) second_wind_shield: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) pending_town_message: String,
 }
@@ -512,22 +486,6 @@ pub(crate) fn default_item_level() -> u32 {
     1
 }
 
-fn deserialize_class_name<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let class_name = String::deserialize(deserializer)?;
-    Ok(normalize_class_name(class_name))
-}
-
-fn normalize_class_name(class_name: String) -> String {
-    if class_name == "Ironbound" {
-        "Warrior".to_string()
-    } else {
-        class_name
-    }
-}
-
 impl Character {
     pub(crate) fn new(name: String, death_mode: DeathMode) -> Self {
         let strength = 6;
@@ -537,7 +495,7 @@ impl Character {
         let max_mana = 10 + intelligence * 5;
         Self {
             name,
-            class_name: "Warrior".to_string(),
+            class: CharacterClass::Warrior,
             death_mode,
             level: 1,
             xp: 0,
@@ -547,12 +505,8 @@ impl Character {
             intelligence,
             unspent_attributes: 0,
             unspent_skills: 0,
-            cleave_rank: 1,
-            shield_bash_rank: 1,
-            battle_cry_rank: 1,
-            deep_cut_rank: 1,
-            iron_guard_rank: 1,
-            second_wind_rank: 1,
+            warrior: WarriorState::default(),
+            rogue: RogueState::default(),
             hp: max_hp,
             mana: max_mana,
             inventory: ItemGrid::player_starting(vec![
@@ -568,24 +522,17 @@ impl Character {
             glass_tyrant_defeated: false,
             act1_completed: false,
             act2_completed: false,
-            cleave_cooldown: 0,
-            shield_bash_cooldown: 0,
-            battle_cry_cooldown: 0,
-            battle_cry_charges: 0,
             active_dungeon: None,
             weapon_shards: 0,
             armor_shards: 0,
             shield_shards: 0,
             completed_town_projects: Vec::new(),
-            cleave_mastery: None,
-            shield_bash_mastery: None,
-            battle_cry_mastery: None,
-            deep_cut_mastery: None,
-            iron_guard_mastery: None,
-            second_wind_mastery: None,
-            second_wind_shield: 0,
             pending_town_message: String::new(),
         }
+    }
+
+    pub(crate) fn class_name(&self) -> &'static str {
+        self.class.name()
     }
 
     pub(crate) fn max_hp(&self) -> u32 {
@@ -602,11 +549,12 @@ impl Character {
     }
     pub(crate) fn dodge_rating(&self) -> u32 {
         let bonuses = self.socket_bonuses();
-        let mastery_bonus = if self.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
-            3
-        } else {
-            0
-        };
+        let mastery_bonus =
+            if self.warrior.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
+                3
+            } else {
+                0
+            };
         (10 + self.effective_dexterity() as i32 * 3
             + self.equipped_shield.dodge
             + self.equipped_armor.dodge
@@ -625,7 +573,7 @@ impl Character {
     }
     pub(crate) fn armor(&self) -> i32 {
         let bonuses = self.socket_bonuses();
-        let bulwark_bonus = if self.iron_guard_mastery == Some(SkillMastery::Bulwark)
+        let bulwark_bonus = if self.warrior.iron_guard_mastery == Some(SkillMastery::Bulwark)
             && self.hp * 2 <= self.max_hp()
         {
             4

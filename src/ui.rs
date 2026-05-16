@@ -31,7 +31,10 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::raw(" the "),
-            Span::styled(c.class_name.clone(), Style::default().fg(Color::Green)),
+            Span::styled(
+                c.class_name().to_string(),
+                Style::default().fg(Color::Green),
+            ),
             Span::raw("  "),
             stat_span(format!("Level {}", c.level), Color::Cyan),
             Span::raw("  "),

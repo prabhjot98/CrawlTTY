@@ -67,28 +67,48 @@ pub(crate) fn render_skill_tree_screen(
             Style::default().add_modifier(Modifier::BOLD),
         ),
     ];
-    append_skill_choice_lines(&mut lines, selected, "Cleave", c.cleave_rank);
+    append_skill_choice_lines(&mut lines, selected, "Cleave", c.warrior.cleave_rank);
     append_mastery_status_lines(&mut lines, c, "Cleave");
     append_passive_unlock_line(&mut lines, c, "Deep Cut");
-    append_skill_choice_lines(&mut lines, selected, "Deep Cut", c.deep_cut_rank);
+    append_skill_choice_lines(&mut lines, selected, "Deep Cut", c.warrior.deep_cut_rank);
     append_mastery_status_lines(&mut lines, c, "Deep Cut");
     lines.push(Line::styled(
         "Defense Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Shield Bash", c.shield_bash_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected,
+        "Shield Bash",
+        c.warrior.shield_bash_rank,
+    );
     append_mastery_status_lines(&mut lines, c, "Shield Bash");
     append_passive_unlock_line(&mut lines, c, "Iron Guard");
-    append_skill_choice_lines(&mut lines, selected, "Iron Guard", c.iron_guard_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected,
+        "Iron Guard",
+        c.warrior.iron_guard_rank,
+    );
     append_mastery_status_lines(&mut lines, c, "Iron Guard");
     lines.push(Line::styled(
         "Warcry Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Battle Cry", c.battle_cry_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected,
+        "Battle Cry",
+        c.warrior.battle_cry_rank,
+    );
     append_mastery_status_lines(&mut lines, c, "Battle Cry");
     append_passive_unlock_line(&mut lines, c, "Second Wind");
-    append_skill_choice_lines(&mut lines, selected, "Second Wind", c.second_wind_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected,
+        "Second Wind",
+        c.warrior.second_wind_rank,
+    );
     append_mastery_status_lines(&mut lines, c, "Second Wind");
     lines.push(Line::from(""));
     lines.push(skill_line(
@@ -375,12 +395,12 @@ pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
         return requirement;
     }
     match skill {
-        "Cleave" => c.cleave_rank += 1,
-        "Shield Bash" => c.shield_bash_rank += 1,
-        "Battle Cry" => c.battle_cry_rank += 1,
-        "Deep Cut" => c.deep_cut_rank += 1,
-        "Iron Guard" => c.iron_guard_rank += 1,
-        "Second Wind" => c.second_wind_rank += 1,
+        "Cleave" => c.warrior.cleave_rank += 1,
+        "Shield Bash" => c.warrior.shield_bash_rank += 1,
+        "Battle Cry" => c.warrior.battle_cry_rank += 1,
+        "Deep Cut" => c.warrior.deep_cut_rank += 1,
+        "Iron Guard" => c.warrior.iron_guard_rank += 1,
+        "Second Wind" => c.warrior.second_wind_rank += 1,
         _ => return "Unknown skill.".to_string(),
     }
     c.unspent_skills -= 1;
@@ -414,24 +434,24 @@ impl SkillMastery {
 
 pub(crate) fn mastery_for_skill(c: &Character, skill: &str) -> Option<SkillMastery> {
     match skill {
-        "Cleave" => c.cleave_mastery,
-        "Shield Bash" => c.shield_bash_mastery,
-        "Battle Cry" => c.battle_cry_mastery,
-        "Deep Cut" => c.deep_cut_mastery,
-        "Iron Guard" => c.iron_guard_mastery,
-        "Second Wind" => c.second_wind_mastery,
+        "Cleave" => c.warrior.cleave_mastery,
+        "Shield Bash" => c.warrior.shield_bash_mastery,
+        "Battle Cry" => c.warrior.battle_cry_mastery,
+        "Deep Cut" => c.warrior.deep_cut_mastery,
+        "Iron Guard" => c.warrior.iron_guard_mastery,
+        "Second Wind" => c.warrior.second_wind_mastery,
         _ => None,
     }
 }
 
 pub(crate) fn set_mastery_for_skill(c: &mut Character, skill: &str, mastery: SkillMastery) {
     match skill {
-        "Cleave" => c.cleave_mastery = Some(mastery),
-        "Shield Bash" => c.shield_bash_mastery = Some(mastery),
-        "Battle Cry" => c.battle_cry_mastery = Some(mastery),
-        "Deep Cut" => c.deep_cut_mastery = Some(mastery),
-        "Iron Guard" => c.iron_guard_mastery = Some(mastery),
-        "Second Wind" => c.second_wind_mastery = Some(mastery),
+        "Cleave" => c.warrior.cleave_mastery = Some(mastery),
+        "Shield Bash" => c.warrior.shield_bash_mastery = Some(mastery),
+        "Battle Cry" => c.warrior.battle_cry_mastery = Some(mastery),
+        "Deep Cut" => c.warrior.deep_cut_mastery = Some(mastery),
+        "Iron Guard" => c.warrior.iron_guard_mastery = Some(mastery),
+        "Second Wind" => c.warrior.second_wind_mastery = Some(mastery),
         _ => {}
     }
 }
@@ -451,7 +471,7 @@ pub(crate) fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, Str
                 SkillMastery::BloodArc,
                 format!(
                     "Each Cleave hit forces Bleeding for 3 turns. Bleed damage uses your current Deep Cut value: {} damage/turn.",
-                    deep_cut_damage_for_rank(c.deep_cut_rank)
+                    deep_cut_damage_for_rank(c.warrior.deep_cut_rank)
                 ),
             ),
         ],
@@ -496,7 +516,7 @@ pub(crate) fn mastery_options(c: &Character, skill: &str) -> [(SkillMastery, Str
                 SkillMastery::Hemorrhage,
                 format!(
                     "Bleeding enemies below 50% HP take +2 bleed damage per tick. Current bleed becomes {} damage/turn while they are low HP.",
-                    deep_cut_damage_for_rank(c.deep_cut_rank) + 2
+                    deep_cut_damage_for_rank(c.warrior.deep_cut_rank) + 2
                 ),
             ),
             (
@@ -605,12 +625,12 @@ pub(crate) fn render_mastery_screen(frame: &mut Frame, c: &Character, skill: &st
 
 pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {
     match skill {
-        "Cleave" => c.cleave_rank,
-        "Shield Bash" => c.shield_bash_rank,
-        "Battle Cry" => c.battle_cry_rank,
-        "Deep Cut" => c.deep_cut_rank,
-        "Iron Guard" => c.iron_guard_rank,
-        "Second Wind" => c.second_wind_rank,
+        "Cleave" => c.warrior.cleave_rank,
+        "Shield Bash" => c.warrior.shield_bash_rank,
+        "Battle Cry" => c.warrior.battle_cry_rank,
+        "Deep Cut" => c.warrior.deep_cut_rank,
+        "Iron Guard" => c.warrior.iron_guard_rank,
+        "Second Wind" => c.warrior.second_wind_rank,
         _ => 5,
     }
 }
@@ -625,17 +645,17 @@ fn passive_prerequisite(c: &Character, skill: &str) -> Option<SkillPrerequisite>
     match skill {
         "Deep Cut" => Some(SkillPrerequisite {
             starter: "Cleave",
-            current_rank: c.cleave_rank,
+            current_rank: c.warrior.cleave_rank,
             required_rank: 2,
         }),
         "Iron Guard" => Some(SkillPrerequisite {
             starter: "Shield Bash",
-            current_rank: c.shield_bash_rank,
+            current_rank: c.warrior.shield_bash_rank,
             required_rank: 2,
         }),
         "Second Wind" => Some(SkillPrerequisite {
             starter: "Battle Cry",
-            current_rank: c.battle_cry_rank,
+            current_rank: c.warrior.battle_cry_rank,
             required_rank: 2,
         }),
         _ => None,
@@ -657,19 +677,19 @@ pub(crate) fn next_skill_rank(rank: u32) -> u32 {
     (rank + 1).min(5)
 }
 pub(crate) fn cleave_multiplier(c: &Character) -> f32 {
-    cleave_multiplier_for_rank(c.cleave_rank)
+    cleave_multiplier_for_rank(c.warrior.cleave_rank)
 }
 pub(crate) fn cleave_multiplier_for_rank(rank: u32) -> f32 {
     0.8 + (rank.saturating_sub(1) as f32 * 0.10)
 }
 pub(crate) fn shield_bash_multiplier(c: &Character) -> f32 {
-    shield_bash_multiplier_for_rank(c.shield_bash_rank)
+    shield_bash_multiplier_for_rank(c.warrior.shield_bash_rank)
 }
 pub(crate) fn shield_bash_multiplier_for_rank(rank: u32) -> f32 {
     0.7 + (rank.saturating_sub(1) as f32 * 0.10)
 }
 pub(crate) fn battle_cry_multiplier(c: &Character) -> f32 {
-    battle_cry_multiplier_for_rank(c.battle_cry_rank)
+    battle_cry_multiplier_for_rank(c.warrior.battle_cry_rank)
 }
 pub(crate) fn battle_cry_multiplier_for_rank(rank: u32) -> f32 {
     1.20 + (rank.saturating_sub(1) as f32 * 0.05)
@@ -684,13 +704,13 @@ pub(crate) fn battle_cry_bonus_percent_for_rank(rank: u32) -> u32 {
     ((battle_cry_multiplier_for_rank(rank) - 1.0) * 100.0).round() as u32
 }
 pub(crate) fn cleave_percent(c: &Character) -> u32 {
-    cleave_percent_for_rank(c.cleave_rank)
+    cleave_percent_for_rank(c.warrior.cleave_rank)
 }
 pub(crate) fn shield_bash_percent(c: &Character) -> u32 {
-    shield_bash_percent_for_rank(c.shield_bash_rank)
+    shield_bash_percent_for_rank(c.warrior.shield_bash_rank)
 }
 pub(crate) fn battle_cry_bonus_percent(c: &Character) -> u32 {
-    battle_cry_bonus_percent_for_rank(c.battle_cry_rank)
+    battle_cry_bonus_percent_for_rank(c.warrior.battle_cry_rank)
 }
 pub(crate) fn deep_cut_chance_for_rank(rank: u32) -> u32 {
     10 + rank.min(5) * 5
@@ -699,7 +719,7 @@ pub(crate) fn deep_cut_damage_for_rank(rank: u32) -> i32 {
     1 + rank.min(5).div_ceil(2) as i32
 }
 pub(crate) fn iron_guard_armor_bonus(c: &Character) -> i32 {
-    iron_guard_armor_bonus_for_rank(c.iron_guard_rank)
+    iron_guard_armor_bonus_for_rank(c.warrior.iron_guard_rank)
 }
 pub(crate) fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
     1 + rank.min(5) as i32
@@ -708,5 +728,5 @@ pub(crate) fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
     5 + rank.min(5) * 5
 }
 pub(crate) fn second_wind_heal_amount(c: &Character) -> u32 {
-    ((c.max_hp() * second_wind_heal_percent_for_rank(c.second_wind_rank)) / 100).max(1)
+    ((c.max_hp() * second_wind_heal_percent_for_rank(c.warrior.second_wind_rank)) / 100).max(1)
 }

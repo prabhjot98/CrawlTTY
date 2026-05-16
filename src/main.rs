@@ -8,18 +8,21 @@ pub(crate) use std::{
     path::Path,
 };
 
+mod classes;
 mod dungeon;
 mod dungeon_gen;
 mod input;
 mod inventory;
 mod items;
 mod model;
+mod rogue;
 mod save;
 mod skills;
 mod town;
 mod town_projects;
 mod ui;
 
+pub(crate) use classes::*;
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
 #[cfg(test)]
@@ -28,6 +31,8 @@ pub(crate) use input::{UiInput, read_ui_input, read_ui_input_nav, set_ratatui_ow
 pub(crate) use inventory::*;
 pub(crate) use items::*;
 pub(crate) use model::*;
+#[allow(unused_imports)]
+pub(crate) use rogue::*;
 pub(crate) use save::*;
 pub(crate) use skills::*;
 pub(crate) use town::*;

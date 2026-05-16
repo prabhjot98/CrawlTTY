@@ -8,11 +8,11 @@ pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon comman
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_LOG_LINE: &str = "[WARN] Unknown dungeon command.";
 
 pub(crate) fn clear_combat_state(c: &mut Character) {
-    c.cleave_cooldown = 0;
-    c.shield_bash_cooldown = 0;
-    c.battle_cry_cooldown = 0;
-    c.battle_cry_charges = 0;
-    c.second_wind_shield = 0;
+    c.warrior.cleave_cooldown = 0;
+    c.warrior.shield_bash_cooldown = 0;
+    c.warrior.battle_cry_cooldown = 0;
+    c.warrior.battle_cry_charges = 0;
+    c.warrior.second_wind_shield = 0;
 }
 
 pub(crate) fn leave_dungeon(c: &mut Character) {
@@ -358,35 +358,35 @@ fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
     vec![
         Line::from(format!(
             "1 Cleave r{}: cost 5 mana, cd 1. Hit {} for {}% weapon damage. Ready in {}.",
-            c.cleave_rank,
+            c.warrior.cleave_rank,
             cleave_target_help(c),
             cleave_percent(c),
-            c.cleave_cooldown
+            c.warrior.cleave_cooldown
         )),
         Line::from(format!(
             "2 Shield Bash r{}: cost 6 mana, cd 3. Hit {} for {}% damage and stun {}. Ready in {}.",
-            c.shield_bash_rank,
+            c.warrior.shield_bash_rank,
             shield_bash_range_help(c),
             shield_bash_percent(c),
             shield_bash_stun_help(c),
-            c.shield_bash_cooldown
+            c.warrior.shield_bash_cooldown
         )),
         Line::from(format!(
             "3 Battle Cry r{}: cost 8 mana, cd 6. Next {} attacks gain +{}% damage; Second Wind r{} heals {}%. Ready in {}, charges {}.",
-            c.battle_cry_rank,
+            c.warrior.battle_cry_rank,
             battle_cry_charge_count(c),
             battle_cry_bonus_percent(c),
-            c.second_wind_rank,
-            second_wind_heal_percent_for_rank(c.second_wind_rank),
-            c.battle_cry_cooldown,
-            c.battle_cry_charges
+            c.warrior.second_wind_rank,
+            second_wind_heal_percent_for_rank(c.warrior.second_wind_rank),
+            c.warrior.battle_cry_cooldown,
+            c.warrior.battle_cry_charges
         )),
         Line::from(format!(
             "Passives: Deep Cut r{} {}% bleed for {}/turn; Iron Guard r{} +{} armor.",
-            c.deep_cut_rank,
-            deep_cut_chance_for_rank(c.deep_cut_rank),
-            deep_cut_damage_for_rank(c.deep_cut_rank),
-            c.iron_guard_rank,
+            c.warrior.deep_cut_rank,
+            deep_cut_chance_for_rank(c.warrior.deep_cut_rank),
+            deep_cut_damage_for_rank(c.warrior.deep_cut_rank),
+            c.warrior.iron_guard_rank,
             iron_guard_armor_bonus(c)
         )),
     ]
@@ -549,7 +549,7 @@ pub(crate) fn is_log_header(line: &str) -> bool {
 }
 
 pub(crate) fn cleave_target_help(c: &Character) -> &'static str {
-    if c.cleave_mastery == Some(SkillMastery::ReapingCleave) {
+    if c.warrior.cleave_mastery == Some(SkillMastery::ReapingCleave) {
         "every adjacent enemy"
     } else {
         "up to 3 adjacent enemies"
@@ -557,7 +557,7 @@ pub(crate) fn cleave_target_help(c: &Character) -> &'static str {
 }
 
 pub(crate) fn shield_bash_range_help(c: &Character) -> &'static str {
-    if c.shield_bash_mastery == Some(SkillMastery::LongBash) {
+    if c.warrior.shield_bash_mastery == Some(SkillMastery::LongBash) {
         "1 enemy up to 2 tiles in a clear cardinal line"
     } else {
         "1 adjacent enemy"
@@ -565,7 +565,7 @@ pub(crate) fn shield_bash_range_help(c: &Character) -> &'static str {
 }
 
 pub(crate) fn shield_bash_stun_turns(c: &Character) -> u32 {
-    if c.shield_bash_mastery == Some(SkillMastery::DazingBash) {
+    if c.warrior.shield_bash_mastery == Some(SkillMastery::DazingBash) {
         2
     } else {
         1
@@ -581,7 +581,7 @@ pub(crate) fn shield_bash_stun_help(c: &Character) -> &'static str {
 }
 
 pub(crate) fn battle_cry_charge_count(c: &Character) -> u32 {
-    if c.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
+    if c.warrior.battle_cry_mastery == Some(SkillMastery::WarpathCry) {
         7
     } else {
         5
@@ -617,13 +617,13 @@ pub(crate) fn player_attack(c: &mut Character, enemy_index: usize) {
 }
 
 pub(crate) fn use_cleave(c: &mut Character) -> bool {
-    if c.cleave_cooldown > 0 {
+    if c.warrior.cleave_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
             format!(
                 "Cleave is on cooldown for {} more turns.",
-                c.cleave_cooldown
+                c.warrior.cleave_cooldown
             ),
         );
         return false;
@@ -646,19 +646,19 @@ pub(crate) fn use_cleave(c: &mut Character) -> bool {
         return false;
     }
     c.mana -= 5;
-    c.cleave_cooldown = 1;
+    c.warrior.cleave_cooldown = 1;
     log_event(
         &mut c.active_dungeon.as_mut().unwrap().log,
         LogKind::Hit,
         "You swing a wide Cleave.",
     );
-    let target_limit = if c.cleave_mastery == Some(SkillMastery::ReapingCleave) {
+    let target_limit = if c.warrior.cleave_mastery == Some(SkillMastery::ReapingCleave) {
         usize::MAX
     } else {
         3
     };
-    let blood_arc = c.cleave_mastery == Some(SkillMastery::BloodArc);
-    let sundering = c.cleave_mastery == Some(SkillMastery::SunderingCleave);
+    let blood_arc = c.warrior.cleave_mastery == Some(SkillMastery::BloodArc);
+    let sundering = c.warrior.cleave_mastery == Some(SkillMastery::SunderingCleave);
     for index in targets.into_iter().take(target_limit).rev() {
         if c.active_dungeon.is_some() {
             damage_enemy(c, index, cleave_multiplier(c), "cleave");
@@ -668,7 +668,7 @@ pub(crate) fn use_cleave(c: &mut Character) -> bool {
                         enemy.bleed_turns = 3;
                         enemy.bleed_damage = enemy
                             .bleed_damage
-                            .max(deep_cut_damage_for_rank(c.deep_cut_rank));
+                            .max(deep_cut_damage_for_rank(c.warrior.deep_cut_rank));
                     }
                     if sundering && enemy.hp > 0 {
                         enemy.armor_shred_turns = 3;
@@ -682,13 +682,13 @@ pub(crate) fn use_cleave(c: &mut Character) -> bool {
 }
 
 pub(crate) fn use_shield_bash(c: &mut Character) -> bool {
-    if c.shield_bash_cooldown > 0 {
+    if c.warrior.shield_bash_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
             format!(
                 "Shield Bash is on cooldown for {} more turns.",
-                c.shield_bash_cooldown
+                c.warrior.shield_bash_cooldown
             ),
         );
         return false;
@@ -701,7 +701,7 @@ pub(crate) fn use_shield_bash(c: &mut Character) -> bool {
         );
         return false;
     }
-    let target = if c.shield_bash_mastery == Some(SkillMastery::LongBash) {
+    let target = if c.warrior.shield_bash_mastery == Some(SkillMastery::LongBash) {
         shield_bash_target_index(c, 2)
     } else {
         adjacent_enemy_indices(c).first().copied()
@@ -715,8 +715,8 @@ pub(crate) fn use_shield_bash(c: &mut Character) -> bool {
         return false;
     };
     c.mana -= 6;
-    c.shield_bash_cooldown = 3;
-    let multiplier = if c.shield_bash_mastery == Some(SkillMastery::CrushingBash) {
+    c.warrior.shield_bash_cooldown = 3;
+    let multiplier = if c.warrior.shield_bash_mastery == Some(SkillMastery::CrushingBash) {
         shield_bash_multiplier(c) + c.equipped_shield.armor.max(0) as f32 * 0.10
     } else {
         shield_bash_multiplier(c)
@@ -745,13 +745,13 @@ pub(crate) fn apply_shield_bash_stun(c: &mut Character, enemy_index: usize) {
 }
 
 pub(crate) fn use_battle_cry(c: &mut Character) -> bool {
-    if c.battle_cry_cooldown > 0 {
+    if c.warrior.battle_cry_cooldown > 0 {
         log_event(
             &mut c.active_dungeon.as_mut().unwrap().log,
             LogKind::Warn,
             format!(
                 "Battle Cry is on cooldown for {} more turns.",
-                c.battle_cry_cooldown
+                c.warrior.battle_cry_cooldown
             ),
         );
         return false;
@@ -765,15 +765,15 @@ pub(crate) fn use_battle_cry(c: &mut Character) -> bool {
         return false;
     }
     c.mana -= 8;
-    c.battle_cry_charges = battle_cry_charge_count(c);
-    c.battle_cry_cooldown = 6;
-    if c.battle_cry_mastery == Some(SkillMastery::RallyingCry) {
+    c.warrior.battle_cry_charges = battle_cry_charge_count(c);
+    c.warrior.battle_cry_cooldown = 6;
+    if c.warrior.battle_cry_mastery == Some(SkillMastery::RallyingCry) {
         let heal = (c.max_hp() / 5).max(1);
         let mana = (c.max_mana() / 5).max(1);
         c.hp = (c.hp + heal).min(c.max_hp());
         c.mana = (c.mana + mana).min(c.max_mana());
     }
-    if c.battle_cry_mastery == Some(SkillMastery::TerrifyingCry) {
+    if c.warrior.battle_cry_mastery == Some(SkillMastery::TerrifyingCry) {
         weaken_nearby_enemies(c, 3);
     }
     log_event(
@@ -781,24 +781,24 @@ pub(crate) fn use_battle_cry(c: &mut Character) -> bool {
         LogKind::Status,
         format!(
             "You roar a Battle Cry. Your next {} attacks hit harder and enemies falter.",
-            c.battle_cry_charges
+            c.warrior.battle_cry_charges
         ),
     );
     true
 }
 
 pub(crate) fn consume_battle_cry_charge(c: &mut Character) {
-    if c.battle_cry_charges == 0 {
+    if c.warrior.battle_cry_charges == 0 {
         return;
     }
-    c.battle_cry_charges -= 1;
+    c.warrior.battle_cry_charges -= 1;
     if let Some(d) = c.active_dungeon.as_mut() {
         log_event(
             &mut d.log,
             LogKind::Status,
             format!(
                 "Battle Cry charge spent. {} remaining.",
-                c.battle_cry_charges
+                c.warrior.battle_cry_charges
             ),
         );
     }
@@ -882,12 +882,12 @@ pub(crate) fn damage_enemy(
     };
     let mut rng = rand::thread_rng();
     let (min, max) = c.weapon_damage();
-    let damage_bonus = if c.battle_cry_charges > 0 {
+    let damage_bonus = if c.warrior.battle_cry_charges > 0 {
         battle_cry_multiplier(c)
     } else {
         1.0
     };
-    let battle_cry_active = c.battle_cry_charges > 0;
+    let battle_cry_active = c.warrior.battle_cry_charges > 0;
     let hit = hit_roll(c.hit_rating() as i32, 10);
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
         c.active_dungeon = Some(d);
@@ -918,11 +918,11 @@ pub(crate) fn damage_enemy(
         if enemy.guarding {
             guard_message = Some(format!("{} blocks with its shield.", enemy.name));
         }
-        let bleed_chance = deep_cut_chance_for_rank(c.deep_cut_rank) as f64 / 100.0;
+        let bleed_chance = deep_cut_chance_for_rank(c.warrior.deep_cut_rank) as f64 / 100.0;
         if rng.gen_bool(bleed_chance) && enemy.hp > 0 {
             enemy.bleed_turns = 3;
-            enemy.bleed_damage = deep_cut_damage_for_rank(c.deep_cut_rank);
-            if c.deep_cut_mastery == Some(SkillMastery::OpenWound) {
+            enemy.bleed_damage = deep_cut_damage_for_rank(c.warrior.deep_cut_rank);
+            if c.warrior.deep_cut_mastery == Some(SkillMastery::OpenWound) {
                 enemy.vulnerable_turns = 3;
             }
             bleed_message = Some(format!("{} starts bleeding.", enemy.name));
@@ -1009,7 +1009,7 @@ pub(crate) fn resolve_enemy_death(
     );
     push_level_up_logs(&mut d.log, &levels_gained);
     if matches!(cause, EnemyDeathCause::Bleed)
-        && c.deep_cut_mastery == Some(SkillMastery::Bloodletting)
+        && c.warrior.deep_cut_mastery == Some(SkillMastery::Bloodletting)
     {
         let heal = (c.max_hp() / 10).max(1);
         c.hp = (c.hp + heal).min(c.max_hp());
@@ -1102,7 +1102,7 @@ pub(crate) fn trigger_second_wind_with_log(
     let mut heal = 0;
     if battle_cry_active {
         heal = second_wind_heal_amount(c);
-    } else if c.second_wind_mastery == Some(SkillMastery::FreshKill) {
+    } else if c.warrior.second_wind_mastery == Some(SkillMastery::FreshKill) {
         heal = (second_wind_heal_amount(c) / 2).max(1);
     }
     if heal == 0 {
@@ -1111,30 +1111,30 @@ pub(crate) fn trigger_second_wind_with_log(
     let before = c.hp;
     c.hp = (c.hp + heal).min(c.max_hp());
     let actual_heal = c.hp - before;
-    if c.second_wind_mastery == Some(SkillMastery::GrimRecovery) {
-        c.second_wind_shield += heal.saturating_sub(actual_heal);
+    if c.warrior.second_wind_mastery == Some(SkillMastery::GrimRecovery) {
+        c.warrior.second_wind_shield += heal.saturating_sub(actual_heal);
     }
-    if c.second_wind_mastery == Some(SkillMastery::AdrenalSurge) && battle_cry_active {
-        c.battle_cry_charges += 1;
+    if c.warrior.second_wind_mastery == Some(SkillMastery::AdrenalSurge) && battle_cry_active {
+        c.warrior.battle_cry_charges += 1;
     }
     log_event(
         log,
         LogKind::Heal,
         format!("Second Wind restores {}.", heal_amount_text(actual_heal)),
     );
-    if c.second_wind_shield > 0 {
+    if c.warrior.second_wind_shield > 0 {
         log_event(
             log,
             LogKind::Status,
-            format!("Grim Recovery shield: {}.", c.second_wind_shield),
+            format!("Grim Recovery shield: {}.", c.warrior.second_wind_shield),
         );
     }
 }
 
 pub(crate) fn tick_player_effects(c: &mut Character) {
-    c.cleave_cooldown = c.cleave_cooldown.saturating_sub(1);
-    c.shield_bash_cooldown = c.shield_bash_cooldown.saturating_sub(1);
-    c.battle_cry_cooldown = c.battle_cry_cooldown.saturating_sub(1);
+    c.warrior.cleave_cooldown = c.warrior.cleave_cooldown.saturating_sub(1);
+    c.warrior.shield_bash_cooldown = c.warrior.shield_bash_cooldown.saturating_sub(1);
+    c.warrior.battle_cry_cooldown = c.warrior.battle_cry_cooldown.saturating_sub(1);
 }
 
 pub(crate) fn enemy_turns(c: &mut Character) {
@@ -1156,7 +1156,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
         d.enemies[i].armor_shred_turns = d.enemies[i].armor_shred_turns.saturating_sub(1);
         d.enemies[i].vulnerable_turns = d.enemies[i].vulnerable_turns.saturating_sub(1);
         if d.enemies[i].bleed_turns > 0 {
-            let bleed_damage = if c.deep_cut_mastery == Some(SkillMastery::Hemorrhage)
+            let bleed_damage = if c.warrior.deep_cut_mastery == Some(SkillMastery::Hemorrhage)
                 && d.enemies[i].hp * 2 <= d.enemies[i].max_hp
             {
                 d.enemies[i].bleed_damage + 2
@@ -1501,7 +1501,7 @@ pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index
         if c.hp == 0 {
             return false;
         }
-        if c.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
+        if c.warrior.iron_guard_mastery == Some(SkillMastery::SpikedGuard) {
             let thorn_damage = 2;
             d.enemies[enemy_index].hp -= thorn_damage;
             log_event(
@@ -1650,13 +1650,17 @@ pub(crate) fn apply_vampiric_heal(d: &mut Dungeon, enemy_index: usize) {
 }
 
 pub(crate) fn apply_player_damage(c: &mut Character, damage: u32) {
-    let absorbed = c.second_wind_shield.min(damage);
-    c.second_wind_shield -= absorbed;
+    let absorbed = c.warrior.second_wind_shield.min(damage);
+    c.warrior.second_wind_shield -= absorbed;
     c.hp = c.hp.saturating_sub(damage - absorbed);
 }
 
 pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
-    let cry_penalty = if c.battle_cry_charges > 0 { 0.90 } else { 1.0 };
+    let cry_penalty = if c.warrior.battle_cry_charges > 0 {
+        0.90
+    } else {
+        1.0
+    };
     (((raw - c.armor()).max(1) as f32) * cry_penalty)
         .round()
         .max(1.0) as u32
@@ -1673,7 +1677,11 @@ pub(crate) fn crit_roll(crit_chance: u32) -> bool {
 }
 
 pub(crate) fn player_crit_chance(c: &Character) -> u32 {
-    let battle_cry_bonus = if c.battle_cry_charges > 0 { 5 } else { 0 };
+    let battle_cry_bonus = if c.warrior.battle_cry_charges > 0 {
+        5
+    } else {
+        0
+    };
     c.weapon_crit_chance()
         .saturating_add(battle_cry_bonus)
         .min(100)
