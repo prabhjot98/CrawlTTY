@@ -133,7 +133,7 @@ fn completed_and_unaffordable_town_projects_do_not_change_state() {
 fn saved_character_without_town_projects_defaults_to_empty_projects() {
     let json = r#"{
         "name": "Legacy",
-        "class_name": "Ironbound",
+        "class_name": "Warrior",
         "death_mode": "Softcore",
         "level": 1,
         "xp": 0,

@@ -55,7 +55,7 @@ pub(crate) fn render_skill_tree_screen(
 ) {
     let mut lines = vec![
         Line::styled(
-            "Ironbound Skill Tree",
+            "Warrior Skill Tree",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -184,10 +184,10 @@ fn render_skill_tree_layout(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new("Ironbound Skill Tree").block(
+        Paragraph::new("Warrior Skill Tree").block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Ironbound Skill Tree"),
+                .title("Warrior Skill Tree"),
         ),
         layout[0],
     );

@@ -429,6 +429,7 @@ pub(crate) struct Dungeon {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Character {
     pub(crate) name: String,
+    #[serde(deserialize_with = "deserialize_class_name")]
     pub(crate) class_name: String,
     pub(crate) death_mode: DeathMode,
     pub(crate) level: u32,
@@ -511,6 +512,22 @@ pub(crate) fn default_item_level() -> u32 {
     1
 }
 
+fn deserialize_class_name<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let class_name = String::deserialize(deserializer)?;
+    Ok(normalize_class_name(class_name))
+}
+
+fn normalize_class_name(class_name: String) -> String {
+    if class_name == "Ironbound" {
+        "Warrior".to_string()
+    } else {
+        class_name
+    }
+}
+
 impl Character {
     pub(crate) fn new(name: String, death_mode: DeathMode) -> Self {
         let strength = 6;
@@ -520,7 +537,7 @@ impl Character {
         let max_mana = 10 + intelligence * 5;
         Self {
             name,
-            class_name: "Ironbound".to_string(),
+            class_name: "Warrior".to_string(),
             death_mode,
             level: 1,
             xp: 0,

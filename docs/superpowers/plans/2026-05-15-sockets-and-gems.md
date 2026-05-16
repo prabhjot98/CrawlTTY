@@ -188,7 +188,7 @@ Expected: all 3 tests pass.
 Run:
 
 ```bash
-cargo test new_ironbound_matches_mvp_starting_state battle_cry_adds_flat_crit_chance_to_equipped_weapon weapon_summary_and_comparison_show_crit_chance
+cargo test new_warrior_matches_mvp_starting_state battle_cry_adds_flat_crit_chance_to_equipped_weapon weapon_summary_and_comparison_show_crit_chance
 ```
 
 Expected: all listed tests pass without changing existing baseline values for unsocketed gear.

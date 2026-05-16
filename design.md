@@ -117,7 +117,7 @@ Base player stats before attributes:
 - Base dodge rating: 10
 - Base speed: 10
 
-Ironbound starting attributes:
+Warrior starting attributes:
 
 - Strength: 6
 - Dexterity: 3
@@ -172,7 +172,7 @@ This is fair, simple, and easy to tune. Equal hit and dodge ratings produce a 50
 
 Use original classes instead of copying existing ones.
 
-### 1. Ironbound
+### 1. Warrior
 
 A melee warrior focused on weapons, armor, and survival.
 
@@ -272,7 +272,7 @@ Example skills:
 
 Each class should have 3 skill trees.
 
-Example Ironbound trees:
+Example Warrior trees:
 
 - Weapons
 - Defense
@@ -295,11 +295,11 @@ Skills can have:
 
 ### First Skill Tree Complexity
 
-The first implemented class should have a moderately complex skill tree rather than only four isolated abilities. Start with the **Ironbound** and give it three small branches.
+The first implemented class should have a moderately complex skill tree rather than only four isolated abilities. Start with the **Warrior** and give it three small branches.
 
-#### Ironbound MVP Skill Tree
+#### Warrior MVP Skill Tree
 
-The first implemented Ironbound skills should be:
+The first implemented Warrior skills should be:
 
 - Cleave
 - Shield Bash
@@ -308,7 +308,7 @@ The first implemented Ironbound skills should be:
 - Iron Guard
 - Second Wind
 
-The Ironbound uses **Mana** in the MVP for simplicity. A later version may rename the Ironbound resource to Fury while keeping similar mechanics.
+The Warrior uses **Mana** in the MVP for simplicity. A later version may rename the Warrior resource to Fury while keeping similar mechanics.
 
 Skill rank philosophy:
 
@@ -350,7 +350,7 @@ Mastery rules:
 - Each rank 5 skill has 3 mutually exclusive mastery paths.
 - Picking one mastery permanently locks the other two choices for that skill.
 
-Ironbound mastery paths:
+Warrior mastery paths:
 
 - Cleave: Reaping Cleave hits every adjacent enemy; Sundering Cleave shreds enemy armor; Blood Arc forces bleeding on Cleave hits.
 - Shield Bash: Crushing Bash gains damage from shield armor; Long Bash can target enemies up to 2 tiles away; Dazing Bash increases stun duration.
@@ -417,7 +417,7 @@ Utility modifiers:
 - +Gold found
 - +Potion healing
 - +Potion mana recovery
-- +Skill rank for one Ironbound skill
+- +Skill rank for one Warrior skill
 
 Magic items should usually have 1 modifier or a 25% stat boost. Rare items should usually have 2-3 modifiers or a 50% stat boost. More complex modifiers like life steal, mana on kill, chance-to-cast effects, and reduced cooldowns should be saved for later versions.
 
@@ -919,9 +919,9 @@ Build the smallest fun version first.
 
 ### MVP Class
 
-Start with **Ironbound** because melee combat is easiest to prototype.
+Start with **Warrior** because melee combat is easiest to prototype.
 
-The Ironbound starts with:
+The Warrior starts with:
 
 - Rusted sword
 - Worn shield
@@ -1113,7 +1113,7 @@ design.md
 
 ### Milestone 4: Skills and Loot Polish
 
-- Implement Ironbound skills: Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, Second Wind.
+- Implement Warrior skills: Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, Second Wind.
 - Add skill tree screen and skill point spending.
 - Add Common, Magic, Rare, and Unique item generation.
 - Add item scaling grades and item comparison UI.
@@ -1142,7 +1142,7 @@ design.md
 ## Resolved MVP Scope Decisions
 
 - MVP town services are merchant, blacksmith, stash, and dungeon entrance; returning to town fully restores health and mana.
-- First Ironbound skills are Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, and Second Wind.
+- First Warrior skills are Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, and Second Wind.
 - Floor 1 enemies are rats and skeletons.
 - Floor 2 enemies are skeletons, cultists, and the first elite enemy.
 - Floor 10 enemies are cultists, boneguards, and the Bellkeeper boss.
@@ -1153,7 +1153,7 @@ design.md
 - Beginning primary attributes are Strength, Dexterity, and Intelligence.
 - Every class starts with 10 total primary attribute points.
 - Base player health, mana, hit rating, dodge rating, and speed are each 10 before attributes.
-- Ironbound starts with 6 Strength, 3 Dexterity, and 1 Intelligence.
+- Warrior starts with 6 Strength, 3 Dexterity, and 1 Intelligence.
 - Strength gives +5 health per point.
 - Dexterity gives +5 hit rating and +5 speed per point.
 - Intelligence gives +5 mana per point.

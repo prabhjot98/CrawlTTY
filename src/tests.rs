@@ -727,7 +727,8 @@ fn skill_screens_render_with_ratatui() {
         .draw(|frame| render_skill_tree_screen(frame, &c, 0, ""))
         .unwrap();
     let skill_tree = backend_text(&terminal);
-    assert!(skill_tree.contains("Ironbound Skill Tree"));
+    assert!(skill_tree.contains("Warrior Skill Tree"));
+    assert!(!skill_tree.contains("Ironbound Skill Tree"));
     assert!(skill_tree.contains("Cleave"));
     assert!(skill_tree.contains("> Cleave"));
     assert!(skill_tree.contains("Current Skill"));
@@ -795,10 +796,10 @@ fn item_grid_new_panics_when_initial_items_exceed_capacity() {
 }
 
 #[test]
-fn new_ironbound_matches_mvp_starting_state() {
+fn new_warrior_matches_mvp_starting_state() {
     let c = test_character();
 
-    assert_eq!(c.class_name, "Ironbound");
+    assert_eq!(c.class_name, "Warrior");
     assert_eq!(c.level, 1);
     assert_eq!(c.gold, 50);
     assert_eq!((c.strength, c.dexterity, c.intelligence), (6, 3, 1));
@@ -1304,6 +1305,7 @@ fn saved_character_without_town_projects_defaults_to_empty_projects() {
 
     let c: Character = serde_json::from_str(json).unwrap();
 
+    assert_eq!(c.class_name, "Warrior");
     assert!(c.completed_town_projects.is_empty());
 }
 
