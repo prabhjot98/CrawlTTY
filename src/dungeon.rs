@@ -136,11 +136,11 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
         return;
     };
     let skill_help_lines = dungeon_skill_help_lines(c);
-    let skill_panel_height = skill_help_lines.len() as u16 + 2;
+    let skill_panel_height = dungeon_skill_panel_height(&skill_help_lines, frame.area().width);
 
     let layout = Layout::vertical([
         Constraint::Length(3),
-        Constraint::Min(10),
+        Constraint::Min(9),
         Constraint::Length(skill_panel_height),
         Constraint::Length(4),
     ])
@@ -359,6 +359,24 @@ pub(crate) fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
         CharacterClass::Warrior => warrior_dungeon_skill_help_lines(c),
         CharacterClass::Rogue => rogue_dungeon_skill_help_lines(c),
     }
+}
+
+fn dungeon_skill_panel_height(lines: &[Line<'static>], width: u16) -> u16 {
+    let inner_width = usize::from(width.saturating_sub(2).max(1));
+    let content_height: u16 = lines
+        .iter()
+        .map(|line| wrapped_line_height(line, inner_width))
+        .sum();
+    content_height + 2
+}
+
+fn wrapped_line_height(line: &Line<'_>, width: usize) -> u16 {
+    let line_width: usize = line
+        .spans
+        .iter()
+        .map(|span| span.content.as_ref().chars().count())
+        .sum();
+    line_width.max(1).div_ceil(width) as u16
 }
 
 fn warrior_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {

@@ -171,7 +171,7 @@ fn rogue_dungeon_header_uses_energy_resource_label() {
     );
     rogue.rogue.energy = 42;
     rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
-    let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
 
     terminal
         .draw(|frame| render_dungeon(frame, &rogue))
@@ -192,14 +192,18 @@ fn rogue_dungeon_render_shows_fourth_skill_help() {
         DeathMode::Softcore,
     );
     rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
-    let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
 
     terminal
         .draw(|frame| render_dungeon(frame, &rogue))
         .unwrap();
     let rendered = backend_text(&terminal);
 
-    assert!(rendered.contains("4 Smoke Step"));
+    assert!(
+        rendered.contains("4 Smoke Step"),
+        "{}",
+        backend_lines(&terminal).join("\n")
+    );
 }
 
 #[test]
