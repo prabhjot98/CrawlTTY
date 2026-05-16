@@ -223,22 +223,22 @@ Example skills:
 - Frailty Hex: reduce enemy armor
 - Soul Drain: damage enemy and heal self
 
-### 4. Shadeblade
+### 4. Rogue
 
-A fast rogue using traps, daggers, and mobility.
+A fast dagger fighter using internal combo points, poison setup, burst finishers, and smoke-assisted mobility.
 
 Possible builds:
 
-- Critical dagger assassin
-- Trap master
-- Poison archer
+- Combo-point dagger assassin
+- Poison executioner
+- Smoke skirmisher
 
 Example skills:
 
-- Backstab: high damage from behind or against distracted foes
-- Smoke Step: teleport short distance
-- Spike Trap: damages enemy that steps on it
-- Venom Edge: poison weapon buff
+- Backstab: melee builder that grants a combo point and rewards movement, smoke, or poisoned targets
+- Venom Edge: melee builder that poisons the target and grants a combo point
+- Eviscerate: finisher that spends internal combo points for heavy physical burst
+- Smoke Step: short cardinal dash that grants brief protection and enables an empowered Backstab
 
 ### 5. Wildspeaker
 
@@ -448,7 +448,7 @@ Damage should come from base item damage plus scaling bonuses from the relevant 
 
 ### Loot Goals
 
-Loot should support build experimentation. A weapon that adds fire damage should interest an Embercaller, Shadeblade, or Wildspeaker in different ways.
+Loot should support build experimentation. A weapon that adds fire damage should interest an Embercaller, Rogue, or Wildspeaker in different ways.
 
 ## Inventory
 
