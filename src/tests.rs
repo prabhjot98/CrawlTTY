@@ -1135,6 +1135,56 @@ fn dungeon_loot_goes_to_bag_when_inventory_has_space() {
 }
 
 #[test]
+fn dungeon_map_renders_ground_item_glyph() {
+    let mut d = open_test_dungeon(1, 1, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 3,
+        y: 4,
+        item: health_potion(),
+    });
+
+    let lines = dungeon_map_lines_for_test(&d);
+
+    assert_eq!(lines[4].chars().nth(3), Some('!'));
+}
+
+#[test]
+fn pickup_ground_item_adds_to_inventory_when_space_exists() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, Vec::new());
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    assert!(pickup_ground_items_on_player(&mut c));
+
+    assert_eq!(c.inventory.len(), 1);
+    assert!(c.active_dungeon.as_ref().unwrap().ground_items.is_empty());
+}
+
+#[test]
+fn pickup_ground_item_keeps_item_on_ground_when_inventory_is_full() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: mana_potion(),
+    });
+    c.active_dungeon = Some(d);
+
+    assert!(!pickup_ground_items_on_player(&mut c));
+
+    assert_eq!(c.inventory.len(), 1);
+    assert_eq!(c.active_dungeon.as_ref().unwrap().ground_items.len(), 1);
+}
+
+#[test]
 fn full_inventory_chest_loot_goes_to_ground() {
     let mut c = test_character();
     fill_inventory_to_capacity(&mut c);

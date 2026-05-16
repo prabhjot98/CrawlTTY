@@ -92,6 +92,7 @@ pub(crate) fn dungeon_loop(
             '2' => took_turn = use_shield_bash(c),
             '3' => took_turn = use_battle_cry(c),
             'p' | 'P' => took_turn = use_potion(c),
+            'g' | 'G' => took_turn = pickup_ground_items_on_player(c),
             'i' | 'I' => took_turn = run_legacy_screen(terminal, || inventory_screen(c))?,
             '\u{1b}' => {
                 if try_leave_dungeon_for_town(c) {
@@ -183,6 +184,7 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
                 ("2", "Bash"),
                 ("3", "Cry"),
                 ("p", "potion"),
+                ("g", "pickup"),
                 ("i", "inventory"),
                 ("Esc", "town"),
             ],
@@ -197,6 +199,8 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
             Span::raw("=floor  "),
             tile_span('$'),
             Span::raw("=chest  "),
+            tile_span('!'),
+            Span::raw("=loot  "),
             tile_span('E'),
             Span::raw("=elite  "),
             tile_span('B'),
@@ -235,6 +239,9 @@ fn dungeon_map_lines(d: &Dungeon) -> Vec<Line<'static>> {
             {
                 ch = '$';
             }
+            if d.ground_items.iter().any(|item| item.x == x && item.y == y) {
+                ch = '!';
+            }
             if d.bell_wave_tiles.contains(&(x, y)) {
                 ch = '*';
             }
@@ -249,6 +256,19 @@ fn dungeon_map_lines(d: &Dungeon) -> Vec<Line<'static>> {
         lines.push(Line::from(spans));
     }
     lines
+}
+
+#[cfg(test)]
+pub(crate) fn dungeon_map_lines_for_test(d: &Dungeon) -> Vec<String> {
+    dungeon_map_lines(d)
+        .into_iter()
+        .map(|line| {
+            line.spans
+                .into_iter()
+                .map(|span| span.content.to_string())
+                .collect::<String>()
+        })
+        .collect()
 }
 
 fn combat_log_lines(d: &Dungeon) -> Vec<Line<'static>> {
@@ -428,6 +448,7 @@ pub(crate) fn dungeon_action_label(key: char) -> &'static str {
         '2' => "Shield Bash",
         '3' => "Battle Cry",
         'p' | 'P' => "Drink potion",
+        'g' | 'G' => "Pick up",
         _ => "Command",
     }
 }
@@ -447,6 +468,8 @@ pub(crate) fn is_known_dungeon_command(key: char) -> bool {
             | '3'
             | 'p'
             | 'P'
+            | 'g'
+            | 'G'
             | 'i'
             | 'I'
             | '\u{1b}'
@@ -1717,6 +1740,56 @@ pub(crate) fn add_loot_to_bag_or_ground(
     add_loot_to_inventory_or_ground(&mut c.inventory, d, item, x, y, verb)
 }
 
+pub(crate) fn ground_item_indices_at_player(c: &Character) -> Vec<usize> {
+    let Some(d) = c.active_dungeon.as_ref() else {
+        return Vec::new();
+    };
+    d.ground_items
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| item.x == d.player_x && item.y == d.player_y)
+        .map(|(index, _)| index)
+        .collect()
+}
+
+pub(crate) fn pickup_ground_items_on_player(c: &mut Character) -> bool {
+    let indices = ground_item_indices_at_player(c);
+    if indices.is_empty() {
+        if let Some(d) = c.active_dungeon.as_mut() {
+            log_event(&mut d.log, LogKind::Warn, "There is no loot here.");
+        }
+        return false;
+    }
+    if indices.len() > 1 {
+        if let Some(d) = c.active_dungeon.as_mut() {
+            log_event(
+                &mut d.log,
+                LogKind::Info,
+                "Multiple items here. Choose one with the loot picker.",
+            );
+        }
+        return false;
+    }
+    if !c.inventory.has_space() {
+        if let Some(d) = c.active_dungeon.as_mut() {
+            log_event(&mut d.log, LogKind::Warn, "Inventory full.");
+        }
+        return false;
+    }
+
+    let index = indices[0];
+    let ground_item = {
+        let d = c.active_dungeon.as_mut().expect("indices require dungeon");
+        d.ground_items.remove(index)
+    };
+    let name = colored_item_name(&ground_item.item);
+    let added = c.inventory.push(ground_item.item);
+    debug_assert!(added);
+    let d = c.active_dungeon.as_mut().expect("indices require dungeon");
+    log_event(&mut d.log, LogKind::Loot, format!("Picked up {name}."));
+    true
+}
+
 fn add_loot_to_inventory_or_ground(
     inventory: &mut ItemGrid,
     d: &mut Dungeon,
@@ -1971,6 +2044,9 @@ pub(crate) fn xp_required_for_next_level(current_level: u32) -> u32 {
 }
 
 pub(crate) fn auto_interact_tile(c: &mut Character) {
+    if !ground_item_indices_at_player(c).is_empty() {
+        pickup_ground_items_on_player(c);
+    }
     open_chest_on_player(c);
     let standing_on_stairs = c
         .active_dungeon

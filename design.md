@@ -39,7 +39,7 @@ Example symbols:
 +  Door
 >  Stairs down
 <  Stairs up
-!  Potion
+!  Ground loot
 $  Gold
 ?  Scroll
 )  Weapon
@@ -75,7 +75,7 @@ I                 Inventory
 C                 Character screen
 K                 Skill tree
 M                 Map / minimap
-G                 Pick up item
+G / g             Pick up item (`g=pickup`)
 Space             Wait / basic attack nearest enemy
 Esc               Pause / menu
 1-5               Skill hotkeys
@@ -456,7 +456,7 @@ The inventory should be **grid-based** while avoiding a manual packing puzzle.
 Current direction:
 
 - Current data model: `Character.inventory` and `Character.stash` use `ItemGrid` containers. The starter bag is `4 x 4`, the stash is `8 x 8`, and each grid stores compacted `items` in row-major order for gradual migration from older Vec-based inventory code.
-- Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile until later pickup UI is added. If boss reward loot falls to ground, the completed dungeon is retained instead of immediately returning to town so the reward stays accessible; remaining enemies are cleared so the player can leave after resolving loot. Dropping an inventory item inside a dungeon places it on the player tile; dropping in town still deletes the item.
+- Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile as visible `!` ground loot. A single item on the player tile can be picked up with `g=pickup` or by walking over it when inventory space exists; multi-item and full-bag picker behavior remains future work. If boss reward loot falls to ground, the completed dungeon is retained instead of immediately returning to town so the reward stays accessible; remaining enemies are cleared so the player can leave after resolving loot. Dropping an inventory item inside a dungeon places it on the player tile; dropping in town still deletes the item.
 - The player bag is a ratatui grid screen with a cursor-selectable cell grid on the left and selected item details on the right.
 - Every item occupies exactly one cell.
 - The bag auto-compacts after pickups, drops, equips, selling, salvaging, stash transfers, and item use.
