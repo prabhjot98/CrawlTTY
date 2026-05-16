@@ -65,7 +65,7 @@ pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> 
     let required_strength = match kind {
         ItemKind::Weapon => stats.damage_max.max(0) as u32,
         ItemKind::Armor | ItemKind::Shield => (stats.armor + 3).max(0) as u32,
-        ItemKind::HealthPotion | ItemKind::ManaPotion => 0,
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => 0,
     };
     let required_dexterity = if kind == ItemKind::Weapon && name.contains("Sword") {
         2
@@ -88,6 +88,9 @@ pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> 
         required_dexterity,
         required_intelligence: 0,
         upgrade_level: 0,
+        sockets: Vec::new(),
+        gem_kind: None,
+        gem_tier: None,
     }
 }
 
@@ -116,8 +119,101 @@ pub(crate) fn item_with_rarity(
         required_dexterity: requirements.dexterity,
         required_intelligence: requirements.intelligence,
         upgrade_level: 0,
+        sockets: Vec::new(),
+        gem_kind: None,
+        gem_tier: None,
     }
 }
+
+#[allow(dead_code)]
+pub(crate) fn gem_item(kind: GemKind, tier: GemTier) -> Item {
+    let bonus = gem_bonus(kind, tier);
+    let tier_name = gem_tier_name(tier);
+    let kind_name = gem_kind_name(kind);
+    let value = match tier {
+        GemTier::Chipped => 25,
+        GemTier::Flawed => 75,
+        GemTier::Pristine => 200,
+    };
+
+    Item {
+        name: format!("{tier_name} {kind_name} ({})", gem_bonus_text(bonus)),
+        kind: ItemKind::Gem,
+        value,
+        damage_min: 0,
+        damage_max: 0,
+        armor: 0,
+        dodge: 0,
+        speed: 0,
+        crit_chance: 0,
+        rarity: Rarity::Common,
+        item_level: 1,
+        required_strength: 0,
+        required_dexterity: 0,
+        required_intelligence: 0,
+        upgrade_level: 0,
+        sockets: Vec::new(),
+        gem_kind: Some(kind),
+        gem_tier: Some(tier),
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn gem_kind_name(kind: GemKind) -> &'static str {
+    match kind {
+        GemKind::Ruby => "Ruby",
+        GemKind::Sapphire => "Sapphire",
+        GemKind::Garnet => "Garnet",
+        GemKind::Emerald => "Emerald",
+        GemKind::Amethyst => "Amethyst",
+        GemKind::Quartz => "Quartz",
+        GemKind::Jade => "Jade",
+        GemKind::Onyx => "Onyx",
+        GemKind::Citrine => "Citrine",
+        GemKind::Topaz => "Topaz",
+        GemKind::Opal => "Opal",
+        GemKind::Bloodstone => "Bloodstone",
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn gem_tier_name(tier: GemTier) -> &'static str {
+    match tier {
+        GemTier::Chipped => "Chipped",
+        GemTier::Flawed => "Flawed",
+        GemTier::Pristine => "Pristine",
+    }
+}
+
+#[allow(dead_code)]
+fn gem_bonus_text(bonus: GemBonuses) -> String {
+    if bonus.max_hp > 0 {
+        format!("+{} max HP", bonus.max_hp)
+    } else if bonus.max_mana > 0 {
+        format!("+{} max mana", bonus.max_mana)
+    } else if bonus.strength > 0 {
+        format!("+{} strength", bonus.strength)
+    } else if bonus.dexterity > 0 {
+        format!("+{} dexterity", bonus.dexterity)
+    } else if bonus.intelligence > 0 {
+        format!("+{} intelligence", bonus.intelligence)
+    } else if bonus.hit_rating > 0 {
+        format!("+{} hit rating", bonus.hit_rating)
+    } else if bonus.dodge_rating > 0 {
+        format!("+{} dodge rating", bonus.dodge_rating)
+    } else if bonus.armor > 0 {
+        format!("+{} armor", bonus.armor)
+    } else if bonus.speed > 0 {
+        format!("+{} speed", bonus.speed)
+    } else if bonus.crit_chance > 0 {
+        format!("+{}% crit chance", bonus.crit_chance)
+    } else if bonus.gold_found_percent > 0 {
+        format!("+{}% gold found", bonus.gold_found_percent)
+    } else {
+        format!("+{} weapon damage", bonus.weapon_damage)
+    }
+}
+
 pub(crate) fn health_potion() -> Item {
     item(
         "Lesser Health Potion (restores 15% HP)",

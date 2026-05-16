@@ -39,6 +39,101 @@ pub(crate) enum TownProject {
     Distillery,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum GemKind {
+    Ruby,
+    Sapphire,
+    Garnet,
+    Emerald,
+    Amethyst,
+    Quartz,
+    Jade,
+    Onyx,
+    Citrine,
+    Topaz,
+    Opal,
+    Bloodstone,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum GemTier {
+    Chipped,
+    Flawed,
+    Pristine,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct GemSocket {
+    pub(crate) gem_kind: GemKind,
+    pub(crate) gem_tier: GemTier,
+}
+
+impl GemSocket {
+    #[allow(dead_code)]
+    pub(crate) fn filled(gem_kind: GemKind, gem_tier: GemTier) -> Self {
+        Self { gem_kind, gem_tier }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct GemBonuses {
+    pub(crate) max_hp: u32,
+    pub(crate) max_mana: u32,
+    pub(crate) strength: u32,
+    pub(crate) dexterity: u32,
+    pub(crate) intelligence: u32,
+    pub(crate) hit_rating: u32,
+    pub(crate) dodge_rating: i32,
+    pub(crate) armor: i32,
+    pub(crate) speed: i32,
+    pub(crate) crit_chance: u32,
+    pub(crate) gold_found_percent: u32,
+    pub(crate) weapon_damage: i32,
+}
+
+impl GemBonuses {
+    fn add(self, other: Self) -> Self {
+        Self {
+            max_hp: self.max_hp + other.max_hp,
+            max_mana: self.max_mana + other.max_mana,
+            strength: self.strength + other.strength,
+            dexterity: self.dexterity + other.dexterity,
+            intelligence: self.intelligence + other.intelligence,
+            hit_rating: self.hit_rating + other.hit_rating,
+            dodge_rating: self.dodge_rating + other.dodge_rating,
+            armor: self.armor + other.armor,
+            speed: self.speed + other.speed,
+            crit_chance: self.crit_chance + other.crit_chance,
+            gold_found_percent: self.gold_found_percent + other.gold_found_percent,
+            weapon_damage: self.weapon_damage + other.weapon_damage,
+        }
+    }
+}
+
+pub(crate) fn gem_bonus(kind: GemKind, tier: GemTier) -> GemBonuses {
+    let tier_index = match tier {
+        GemTier::Chipped => 0,
+        GemTier::Flawed => 1,
+        GemTier::Pristine => 2,
+    };
+    let mut bonus = GemBonuses::default();
+    match kind {
+        GemKind::Ruby => bonus.max_hp = [5, 10, 20][tier_index],
+        GemKind::Sapphire => bonus.max_mana = [3, 6, 12][tier_index],
+        GemKind::Garnet => bonus.strength = [1, 2, 3][tier_index],
+        GemKind::Emerald => bonus.dexterity = [1, 2, 3][tier_index],
+        GemKind::Amethyst => bonus.intelligence = [1, 2, 3][tier_index],
+        GemKind::Quartz => bonus.hit_rating = [3, 6, 10][tier_index],
+        GemKind::Jade => bonus.dodge_rating = [2, 4, 8][tier_index],
+        GemKind::Onyx => bonus.armor = [1, 2, 3][tier_index],
+        GemKind::Citrine => bonus.speed = [2, 4, 7][tier_index],
+        GemKind::Topaz => bonus.crit_chance = [1, 2, 4][tier_index],
+        GemKind::Opal => bonus.gold_found_percent = [5, 10, 20][tier_index],
+        GemKind::Bloodstone => bonus.weapon_damage = [1, 2, 3][tier_index],
+    }
+    bonus
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Item {
     pub(crate) name: String,
@@ -68,6 +163,12 @@ pub(crate) struct Item {
     pub(crate) required_intelligence: u32,
     #[serde(default)]
     pub(crate) upgrade_level: u32,
+    #[serde(default)]
+    pub(crate) sockets: Vec<Option<GemSocket>>,
+    #[serde(default)]
+    pub(crate) gem_kind: Option<GemKind>,
+    #[serde(default)]
+    pub(crate) gem_tier: Option<GemTier>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -85,6 +186,7 @@ pub(crate) enum ItemKind {
     Weapon,
     Armor,
     Shield,
+    Gem,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -320,34 +422,42 @@ impl Character {
     }
 
     pub(crate) fn max_hp(&self) -> u32 {
-        10 + self.strength * 5
+        let bonuses = self.socket_bonuses();
+        10 + self.effective_strength() * 5 + bonuses.max_hp
     }
     pub(crate) fn max_mana(&self) -> u32 {
-        10 + self.intelligence * 5
+        let bonuses = self.socket_bonuses();
+        10 + self.effective_intelligence() * 5 + bonuses.max_mana
     }
     pub(crate) fn hit_rating(&self) -> u32 {
-        10 + self.dexterity * 5
+        let bonuses = self.socket_bonuses();
+        10 + self.effective_dexterity() * 5 + bonuses.hit_rating
     }
     pub(crate) fn dodge_rating(&self) -> u32 {
+        let bonuses = self.socket_bonuses();
         let mastery_bonus = if self.iron_guard_mastery == Some(SkillMastery::ShieldDiscipline) {
             3
         } else {
             0
         };
-        (10 + self.dexterity as i32 * 3
+        (10 + self.effective_dexterity() as i32 * 3
             + self.equipped_shield.dodge
             + self.equipped_armor.dodge
+            + bonuses.dodge_rating
             + mastery_bonus)
             .max(0) as u32
     }
     pub(crate) fn speed(&self) -> u32 {
-        (10 + self.dexterity as i32 * 5
+        let bonuses = self.socket_bonuses();
+        (10 + self.effective_dexterity() as i32 * 5
             + self.equipped_weapon.speed
             + self.equipped_armor.speed
-            + self.equipped_shield.speed)
+            + self.equipped_shield.speed
+            + bonuses.speed)
             .max(1) as u32
     }
     pub(crate) fn armor(&self) -> i32 {
+        let bonuses = self.socket_bonuses();
         let bulwark_bonus = if self.iron_guard_mastery == Some(SkillMastery::Bulwark)
             && self.hp * 2 <= self.max_hp()
         {
@@ -359,11 +469,50 @@ impl Character {
             + self.equipped_shield.armor
             + iron_guard_armor_bonus(self)
             + bulwark_bonus
+            + bonuses.armor
     }
     pub(crate) fn weapon_damage(&self) -> (i32, i32) {
+        let bonuses = self.socket_bonuses();
         (
-            self.equipped_weapon.damage_min + (self.strength as i32 / 4),
-            self.equipped_weapon.damage_max + (self.strength as i32 / 3),
+            self.equipped_weapon.damage_min
+                + (self.effective_strength() as i32 / 4)
+                + bonuses.weapon_damage,
+            self.equipped_weapon.damage_max
+                + (self.effective_strength() as i32 / 3)
+                + bonuses.weapon_damage,
         )
+    }
+    pub(crate) fn effective_strength(&self) -> u32 {
+        self.strength + self.socket_bonuses().strength
+    }
+    pub(crate) fn effective_dexterity(&self) -> u32 {
+        self.dexterity + self.socket_bonuses().dexterity
+    }
+    pub(crate) fn effective_intelligence(&self) -> u32 {
+        self.intelligence + self.socket_bonuses().intelligence
+    }
+    #[allow(dead_code)]
+    pub(crate) fn weapon_crit_chance(&self) -> u32 {
+        self.equipped_weapon
+            .crit_chance
+            .saturating_add(self.socket_bonuses().crit_chance)
+            .min(100)
+    }
+    pub(crate) fn socket_bonuses(&self) -> GemBonuses {
+        self.equipped_weapon
+            .socket_bonuses()
+            .add(self.equipped_armor.socket_bonuses())
+            .add(self.equipped_shield.socket_bonuses())
+    }
+}
+
+impl Item {
+    pub(crate) fn socket_bonuses(&self) -> GemBonuses {
+        self.sockets
+            .iter()
+            .flatten()
+            .fold(GemBonuses::default(), |bonuses, socket| {
+                bonuses.add(gem_bonus(socket.gem_kind, socket.gem_tier))
+            })
     }
 }

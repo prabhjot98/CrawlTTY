@@ -354,7 +354,7 @@ pub(crate) fn upgrade_item(item: &mut Item) {
         }
         ItemKind::Armor => item.armor += 1,
         ItemKind::Shield => item.armor += 1,
-        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
 
@@ -379,7 +379,7 @@ pub(crate) fn shard_kind(item: &Item) -> Option<ItemKind> {
         ItemKind::Weapon => Some(ItemKind::Weapon),
         ItemKind::Armor => Some(ItemKind::Armor),
         ItemKind::Shield => Some(ItemKind::Shield),
-        ItemKind::HealthPotion | ItemKind::ManaPotion => None,
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => None,
     }
 }
 
@@ -388,7 +388,7 @@ pub(crate) fn shard_name(kind: ItemKind) -> &'static str {
         ItemKind::Weapon => "weapon",
         ItemKind::Armor => "armor",
         ItemKind::Shield => "shield",
-        ItemKind::HealthPotion | ItemKind::ManaPotion => "unknown",
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => "unknown",
     }
 }
 
@@ -397,7 +397,7 @@ pub(crate) fn shard_count(c: &Character, kind: ItemKind) -> u32 {
         ItemKind::Weapon => c.weapon_shards,
         ItemKind::Armor => c.armor_shards,
         ItemKind::Shield => c.shield_shards,
-        ItemKind::HealthPotion | ItemKind::ManaPotion => 0,
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => 0,
     }
 }
 
@@ -406,7 +406,7 @@ pub(crate) fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
         ItemKind::Weapon => c.weapon_shards += amount,
         ItemKind::Armor => c.armor_shards += amount,
         ItemKind::Shield => c.shield_shards += amount,
-        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
 
@@ -415,7 +415,7 @@ pub(crate) fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
         ItemKind::Weapon => c.weapon_shards = c.weapon_shards.saturating_sub(amount),
         ItemKind::Armor => c.armor_shards = c.armor_shards.saturating_sub(amount),
         ItemKind::Shield => c.shield_shards = c.shield_shards.saturating_sub(amount),
-        ItemKind::HealthPotion | ItemKind::ManaPotion => {}
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
 

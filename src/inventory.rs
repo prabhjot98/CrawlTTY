@@ -458,5 +458,9 @@ pub(crate) fn equip_or_use_inventory_item(
                 "Used a lesser mana potion and restored {restored} mana."
             ))
         }
+        ItemKind::Gem => {
+            c.inventory.insert(index, selected);
+            InventoryActionResult::free("Use the Socket Bench to socket gems.")
+        }
     }
 }

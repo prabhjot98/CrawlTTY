@@ -159,6 +159,53 @@ fn new_ironbound_matches_mvp_starting_state() {
 }
 
 #[test]
+fn saved_items_without_socket_fields_default_to_no_sockets_or_gem_metadata() {
+    let json = r#"{
+        "name": "Old Sword",
+        "kind": "Weapon",
+        "value": 10,
+        "damage_min": 1,
+        "damage_max": 2
+    }"#;
+
+    let item: Item = serde_json::from_str(json).unwrap();
+
+    assert!(item.sockets.is_empty());
+    assert!(item.gem_kind.is_none());
+    assert!(item.gem_tier.is_none());
+}
+
+#[test]
+fn gems_are_normal_items_with_kind_tier_and_value() {
+    let gem = gem_item(GemKind::Topaz, GemTier::Flawed);
+
+    assert!(matches!(gem.kind, ItemKind::Gem));
+    assert_eq!(gem.gem_kind, Some(GemKind::Topaz));
+    assert_eq!(gem.gem_tier, Some(GemTier::Flawed));
+    assert!(gem.name.contains("Flawed Topaz"));
+    assert!(gem.value > 0);
+}
+
+#[test]
+fn equipped_socketed_gems_add_effective_stats() {
+    let mut c = test_character();
+    c.equipped_weapon.sockets = vec![Some(GemSocket::filled(
+        GemKind::Bloodstone,
+        GemTier::Pristine,
+    ))];
+    c.equipped_armor.sockets = vec![
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Flawed)),
+        Some(GemSocket::filled(GemKind::Garnet, GemTier::Chipped)),
+    ];
+    c.equipped_shield.sockets = vec![Some(GemSocket::filled(GemKind::Topaz, GemTier::Pristine))];
+
+    assert_eq!(c.effective_strength(), c.strength + 1);
+    assert_eq!(c.max_hp(), 10 + c.effective_strength() * 5 + 10);
+    assert_eq!(c.weapon_damage(), (7, 10));
+    assert_eq!(c.weapon_crit_chance(), c.equipped_weapon.crit_chance + 4);
+}
+
+#[test]
 fn new_character_has_no_completed_town_projects() {
     let c = test_character();
 
