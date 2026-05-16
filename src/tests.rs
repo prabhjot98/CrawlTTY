@@ -444,6 +444,24 @@ fn weapon_crit_must_be_set_explicitly() {
 }
 
 #[test]
+fn saved_item_without_crit_chance_defaults_to_zero() {
+    let saved = r#"{
+        "name": "Old Iron Sword",
+        "kind": "Weapon",
+        "value": 45,
+        "damage_min": 3,
+        "damage_max": 5,
+        "armor": 0,
+        "dodge": 0,
+        "speed": 0
+    }"#;
+
+    let item: Item = serde_json::from_str(saved).unwrap();
+
+    assert_eq!(item.crit_chance, 0);
+}
+
+#[test]
 fn generated_weapon_loot_sets_explicit_base_crit() {
     let mut saw_common_sword = false;
     let mut saw_common_axe = false;
