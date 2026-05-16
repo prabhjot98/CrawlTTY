@@ -135,11 +135,13 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
     let Some(d) = c.active_dungeon.as_ref() else {
         return;
     };
+    let skill_help_lines = dungeon_skill_help_lines(c);
+    let skill_panel_height = skill_help_lines.len() as u16 + 2;
 
     let layout = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(10),
-        Constraint::Length(6),
+        Constraint::Length(skill_panel_height),
         Constraint::Length(4),
     ])
     .split(frame.area());
@@ -186,7 +188,7 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
         render_dungeon_log(frame, d, body[1]);
     }
 
-    let help = Paragraph::new(dungeon_skill_help_lines(c))
+    let help = Paragraph::new(skill_help_lines)
         .block(Block::default().borders(Borders::ALL).title("Skills"))
         .wrap(Wrap { trim: false });
     frame.render_widget(help, layout[2]);

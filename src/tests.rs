@@ -183,6 +183,26 @@ fn rogue_dungeon_header_uses_energy_resource_label() {
 }
 
 #[test]
+fn rogue_dungeon_render_shows_fourth_skill_help() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_dungeon(frame, &rogue))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("4 Smoke Step"));
+}
+
+#[test]
 fn rogue_skill_hotkeys_dispatch_to_stub_warnings() {
     let mut rogue = Character::new(
         "Sneak".to_string(),
