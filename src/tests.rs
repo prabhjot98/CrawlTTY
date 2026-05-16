@@ -470,6 +470,29 @@ fn inventory_render_footer_shows_message_and_commands() {
 }
 
 #[test]
+fn wide_inventory_render_keeps_bag_grid_content_sized() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_inventory_screen(frame, &c, 0, ""))
+        .unwrap();
+    let lines = backend_lines(&terminal);
+    let body_top = &lines[3];
+
+    let bag_title_x = char_index(body_top, "Bag");
+    let details_title_x = char_index(body_top, "Details");
+
+    assert_eq!(
+        details_title_x - bag_title_x,
+        usize::from(item_grid_render_width(&c.inventory))
+    );
+    assert!(details_title_x <= 24);
+}
+
+#[test]
 fn character_creation_renders_as_ratatui_screen() {
     use ratatui::{Terminal, backend::TestBackend};
 

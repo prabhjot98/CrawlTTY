@@ -78,7 +78,11 @@ pub(crate) fn render_inventory_screen(
     .block(Block::default().borders(Borders::ALL).title("Inventory"));
     frame.render_widget(title, layout[0]);
 
-    let body = Layout::horizontal([Constraint::Min(24), Constraint::Length(38)]).split(layout[1]);
+    let body = Layout::horizontal([
+        Constraint::Length(item_grid_render_width(&c.inventory)),
+        Constraint::Min(38),
+    ])
+    .split(layout[1]);
     render_item_grid(frame, &c.inventory, selected, body[0], "Bag");
     let details = Paragraph::new(selected_item_detail_lines(
         c,
