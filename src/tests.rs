@@ -187,6 +187,22 @@ fn gems_are_normal_items_with_kind_tier_and_value() {
 }
 
 #[test]
+fn item_summary_shows_gems_and_socket_contents() {
+    let gem = gem_item(GemKind::Topaz, GemTier::Pristine);
+    assert!(strip_ansi_codes(&item_summary(&gem)).contains("Pristine Topaz"));
+    assert!(strip_ansi_codes(&item_summary(&gem)).contains("+4% crit chance"));
+
+    let mut sword = rusted_sword();
+    sword.sockets = vec![
+        Some(GemSocket::filled(GemKind::Ruby, GemTier::Chipped)),
+        None,
+    ];
+    let summary = strip_ansi_codes(&item_summary(&sword));
+
+    assert!(summary.contains("Sockets [Chipped Ruby, empty]"));
+}
+
+#[test]
 fn equipped_socketed_gems_add_effective_stats() {
     let mut c = test_character();
     c.equipped_weapon.sockets = vec![Some(GemSocket::filled(

@@ -272,35 +272,61 @@ pub(crate) fn item_summary(item: &Item) -> String {
     };
     let level_and_requirements = item_level_and_requirements(item);
     match item.kind {
-        ItemKind::Weapon => format!(
-            "{}{} [{} {:?}] {} {RED}dmg {}-{}{RESET} {CYAN}crit {}%{RESET} {YELLOW}value {}{RESET}",
-            name,
-            upgrade,
-            rarity,
-            item.kind,
-            level_and_requirements,
-            item.damage_min,
-            item.damage_max,
-            item.crit_chance,
-            item.value
-        ),
-        ItemKind::Armor | ItemKind::Shield => format!(
-            "{}{} [{} {:?}] {} {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
-            name,
-            upgrade,
-            rarity,
-            item.kind,
-            level_and_requirements,
-            item.armor,
-            item.dodge,
-            item.speed,
-            item.value
-        ),
+        ItemKind::Weapon => {
+            format!(
+                "{}{} [{} {:?}] {} {RED}dmg {}-{}{RESET} {CYAN}crit {}%{RESET} {YELLOW}value {}{RESET}",
+                name,
+                upgrade,
+                rarity,
+                item.kind,
+                level_and_requirements,
+                item.damage_min,
+                item.damage_max,
+                item.crit_chance,
+                item.value
+            ) + &socket_summary(item)
+        }
+        ItemKind::Armor | ItemKind::Shield => {
+            format!(
+                "{}{} [{} {:?}] {} {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
+                name,
+                upgrade,
+                rarity,
+                item.kind,
+                level_and_requirements,
+                item.armor,
+                item.dodge,
+                item.speed,
+                item.value
+            ) + &socket_summary(item)
+        }
+        ItemKind::Gem => format!("{} [Gem] {YELLOW}value {}{RESET}", name, item.value),
         _ => format!(
             "{} [{:?}] {YELLOW}value {}{RESET}",
             name, item.kind, item.value
         ),
     }
+}
+
+fn socket_summary(item: &Item) -> String {
+    if item.sockets.is_empty() {
+        return String::new();
+    }
+
+    let sockets = item
+        .sockets
+        .iter()
+        .map(|socket| match socket {
+            Some(socket) => format!(
+                "{} {}",
+                gem_tier_name(socket.gem_tier),
+                gem_kind_name(socket.gem_kind)
+            ),
+            None => "empty".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(" {CYAN}Sockets [{sockets}]{RESET}")
 }
 
 pub(crate) fn colored_item_name(item: &Item) -> String {
