@@ -206,6 +206,42 @@ fn equipped_socketed_gems_add_effective_stats() {
 }
 
 #[test]
+fn socket_count_rolls_follow_rarity_thresholds() {
+    assert_eq!(socket_count_for_roll(&Rarity::Common, 0.099), 1);
+    assert_eq!(socket_count_for_roll(&Rarity::Common, 0.100), 0);
+    assert_eq!(socket_count_for_roll(&Rarity::Magic, 0.049), 2);
+    assert_eq!(socket_count_for_roll(&Rarity::Magic, 0.050), 1);
+    assert_eq!(socket_count_for_roll(&Rarity::Magic, 0.249), 1);
+    assert_eq!(socket_count_for_roll(&Rarity::Magic, 0.250), 0);
+    assert_eq!(socket_count_for_roll(&Rarity::Rare, 0.099), 2);
+    assert_eq!(socket_count_for_roll(&Rarity::Rare, 0.100), 1);
+    assert_eq!(socket_count_for_roll(&Rarity::Rare, 0.349), 1);
+    assert_eq!(socket_count_for_roll(&Rarity::Rare, 0.350), 0);
+}
+
+#[test]
+fn gem_tier_rolls_use_approved_weights() {
+    assert_eq!(gem_tier_for_roll(0.799), GemTier::Chipped);
+    assert_eq!(gem_tier_for_roll(0.800), GemTier::Flawed);
+    assert_eq!(gem_tier_for_roll(0.969), GemTier::Flawed);
+    assert_eq!(gem_tier_for_roll(0.970), GemTier::Pristine);
+}
+
+#[test]
+fn gems_do_not_drop_before_floor_three() {
+    assert!(!can_drop_gem_on_floor(2));
+    assert!(can_drop_gem_on_floor(3));
+}
+
+#[test]
+fn opal_socket_bonus_increases_variable_gold_drops() {
+    let mut c = test_character();
+    c.equipped_armor.sockets = vec![Some(GemSocket::filled(GemKind::Opal, GemTier::Pristine))];
+
+    assert_eq!(apply_gold_find_bonus(&c, 10), 12);
+}
+
+#[test]
 fn new_character_has_no_completed_town_projects() {
     let c = test_character();
 

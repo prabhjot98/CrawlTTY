@@ -928,7 +928,7 @@ pub(crate) fn damage_enemy(
         }
         trigger_second_wind_with_log(c, &mut d.log, battle_cry_active);
         if !boss_defeated {
-            maybe_drop_loot_in_dungeon(c, &mut d, false);
+            maybe_drop_loot_in_dungeon(c, &mut d, enemy_index, false);
             c.active_dungeon = Some(d);
             DamageEnemyOutcome::Killed
         } else {
@@ -978,7 +978,7 @@ pub(crate) fn resolve_enemy_death(
     let xp = enemy.xp;
     let was_boss = enemy.is_boss;
     let mut rng = rand::thread_rng();
-    let gold = rng.gen_range(enemy.gold_min..=enemy.gold_max);
+    let gold = apply_gold_find_bonus(c, rng.gen_range(enemy.gold_min..=enemy.gold_max));
     c.gold += gold;
     let levels_gained = add_xp(c, xp);
     log_event(
@@ -1007,6 +1007,19 @@ pub(crate) fn resolve_enemy_death(
             LogKind::Loot,
             format!("Boss reward dropped: {loot_name}."),
         );
+        let boss_gem_name = if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.25) {
+            let gem = random_gem();
+            let gem_name = colored_item_name(&gem);
+            c.inventory.push(gem);
+            log_event(
+                &mut d.log,
+                LogKind::Loot,
+                format!("Boss gem dropped: {gem_name}."),
+            );
+            Some(gem_name)
+        } else {
+            None
+        };
         complete_boss_fight_in_dungeon(c, &name);
         let level_summary = if levels_gained.is_empty() {
             String::new()
@@ -1021,11 +1034,15 @@ pub(crate) fn resolve_enemy_death(
         } else {
             "Return to Warden Mara (t) to complete Act I."
         };
+        let gem_summary = boss_gem_name
+            .map(|gem_name| format!(" Gem: {gem_name}."))
+            .unwrap_or_default();
         c.pending_town_message = format!(
             "Defeated {name}! +{}, +{}. Boss reward: {loot_name}.{level_summary} {quest_hint}",
             xp_reward_text(xp),
             gold_reward_text(gold)
         );
+        c.pending_town_message.push_str(&gem_summary);
         full_heal_on_town_return(c);
         clear_combat_state(c);
         return true;
@@ -1650,21 +1667,41 @@ pub(crate) fn player_crit_chance(c: &Character) -> u32 {
 pub(crate) fn maybe_drop_loot_in_dungeon(
     c: &mut Character,
     d: &mut Dungeon,
+    enemy_index: usize,
     guaranteed_magic: bool,
 ) {
     let mut rng = rand::thread_rng();
     let drop_chance = if guaranteed_magic { 1.0 } else { 0.22 };
-    if !rng.gen_bool(drop_chance) {
+    if rng.gen_bool(drop_chance) {
+        let loot = if guaranteed_magic {
+            random_equipment_loot(d.floor, true)
+        } else {
+            random_loot(d.floor, rng.gen_bool(0.30))
+        };
+        let name = colored_item_name(&loot);
+        c.inventory.push(loot);
+        log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
+    }
+
+    if !can_drop_gem_on_floor(d.floor) {
         return;
     }
-    let loot = if guaranteed_magic {
-        random_equipment_loot(d.floor, true)
+    let gem_chance = if d
+        .enemies
+        .get(enemy_index)
+        .and_then(|enemy| enemy.elite_modifier.as_ref())
+        .is_some()
+    {
+        0.05
     } else {
-        random_loot(d.floor, rng.gen_bool(0.30))
+        0.02
     };
-    let name = colored_item_name(&loot);
-    c.inventory.push(loot);
-    log_event(&mut d.log, LogKind::Loot, format!("Dropped: {name}."));
+    if rng.gen_bool(gem_chance) {
+        let gem = random_gem();
+        let name = colored_item_name(&gem);
+        c.inventory.push(gem);
+        log_event(&mut d.log, LogKind::Loot, format!("Gem dropped: {name}."));
+    }
 }
 
 pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
@@ -1676,6 +1713,81 @@ pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
         return mana_potion();
     }
     random_equipment_loot(floor, better)
+}
+
+pub(crate) fn socket_count_for_roll(rarity: &Rarity, roll: f64) -> usize {
+    match rarity {
+        Rarity::Common => {
+            if roll < 0.10 {
+                1
+            } else {
+                0
+            }
+        }
+        Rarity::Magic => {
+            if roll < 0.05 {
+                2
+            } else if roll < 0.25 {
+                1
+            } else {
+                0
+            }
+        }
+        Rarity::Rare => {
+            if roll < 0.10 {
+                2
+            } else if roll < 0.35 {
+                1
+            } else {
+                0
+            }
+        }
+    }
+}
+
+pub(crate) fn gem_tier_for_roll(roll: f64) -> GemTier {
+    if roll < 0.80 {
+        GemTier::Chipped
+    } else if roll < 0.97 {
+        GemTier::Flawed
+    } else {
+        GemTier::Pristine
+    }
+}
+
+pub(crate) fn can_drop_gem_on_floor(floor: u32) -> bool {
+    floor >= 3
+}
+
+pub(crate) fn apply_gold_find_bonus(c: &Character, gold: u32) -> u32 {
+    let percent = c.socket_bonuses().gold_found_percent;
+    gold + (gold.saturating_mul(percent) / 100)
+}
+
+fn add_random_sockets(mut item: Item, roll: f64) -> Item {
+    item.sockets = vec![None; socket_count_for_roll(&item.rarity, roll)];
+    item
+}
+
+pub(crate) fn random_gem() -> Item {
+    let mut rng = rand::thread_rng();
+    let kinds = [
+        GemKind::Ruby,
+        GemKind::Sapphire,
+        GemKind::Garnet,
+        GemKind::Emerald,
+        GemKind::Amethyst,
+        GemKind::Quartz,
+        GemKind::Jade,
+        GemKind::Onyx,
+        GemKind::Citrine,
+        GemKind::Topaz,
+        GemKind::Opal,
+        GemKind::Bloodstone,
+    ];
+    let kind = kinds[rng.gen_range(0..kinds.len())];
+    let tier = gem_tier_for_roll(rng.gen_range(0.0..1.0));
+    gem_item(kind, tier)
 }
 
 pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
@@ -1696,7 +1808,7 @@ pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
     };
     let item_level = floor + rarity_bonus;
     let bonus = item_level as i32 - 1;
-    match rng.gen_range(0..4) {
+    let item = match rng.gen_range(0..4) {
         0 => item_with_rarity(
             &loot_name(&rarity, "Iron Sword"),
             ItemKind::Weapon,
@@ -1733,7 +1845,8 @@ pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
             item_level,
             requirements(3 + item_level, 0, 0),
         ),
-    }
+    };
+    add_random_sockets(item, rng.gen_range(0.0..1.0))
 }
 
 pub(crate) fn rarity_name(rarity: &Rarity) -> &'static str {
@@ -1801,16 +1914,19 @@ pub(crate) fn auto_interact_tile(c: &mut Character) {
 }
 
 pub(crate) fn open_chest_on_player(c: &mut Character) {
-    let d = c.active_dungeon.as_mut().unwrap();
-    if let Some(chest) = d
-        .chests
-        .iter_mut()
-        .find(|ch| !ch.opened && ch.x == d.player_x && ch.y == d.player_y)
-    {
-        chest.opened = true;
+    let chest_index = {
+        let d = c.active_dungeon.as_ref().unwrap();
+        d.chests
+            .iter()
+            .position(|ch| !ch.opened && ch.x == d.player_x && ch.y == d.player_y)
+    };
+
+    if let Some(chest_index) = chest_index {
         let mut rng = rand::thread_rng();
-        let gold = rng.gen_range(10..=25);
+        let gold = apply_gold_find_bonus(c, rng.gen_range(10..=25));
         c.gold += gold;
+        let d = c.active_dungeon.as_mut().unwrap();
+        d.chests[chest_index].opened = true;
         let loot = random_loot(d.floor, rng.gen_bool(0.35));
         let name = colored_item_name(&loot);
         log_event(
@@ -1819,6 +1935,12 @@ pub(crate) fn open_chest_on_player(c: &mut Character) {
             format!("Opened chest: found {} and {name}.", gold_reward_text(gold)),
         );
         c.inventory.push(loot);
+        if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.06) {
+            let gem = random_gem();
+            let name = colored_item_name(&gem);
+            log_event(&mut d.log, LogKind::Loot, format!("Chest gem: {name}."));
+            c.inventory.push(gem);
+        }
     }
 }
 

@@ -1001,6 +1001,7 @@ Loot should feel rewarding:
 - Bellkeeper drops guaranteed better loot.
 - Items can be Common, Magic, or Rare.
 - Magic and Rare loot has better stats and value.
+- Randomly generated dropped weapons, armor, and shields can roll empty sockets; gems can drop from floor 3 onward, and Opal socket bonuses increase variable monster and chest gold.
 - Inventory should show simple comparisons versus currently equipped gear, using green for upgrades and red for downgrades.
 - Item names should be colored by rarity: Common white, Magic blue, Rare yellow.
 - Magic and Rare items should use more exciting generated names with prefixes/suffixes.
