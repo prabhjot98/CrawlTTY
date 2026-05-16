@@ -53,18 +53,6 @@ pub(crate) fn weapon_stats(
     }
 }
 
-fn base_weapon_crit_chance(name: &str, kind: ItemKind) -> u32 {
-    if kind != ItemKind::Weapon {
-        0
-    } else if name.contains("Sword") {
-        SWORD_CRIT_CHANCE
-    } else if name.contains("Axe") {
-        AXE_CRIT_CHANCE
-    } else {
-        0
-    }
-}
-
 pub(crate) fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> Requirements {
     Requirements {
         strength,
@@ -93,7 +81,7 @@ pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> 
         armor: stats.armor,
         dodge: stats.dodge,
         speed: stats.speed,
-        crit_chance: stats.crit_chance.max(base_weapon_crit_chance(name, kind)),
+        crit_chance: stats.crit_chance,
         rarity: Rarity::Common,
         item_level: 1,
         required_strength,
@@ -121,7 +109,7 @@ pub(crate) fn item_with_rarity(
         armor: stats.armor,
         dodge: stats.dodge,
         speed: stats.speed,
-        crit_chance: stats.crit_chance.max(base_weapon_crit_chance(name, kind)),
+        crit_chance: stats.crit_chance,
         rarity,
         item_level,
         required_strength: requirements.strength,

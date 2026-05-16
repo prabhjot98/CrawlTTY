@@ -411,6 +411,58 @@ fn weapon_rarity_does_not_change_crit_chance() {
 }
 
 #[test]
+fn weapon_crit_must_be_set_explicitly() {
+    let named_sword = item_with_rarity(
+        "Iron Sword",
+        ItemKind::Weapon,
+        45,
+        item_stats(3, 5, 0, 0, 0),
+        Rarity::Common,
+        1,
+        requirements(5, 3, 0),
+    );
+
+    assert_eq!(named_sword.crit_chance, 0);
+}
+
+#[test]
+fn generated_weapon_loot_sets_explicit_base_crit() {
+    let mut saw_common_sword = false;
+    let mut saw_common_axe = false;
+    let mut saw_magic_or_rare_sword = false;
+    let mut saw_magic_or_rare_axe = false;
+
+    for _ in 0..2000 {
+        let common_loot = random_equipment_loot(3, false);
+        if common_loot.name.contains("Sword") {
+            assert_eq!(common_loot.crit_chance, SWORD_CRIT_CHANCE);
+            assert!(matches!(common_loot.rarity, Rarity::Common));
+            saw_common_sword = true;
+        } else if common_loot.name.contains("Axe") {
+            assert_eq!(common_loot.crit_chance, AXE_CRIT_CHANCE);
+            assert!(matches!(common_loot.rarity, Rarity::Common));
+            saw_common_axe = true;
+        }
+
+        let better_loot = random_equipment_loot(3, true);
+        if better_loot.name.contains("Sword") {
+            assert_eq!(better_loot.crit_chance, SWORD_CRIT_CHANCE);
+            assert!(matches!(better_loot.rarity, Rarity::Magic | Rarity::Rare));
+            saw_magic_or_rare_sword = true;
+        } else if better_loot.name.contains("Axe") {
+            assert_eq!(better_loot.crit_chance, AXE_CRIT_CHANCE);
+            assert!(matches!(better_loot.rarity, Rarity::Magic | Rarity::Rare));
+            saw_magic_or_rare_axe = true;
+        }
+    }
+
+    assert!(saw_common_sword);
+    assert!(saw_common_axe);
+    assert!(saw_magic_or_rare_sword);
+    assert!(saw_magic_or_rare_axe);
+}
+
+#[test]
 fn weapon_summary_and_comparison_show_crit_chance() {
     let mut c = test_character();
     c.equipped_weapon = rusted_sword();
