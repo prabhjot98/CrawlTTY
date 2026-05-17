@@ -891,6 +891,45 @@ fn terminal_key_repeat_events_are_ignored() {
 }
 
 #[test]
+fn raw_arrow_keys_emit_character_creation_navigation_keys() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    let up = Event::Key(KeyEvent::new_with_kind(
+        KeyCode::Up,
+        KeyModifiers::NONE,
+        KeyEventKind::Press,
+    ));
+    let down = Event::Key(KeyEvent::new_with_kind(
+        KeyCode::Down,
+        KeyModifiers::NONE,
+        KeyEventKind::Press,
+    ));
+
+    assert_eq!(terminal_event_to_input(up, false).unwrap(), None);
+    assert_eq!(terminal_event_to_input(down, false).unwrap(), None);
+
+    let up = Event::Key(KeyEvent::new_with_kind(
+        KeyCode::Up,
+        KeyModifiers::NONE,
+        KeyEventKind::Press,
+    ));
+    let down = Event::Key(KeyEvent::new_with_kind(
+        KeyCode::Down,
+        KeyModifiers::NONE,
+        KeyEventKind::Press,
+    ));
+
+    assert_eq!(
+        terminal_event_to_input_raw_arrows(up).unwrap(),
+        Some(UiInput::Key('\u{10}'))
+    );
+    assert_eq!(
+        terminal_event_to_input_raw_arrows(down).unwrap(),
+        Some(UiInput::Key('\u{0e}'))
+    );
+}
+
+#[test]
 fn valid_dungeon_command_clears_recent_unknown_command_logs() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
@@ -1360,7 +1399,7 @@ fn character_creation_renders_as_stepped_ratatui_screen() {
     assert!(rendered.contains("Step 3: Death Mode"));
     assert!(rendered.contains("Name: Mara"));
     assert!(rendered.contains("> Hardcore"));
-    assert!(rendered.contains("Tab=toggle mode"));
+    assert!(rendered.contains("Up/Down or Tab=mode"));
     assert!(rendered.contains("Enter=confirm"));
     assert!(!rendered.contains("S/H"));
 }
@@ -2187,6 +2226,29 @@ fn character_creation_renders_class_choices() {
     assert!(text.contains("Rogue"));
     assert!(text.contains("> Rogue"));
     assert!(text.contains("> Hardcore"));
+}
+
+#[test]
+fn character_creation_arrow_keys_move_current_selection() {
+    let mut state = CharacterCreationState::new("");
+
+    assert_eq!(state.selected_class, CharacterClass::Warrior);
+    assert!(state.handle_key('\u{0e}').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Rogue);
+    assert!(state.handle_key('\u{10}').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Warrior);
+
+    assert!(state.handle_key('\n').is_none());
+    for key in "Mara".chars() {
+        assert!(state.handle_key(key).is_none());
+    }
+    assert!(state.handle_key('\n').is_none());
+
+    assert_eq!(state.death_mode, DeathMode::Softcore);
+    assert!(state.handle_key('\u{0e}').is_none());
+    assert_eq!(state.death_mode, DeathMode::Hardcore);
+    assert!(state.handle_key('\u{10}').is_none());
+    assert_eq!(state.death_mode, DeathMode::Softcore);
 }
 
 #[test]

@@ -88,12 +88,20 @@ impl CharacterCreationState {
                     self.death_mode,
                 ));
             }
-            (CharacterCreationStep::Class, '1') => {
+            (CharacterCreationStep::Class, key) if key == '1' || key == KEY_ARROW_UP => {
                 self.selected_class = CharacterClass::Warrior;
                 self.message.clear();
             }
-            (CharacterCreationStep::Class, '2') => {
+            (CharacterCreationStep::Class, key) if key == '2' || key == KEY_ARROW_DOWN => {
                 self.selected_class = CharacterClass::Rogue;
+                self.message.clear();
+            }
+            (CharacterCreationStep::DeathMode, KEY_ARROW_UP) => {
+                self.death_mode = DeathMode::Softcore;
+                self.message.clear();
+            }
+            (CharacterCreationStep::DeathMode, KEY_ARROW_DOWN) => {
+                self.death_mode = DeathMode::Hardcore;
                 self.message.clear();
             }
             (CharacterCreationStep::DeathMode, '\t') => {
@@ -160,7 +168,7 @@ fn create_character(
                 )
             })
             .context("failed to draw character creation")?;
-        let key = match read_ui_input()? {
+        let key = match read_ui_input_raw_arrows()? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
         };
@@ -272,9 +280,9 @@ pub(crate) fn render_character_creation_screen(
     );
 
     let commands = match active_step {
-        CharacterCreationStep::Class => "1/2=class  Enter=next  Esc=back",
+        CharacterCreationStep::Class => "Up/Down or 1/2=class  Enter=next  Esc=back",
         CharacterCreationStep::Name => "Type=name  Backspace=delete  Enter=next  Esc=back",
-        CharacterCreationStep::DeathMode => "Tab=toggle mode  Enter=confirm  Esc=back",
+        CharacterCreationStep::DeathMode => "Up/Down or Tab=mode  Enter=confirm  Esc=back",
     };
     let footer = if message.is_empty() {
         commands.to_string()
