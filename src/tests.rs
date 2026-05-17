@@ -376,7 +376,7 @@ fn rogue_missed_attacks_do_not_apply_on_hit_effects() {
         assert!(use_eviscerate(&mut c));
         let d = c.active_dungeon.as_ref().unwrap();
         if d.log.iter().any(|line| line.contains("miss")) {
-            assert_eq!(c.rogue.combo_points, 3);
+            assert_eq!(c.rogue.combo_points, 0);
             assert_eq!(d.enemies[0].poison_turns, 2);
             assert_eq!(d.enemies[0].hp, d.enemies[0].max_hp);
             found_eviscerate_miss = true;

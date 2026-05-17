@@ -230,17 +230,14 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
     };
     let multiplier = eviscerate_multiplier_for_points(points)
         + (eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank) as f32 / 100.0);
+    c.rogue.combo_points = 0;
     let outcome = damage_enemy(c, index, multiplier, "eviscerate");
     match outcome {
         DamageEnemyOutcome::Hit => {}
-        DamageEnemyOutcome::Killed => {
-            c.rogue.combo_points = 0;
-            return true;
-        }
+        DamageEnemyOutcome::Killed => return true,
         DamageEnemyOutcome::BossDefeated => return true,
         DamageEnemyOutcome::Missed | DamageEnemyOutcome::NoTarget => return true,
     }
-    c.rogue.combo_points = 0;
     let poison_bonus = {
         let Some(d) = c.active_dungeon.as_mut() else {
             return true;
