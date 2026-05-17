@@ -95,7 +95,7 @@ Core turn structure:
 - Most actors act about once per round, but fast actors may occasionally act more often and slow actors may act less often.
 - Player actions include moving, attacking, casting, using an item, waiting, or interacting.
 - Environmental effects update after actions, such as poison clouds, fire patches, traps, and cooldowns.
-- Repeat until the player leaves the floor, dies, or clears the encounter.
+- Repeat until the player leaves the floor, dies, or clears the encounter. Retreating to town with Escape is allowed before clearing monsters only on the first floor of each act; deeper floors still require clearing before retreat.
 
 Turn-based combat is the chosen design because it works well in a terminal, keeps the UI readable, and lets players make tactical decisions without reaction-time pressure.
 
@@ -926,7 +926,7 @@ MVP save/load behavior:
 
 - Auto-save after every player action.
 - Menu and dungeon commands should execute immediately on single keypresses without requiring Enter, except text entry such as character name.
-- Escape should consistently go back from submenus or return from dungeon to town. Main town uses `q` to save and quit.
+- Escape should consistently go back from submenus or return from dungeon to town. Main town uses `q` to save and quit. The first floor of each act can be abandoned to town before every monster is killed; this early escape does not award completed-floor rewards such as Herb Garden herbs. Stairs to deeper floors and retreats from later floors still require clearing the floor.
 - Load the latest save automatically on startup if one exists.
 - Save active dungeon state, including map, enemies, items on the ground, player position, HP, mana, cooldowns, inventory, equipment, gold, XP, and quest progress.
 - If the player leaves or abandons the dungeon from town, clear the active dungeon state so the next dungeon entry generates a fresh dungeon.
