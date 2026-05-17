@@ -1,7 +1,8 @@
 use crate::*;
 use ratatui::{prelude::*, widgets::Paragraph};
 
-const INVENTORY_COMMANDS: &str = "Tab=switch  WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
+const INVENTORY_COMMANDS: &str =
+    "Tab=switch  WASD/Arrows=move  Enter=equip/use  o=sort  x=drop  Esc=back";
 
 pub(crate) fn inventory_screen(
     c: &mut Character,
@@ -46,6 +47,14 @@ pub(crate) fn inventory_screen(
                     character_selected = move_equipment_cursor(character_selected, key);
                 }
             },
+            'o' | 'O' => {
+                let should_save = !c.inventory.is_empty();
+                let result = sort_inventory(c);
+                message = result.message;
+                if should_save {
+                    append_autosave_status(c, &mut message);
+                }
+            }
             'x' | 'X' => match focus {
                 InventoryFocus::Bag => {
                     let result = drop_selected_inventory_item(c, bag_selected);
@@ -758,6 +767,49 @@ fn item_detail_lines(item: &Item) -> Vec<Line<'static>> {
         ItemKind::Gem => lines.push(Line::from(strip_ansi_codes(&gem_summary(item)))),
     }
     lines
+}
+
+pub(crate) fn sort_inventory(c: &mut Character) -> InventoryActionResult {
+    if c.inventory.is_empty() {
+        return InventoryActionResult::free("Inventory is empty.");
+    }
+
+    c.inventory.items.sort_by(compare_inventory_items);
+    InventoryActionResult::free("Inventory sorted.")
+}
+
+fn compare_inventory_items(a: &Item, b: &Item) -> std::cmp::Ordering {
+    inventory_item_kind_rank(a.kind)
+        .cmp(&inventory_item_kind_rank(b.kind))
+        .then_with(|| inventory_rarity_rank(&a.rarity).cmp(&inventory_rarity_rank(&b.rarity)))
+        .then_with(|| b.item_level.cmp(&a.item_level))
+        .then_with(|| b.value.cmp(&a.value))
+        .then_with(|| a.name.cmp(&b.name))
+}
+
+fn inventory_item_kind_rank(kind: ItemKind) -> u8 {
+    match kind {
+        ItemKind::HealthPotion => 0,
+        ItemKind::ManaPotion => 1,
+        ItemKind::Weapon => 2,
+        ItemKind::Armor => 3,
+        ItemKind::Shield => 4,
+        ItemKind::Helm => 5,
+        ItemKind::Gloves => 6,
+        ItemKind::Boots => 7,
+        ItemKind::Belt => 8,
+        ItemKind::Amulet => 9,
+        ItemKind::Ring => 10,
+        ItemKind::Gem => 11,
+    }
+}
+
+fn inventory_rarity_rank(rarity: &Rarity) -> u8 {
+    match rarity {
+        Rarity::Rare => 0,
+        Rarity::Magic => 1,
+        Rarity::Common => 2,
+    }
 }
 
 pub(crate) fn drop_selected_inventory_item(

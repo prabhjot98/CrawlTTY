@@ -2041,6 +2041,86 @@ fn inventory_cell_label_shows_item_kind_or_empty_cell() {
 }
 
 #[test]
+fn sorting_inventory_groups_items_by_type_rarity_level_value_and_name_without_spending_turn() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(
+        4,
+        4,
+        vec![
+            item_with_rarity(
+                "Cobalt Axe",
+                ItemKind::Weapon,
+                30,
+                weapon_stats(2, 4, 0, AXE_CRIT_CHANCE),
+                Rarity::Magic,
+                3,
+                requirements(0, 0, 0),
+            ),
+            mana_potion(),
+            item_with_rarity(
+                "Zulu Sword",
+                ItemKind::Weapon,
+                999,
+                weapon_stats(4, 8, 0, SWORD_CRIT_CHANCE),
+                Rarity::Common,
+                99,
+                requirements(0, 0, 0),
+            ),
+            item_with_rarity(
+                "Alpha Axe",
+                ItemKind::Weapon,
+                10,
+                weapon_stats(1, 3, 0, AXE_CRIT_CHANCE),
+                Rarity::Rare,
+                1,
+                requirements(0, 0, 0),
+            ),
+            item_with_rarity(
+                "Amber Axe",
+                ItemKind::Weapon,
+                30,
+                weapon_stats(2, 4, 0, AXE_CRIT_CHANCE),
+                Rarity::Magic,
+                3,
+                requirements(0, 0, 0),
+            ),
+            item_with_rarity(
+                "Bronze Axe",
+                ItemKind::Weapon,
+                20,
+                weapon_stats(2, 4, 0, AXE_CRIT_CHANCE),
+                Rarity::Magic,
+                3,
+                requirements(0, 0, 0),
+            ),
+            health_potion(),
+            gem_item(GemKind::Topaz, GemTier::Flawed),
+        ],
+    );
+
+    let result = sort_inventory(&mut c);
+
+    assert_eq!(result.message, "Inventory sorted.");
+    assert!(!result.spent_turn);
+    assert_eq!(
+        c.inventory
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "Lesser Health Potion (restores 15% HP)",
+            "Lesser Mana Potion (restores 15% mana)",
+            "Alpha Axe",
+            "Amber Axe",
+            "Cobalt Axe",
+            "Bronze Axe",
+            "Zulu Sword",
+            "Flawed Topaz (+2% crit chance)",
+        ]
+    );
+}
+
+#[test]
 fn cursor_style_uses_cursed_violet() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -2285,7 +2365,7 @@ fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_co
     assert!(rendered.contains("Crude Axe"));
     assert!(rendered.contains("Equipped Weapon: Rusted Sword"));
     assert!(rendered.contains("Delta: +2 damage  crit -3"));
-    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  o=sort  x=drop  Esc=back"));
 }
 
 #[test]
@@ -2301,7 +2381,7 @@ fn inventory_render_lines_include_message_and_full_commands() {
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Dropped Lesser Health Potion."));
-    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  o=sort  x=drop  Esc=back"));
 }
 
 #[test]
@@ -2409,7 +2489,7 @@ fn inventory_render_footer_shows_message_and_commands() {
     let rendered = backend_text(&terminal);
 
     assert!(rendered.contains("Dropped Lesser Health Potion."));
-    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+    assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  o=sort  x=drop  Esc=back"));
 }
 
 #[test]
