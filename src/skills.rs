@@ -61,10 +61,20 @@ const ROGUE_SKILL_TREE_SKILLS: [&str; 6] = [
     "Slip Away",
 ];
 
+const SORCERESS_SKILL_TREE_SKILLS: [&str; 6] = [
+    "Firebolt",
+    "Kindle",
+    "Frost Ring",
+    "Mana Shield",
+    "Chain Spark",
+    "Static Charge",
+];
+
 fn skill_tree_skills(c: &Character) -> Vec<&'static str> {
     let skills = match c.class {
         CharacterClass::Warrior => &WARRIOR_SKILL_TREE_SKILLS,
         CharacterClass::Rogue => &ROGUE_SKILL_TREE_SKILLS,
+        CharacterClass::Sorceress => &SORCERESS_SKILL_TREE_SKILLS,
     };
     skills
         .iter()
@@ -88,6 +98,7 @@ pub(crate) fn render_skill_tree_screen(
     let title = match c.class {
         CharacterClass::Warrior => "Warrior Skill Tree",
         CharacterClass::Rogue => "Rogue Skill Tree",
+        CharacterClass::Sorceress => "Sorceress Skill Tree",
     };
     render_skill_tree_layout(
         frame,
@@ -108,6 +119,7 @@ pub(crate) fn skill_tree_lines(
     match c.class {
         CharacterClass::Warrior => warrior_skill_tree_lines(c, selected_skill, message),
         CharacterClass::Rogue => rogue_skill_tree_lines(c, selected_skill, message),
+        CharacterClass::Sorceress => sorceress_skill_tree_lines(c, selected_skill, message),
     }
 }
 
@@ -273,6 +285,91 @@ fn rogue_skill_tree_lines(
     lines.push(Line::from(""));
     lines.push(skill_line(
         "Each rank upgrade costs 1 skill point. Masteries are Warrior-only.",
+    ));
+    lines
+}
+
+fn sorceress_skill_tree_lines(
+    c: &Character,
+    selected_skill: &str,
+    message: &str,
+) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        Line::styled(
+            "Sorceress Skill Tree",
+            Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::BOLD),
+        ),
+        skill_line(strip_ansi_codes(&unspent_skills_text(c.unspent_skills))),
+    ];
+    if !message.is_empty() {
+        lines.push(Line::styled(
+            message.to_string(),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::styled(
+        "Flame Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Firebolt",
+        c.sorceress.firebolt_rank,
+    );
+    append_passive_unlock_line(&mut lines, c, "Kindle");
+    if !skill_is_locked(c, "Kindle") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Kindle",
+            c.sorceress.kindle_rank,
+        );
+    }
+    lines.push(Line::styled(
+        "Frost Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Frost Ring",
+        c.sorceress.frost_ring_rank,
+    );
+    append_passive_unlock_line(&mut lines, c, "Mana Shield");
+    if !skill_is_locked(c, "Mana Shield") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Mana Shield",
+            c.sorceress.mana_shield_rank,
+        );
+    }
+    lines.push(Line::styled(
+        "Storm Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Chain Spark",
+        c.sorceress.chain_spark_rank,
+    );
+    append_passive_unlock_line(&mut lines, c, "Static Charge");
+    if !skill_is_locked(c, "Static Charge") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Static Charge",
+            c.sorceress.static_charge_rank,
+        );
+    }
+    lines.push(Line::from(""));
+    lines.push(skill_line(
+        "Each rank upgrade costs 1 skill point. Masteries are not available for Sorceress MVP.",
     ));
     lines
 }
@@ -532,6 +629,66 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
             "Eviscerate grants brief smoke protection.".to_string(),
             "Smoke branch upgrade; requires Smoke Step rank 2.".to_string(),
         ],
+        "Firebolt" => vec![
+            format!("{}% spell damage", firebolt_percent_for_rank(rank)),
+            format!("{} mana, no cooldown", FIREBOLT_MANA_COST),
+            format!(
+                "{}% chance to apply Burning.",
+                firebolt_burn_chance_for_rank(rank)
+            ),
+        ],
+        "Kindle" => vec![
+            format!(
+                "Burning enemies take +{}% fire damage.",
+                kindle_fire_bonus_percent_for_rank(rank)
+            ),
+            "Passive; requires Firebolt rank 2.".to_string(),
+        ],
+        "Frost Ring" => vec![
+            format!(
+                "{}% spell damage to all 8 surrounding tiles",
+                frost_ring_percent_for_rank(rank)
+            ),
+            format!(
+                "{} mana, cooldown {}",
+                FROST_RING_MANA_COST, FROST_RING_COOLDOWN
+            ),
+            format!(
+                "{}% chance to Freeze on hit.",
+                frost_ring_freeze_chance_for_rank(rank)
+            ),
+        ],
+        "Mana Shield" => vec![
+            format!(
+                "Redirects {}% incoming damage to mana.",
+                mana_shield_absorb_percent_for_rank(rank)
+            ),
+            "Free toggle; 1 mana prevents 1 damage.".to_string(),
+            "Requires Frost Ring rank 2.".to_string(),
+        ],
+        "Chain Spark" => vec![
+            format!("{}% spell damage", chain_spark_percent_for_rank(rank)),
+            format!(
+                "{} mana, cooldown {}",
+                CHAIN_SPARK_MANA_COST, CHAIN_SPARK_COOLDOWN
+            ),
+            format!(
+                "Hits up to {} enemies; jumps within radius {}.",
+                chain_spark_hit_count_for_rank(rank),
+                CHAIN_SPARK_JUMP_RADIUS
+            ),
+        ],
+        "Static Charge" => vec![
+            format!(
+                "Chain Spark has {}% chance to apply Shocked.",
+                static_charge_chance_for_rank(rank)
+            ),
+            format!(
+                "Shocked stores +{}% damage taken for the next hit.",
+                static_charge_damage_bonus_for_rank(rank)
+            ),
+            "Passive; requires Chain Spark rank 2.".to_string(),
+        ],
         _ => vec![format!("Unknown skill for {}.", c.name)],
     }
 }
@@ -625,6 +782,14 @@ pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
         "Smoke Step" if c.class == CharacterClass::Rogue => c.rogue.smoke_step_rank += 1,
         "Rupture" if c.class == CharacterClass::Rogue => c.rogue.rupture_rank += 1,
         "Slip Away" if c.class == CharacterClass::Rogue => c.rogue.slip_away_rank += 1,
+        "Firebolt" if c.class == CharacterClass::Sorceress => c.sorceress.firebolt_rank += 1,
+        "Frost Ring" if c.class == CharacterClass::Sorceress => c.sorceress.frost_ring_rank += 1,
+        "Chain Spark" if c.class == CharacterClass::Sorceress => c.sorceress.chain_spark_rank += 1,
+        "Kindle" if c.class == CharacterClass::Sorceress => c.sorceress.kindle_rank += 1,
+        "Mana Shield" if c.class == CharacterClass::Sorceress => c.sorceress.mana_shield_rank += 1,
+        "Static Charge" if c.class == CharacterClass::Sorceress => {
+            c.sorceress.static_charge_rank += 1
+        }
         _ => return "Unknown skill.".to_string(),
     }
     c.unspent_skills -= 1;
@@ -867,6 +1032,15 @@ pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {
             "Slip Away" => c.rogue.slip_away_rank,
             _ => 5,
         },
+        CharacterClass::Sorceress => match skill {
+            "Firebolt" => c.sorceress.firebolt_rank,
+            "Frost Ring" => c.sorceress.frost_ring_rank,
+            "Chain Spark" => c.sorceress.chain_spark_rank,
+            "Kindle" => c.sorceress.kindle_rank,
+            "Mana Shield" => c.sorceress.mana_shield_rank,
+            "Static Charge" => c.sorceress.static_charge_rank,
+            _ => 5,
+        },
     }
 }
 
@@ -914,6 +1088,24 @@ fn passive_prerequisite(c: &Character, skill: &str) -> Option<SkillPrerequisite>
             }),
             _ => None,
         },
+        CharacterClass::Sorceress => match skill {
+            "Kindle" => Some(SkillPrerequisite {
+                starter: "Firebolt",
+                current_rank: c.sorceress.firebolt_rank,
+                required_rank: 2,
+            }),
+            "Mana Shield" => Some(SkillPrerequisite {
+                starter: "Frost Ring",
+                current_rank: c.sorceress.frost_ring_rank,
+                required_rank: 2,
+            }),
+            "Static Charge" => Some(SkillPrerequisite {
+                starter: "Chain Spark",
+                current_rank: c.sorceress.chain_spark_rank,
+                required_rank: 2,
+            }),
+            _ => None,
+        },
     }
 }
 
@@ -946,6 +1138,16 @@ pub(crate) fn normalize_locked_skill_ranks(c: &mut Character) {
     }
     if c.rogue.smoke_step_rank < 2 {
         c.rogue.slip_away_rank = 0;
+    }
+    if c.sorceress.firebolt_rank < 2 {
+        c.sorceress.kindle_rank = 0;
+    }
+    if c.sorceress.frost_ring_rank < 2 {
+        c.sorceress.mana_shield_rank = 0;
+        c.sorceress.mana_shield_active = false;
+    }
+    if c.sorceress.chain_spark_rank < 2 {
+        c.sorceress.static_charge_rank = 0;
     }
 }
 

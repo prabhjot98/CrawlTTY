@@ -4,6 +4,7 @@ pub(crate) const SWORD_CRIT_CHANCE: u32 = 8;
 pub(crate) const AXE_CRIT_CHANCE: u32 = 5;
 pub(crate) const DAGGER_CRIT_CHANCE: u32 = 14;
 pub(crate) const SCIMITAR_CRIT_CHANCE: u32 = 10;
+pub(crate) const WAND_CRIT_CHANCE: u32 = 4;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ItemStats {
@@ -255,6 +256,42 @@ pub(crate) fn training_dagger() -> Item {
         Rarity::Common,
         1,
         requirements(0, 2, 0),
+    )
+}
+
+pub(crate) fn cracked_wand() -> Item {
+    item_with_rarity(
+        "Cracked Wand (2-3 spell, INT D)",
+        ItemKind::Weapon,
+        20,
+        weapon_stats(2, 3, 0, WAND_CRIT_CHANCE),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 2),
+    )
+}
+
+pub(crate) fn cracked_focus() -> Item {
+    item_with_rarity(
+        "Cracked Focus (+1 dodge, INT D)",
+        ItemKind::Shield,
+        20,
+        item_stats(0, 0, 0, 1, 0),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 2),
+    )
+}
+
+pub(crate) fn frayed_robe() -> Item {
+    item_with_rarity(
+        "Frayed Robe (+1 armor)",
+        ItemKind::Armor,
+        16,
+        item_stats(0, 0, 1, 0, 0),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
     )
 }
 #[cfg(test)]

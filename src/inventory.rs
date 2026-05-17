@@ -878,7 +878,14 @@ pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<S
         return None;
     }
     if !can_equip_item_for_class(c, item) {
-        return Some("Rogue cannot equip non-buckler shields.".to_string());
+        let message = match c.class {
+            CharacterClass::Rogue => "Rogue cannot equip non-buckler shields.",
+            CharacterClass::Sorceress => {
+                "Sorceress can equip wands and focuses only in weapon/offhand slots."
+            }
+            CharacterClass::Warrior => "Class cannot equip that item.",
+        };
+        return Some(message.to_string());
     }
     let mut missing = Vec::new();
     if c.strength < item.required_strength {
@@ -903,10 +910,19 @@ pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<S
 }
 
 fn can_equip_item_for_class(c: &Character, item: &Item) -> bool {
-    c.class != CharacterClass::Rogue
-        || item.kind != ItemKind::Shield
-        || item.name == "Empty Offhand"
-        || item.name.contains("Buckler")
+    match c.class {
+        CharacterClass::Warrior => true,
+        CharacterClass::Rogue => {
+            item.kind != ItemKind::Shield
+                || item.name == "Empty Offhand"
+                || item.name.contains("Buckler")
+        }
+        CharacterClass::Sorceress => match item.kind {
+            ItemKind::Weapon => item.name.contains("Wand"),
+            ItemKind::Shield => item.name == "Empty Offhand" || item.name.contains("Focus"),
+            _ => true,
+        },
+    }
 }
 
 pub(crate) fn equip_or_use_inventory_item(

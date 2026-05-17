@@ -21,6 +21,9 @@ pub(crate) fn clear_combat_state(c: &mut Character) {
     c.rogue.smoke_protection_turns = 0;
     c.rogue.empowered_backstab_turns = 0;
     c.rogue.smoke_step_pending = false;
+    c.sorceress.frost_ring_cooldown = 0;
+    c.sorceress.chain_spark_cooldown = 0;
+    c.sorceress.mana_shield_active = false;
 }
 
 pub(crate) fn leave_dungeon(c: &mut Character) {
@@ -379,6 +382,7 @@ pub(crate) fn dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
     match c.class {
         CharacterClass::Warrior => warrior_dungeon_skill_help_lines(c),
         CharacterClass::Rogue => rogue_dungeon_skill_help_lines(c),
+        CharacterClass::Sorceress => sorceress_dungeon_skill_help_lines(c),
     }
 }
 
@@ -471,6 +475,58 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
     ]
 }
 
+fn sorceress_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+    let shield_state = if c.sorceress.mana_shield_active {
+        "on"
+    } else {
+        "off"
+    };
+    let mut lines = vec![
+        Line::from(format!(
+            "Sorceress: Mana {}/{}  Mana Shield {shield_state}",
+            c.mana,
+            c.max_mana()
+        )),
+        Line::from(format!(
+            "1 Firebolt r{}: cost {} mana. {}% spell damage; {}% Burning.",
+            c.sorceress.firebolt_rank,
+            FIREBOLT_MANA_COST,
+            firebolt_percent_for_rank(c.sorceress.firebolt_rank),
+            firebolt_burn_chance_for_rank(c.sorceress.firebolt_rank)
+        )),
+        Line::from(format!(
+            "2 Frost Ring r{}: cost {} mana, cd {}. 8 tiles; {}% damage; {}% Freeze. Ready in {}.",
+            c.sorceress.frost_ring_rank,
+            FROST_RING_MANA_COST,
+            FROST_RING_COOLDOWN,
+            frost_ring_percent_for_rank(c.sorceress.frost_ring_rank),
+            frost_ring_freeze_chance_for_rank(c.sorceress.frost_ring_rank),
+            c.sorceress.frost_ring_cooldown
+        )),
+        Line::from(format!(
+            "3 Chain Spark r{}: cost {} mana, cd {}. {}% damage; up to {} hits. Ready in {}.",
+            c.sorceress.chain_spark_rank,
+            CHAIN_SPARK_MANA_COST,
+            CHAIN_SPARK_COOLDOWN,
+            chain_spark_percent_for_rank(c.sorceress.chain_spark_rank),
+            chain_spark_hit_count_for_rank(c.sorceress.chain_spark_rank),
+            c.sorceress.chain_spark_cooldown
+        )),
+    ];
+    if c.sorceress.mana_shield_rank == 0 {
+        lines.push(Line::from(
+            "4 Mana Shield: locked; requires Frost Ring rank 2.",
+        ));
+    } else {
+        lines.push(Line::from(format!(
+            "4 Mana Shield r{}: free toggle. Absorbs {}% at 1 mana per damage.",
+            c.sorceress.mana_shield_rank,
+            mana_shield_absorb_percent_for_rank(c.sorceress.mana_shield_rank)
+        )));
+    }
+    lines
+}
+
 fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
     match c.class {
         CharacterClass::Warrior => vec![
@@ -489,6 +545,17 @@ fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
             ("2", "Venom"),
             ("3", "Eviscerate"),
             ("4", "Smoke"),
+            ("p", "potion"),
+            ("g", "pickup"),
+            ("i", "inventory"),
+            ("Esc", "town"),
+        ],
+        CharacterClass::Sorceress => vec![
+            ("w/a/s/d", "move/attack"),
+            ("1", "Firebolt"),
+            ("2", "Frost"),
+            ("3", "Spark"),
+            ("4", "Shield"),
             ("p", "potion"),
             ("g", "pickup"),
             ("i", "inventory"),
@@ -562,6 +629,10 @@ pub(crate) fn dungeon_action_label_for(c: &Character, key: char) -> &'static str
         (CharacterClass::Rogue, '2') => "Venom Edge",
         (CharacterClass::Rogue, '3') => "Eviscerate",
         (CharacterClass::Rogue, '4') => "Smoke Step",
+        (CharacterClass::Sorceress, '1') => "Firebolt",
+        (CharacterClass::Sorceress, '2') => "Frost Ring",
+        (CharacterClass::Sorceress, '3') => "Chain Spark",
+        (CharacterClass::Sorceress, '4') => "Mana Shield",
         (_, 'p' | 'P') => "Drink potion",
         (_, 'g' | 'G') => "Pick up",
         (_, 'i' | 'I') => "Inventory",
@@ -631,6 +702,10 @@ pub(crate) fn handle_class_skill_key(c: &mut Character, key: char) -> bool {
         (CharacterClass::Rogue, '2') => use_venom_edge(c),
         (CharacterClass::Rogue, '3') => use_eviscerate(c),
         (CharacterClass::Rogue, '4') => use_smoke_step(c),
+        (CharacterClass::Sorceress, '1') => use_firebolt(c),
+        (CharacterClass::Sorceress, '2') => use_frost_ring(c),
+        (CharacterClass::Sorceress, '3') => use_chain_spark(c),
+        (CharacterClass::Sorceress, '4') => toggle_mana_shield(c),
         _ => {
             log_unknown_class_skill(c);
             false
@@ -670,7 +745,7 @@ pub(crate) fn is_known_dungeon_command_for(c: &Character, key: char) -> bool {
             | 'i'
             | 'I'
             | '\u{1b}'
-    ) || (c.class == CharacterClass::Rogue && key == '4')
+    ) || ((c.class == CharacterClass::Rogue || c.class == CharacterClass::Sorceress) && key == '4')
 }
 
 pub(crate) fn handle_pending_smoke_step_key(c: &mut Character, key: char) -> bool {
@@ -1150,6 +1225,7 @@ pub(crate) fn damage_enemy(
         if critical {
             damage *= 2;
         }
+        damage = apply_shock_bonus_to_damage(enemy, damage);
         enemy.hp -= damage;
         if enemy.guarding {
             guard_message = Some(format!("{} blocks with its shield.", enemy.name));
@@ -1412,6 +1488,8 @@ pub(crate) fn tick_player_effects(c: &mut Character) {
     c.warrior.battle_cry_cooldown = c.warrior.battle_cry_cooldown.saturating_sub(1);
     c.rogue.smoke_step_cooldown = c.rogue.smoke_step_cooldown.saturating_sub(1);
     c.rogue.empowered_backstab_turns = c.rogue.empowered_backstab_turns.saturating_sub(1);
+    c.sorceress.frost_ring_cooldown = c.sorceress.frost_ring_cooldown.saturating_sub(1);
+    c.sorceress.chain_spark_cooldown = c.sorceress.chain_spark_cooldown.saturating_sub(1);
     if c.class == CharacterClass::Rogue {
         c.restore_rogue_energy(15);
     }
@@ -1493,12 +1571,45 @@ pub(crate) fn enemy_turns(c: &mut Character) {
                 continue;
             }
         }
+        if d.enemies[i].burning_turns > 0 {
+            let burning_damage = d.enemies[i].burning_damage.max(1);
+            d.enemies[i].hp -= burning_damage;
+            d.enemies[i].burning_turns -= 1;
+            log_event(
+                &mut d.log,
+                LogKind::Hit,
+                format!(
+                    "{} burns for {}. {}.",
+                    d.enemies[i].name,
+                    damage_text(burning_damage),
+                    enemy_hp_text(&d.enemies[i])
+                ),
+            );
+            if d.enemies[i].hp <= 0 {
+                let ground_items_before_death = d.ground_items.len();
+                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Effect { source: "Burning" })
+                {
+                    finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
+                    return;
+                }
+                continue;
+            }
+        }
         d.enemies[i].energy += d.enemies[i].speed.max(1);
         let energy_threshold = enemy_action_energy_threshold(c);
         if d.enemies[i].energy < energy_threshold {
             continue;
         }
         d.enemies[i].energy -= energy_threshold;
+        if d.enemies[i].frozen_turns > 0 {
+            d.enemies[i].frozen_turns -= 1;
+            log_event(
+                &mut d.log,
+                LogKind::Status,
+                format!("{} is frozen and skips its turn.", d.enemies[i].name),
+            );
+            continue;
+        }
         if d.enemies[i].stunned_turns > 0 {
             d.enemies[i].stunned_turns -= 1;
             log_event(
@@ -1966,7 +2077,23 @@ pub(crate) fn apply_player_damage(c: &mut Character, damage: u32) {
     } else {
         0
     };
-    c.hp = c.hp.saturating_sub(damage - absorbed);
+    let mut remaining = damage - absorbed;
+    if c.class == CharacterClass::Sorceress && c.sorceress.mana_shield_active {
+        if c.sorceress.mana_shield_rank == 0 || c.mana == 0 {
+            c.sorceress.mana_shield_active = false;
+        } else {
+            let desired_absorb = remaining.saturating_mul(mana_shield_absorb_percent_for_rank(
+                c.sorceress.mana_shield_rank,
+            )) / 100;
+            let mana_absorbed = desired_absorb.min(c.mana);
+            c.mana -= mana_absorbed;
+            remaining = remaining.saturating_sub(mana_absorbed);
+            if c.mana == 0 {
+                c.sorceress.mana_shield_active = false;
+            }
+        }
+    }
+    c.hp = c.hp.saturating_sub(remaining);
 }
 
 pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
@@ -2548,6 +2675,7 @@ pub(crate) fn random_equipment_loot_for_class(
     match class {
         CharacterClass::Warrior => random_warrior_equipment_loot(floor, better),
         CharacterClass::Rogue => random_rogue_equipment_loot(floor, better),
+        CharacterClass::Sorceress => random_sorceress_equipment_loot(floor, better),
     }
 }
 
@@ -2762,6 +2890,105 @@ fn random_rogue_equipment_loot(floor: u32, better: bool) -> Item {
             rarity,
             item_level,
             requirements(0, 2 + item_level, 0),
+        ),
+    };
+    add_random_sockets(item, rng.gen_range(0.0..1.0))
+}
+
+fn random_sorceress_equipment_loot(floor: u32, better: bool) -> Item {
+    let mut rng = rand::thread_rng();
+    let (rarity, item_level) = equipment_rarity_and_level(floor, better, &mut rng);
+    let bonus = item_level as i32 - 1;
+    let item = match rng.gen_range(0..10) {
+        0 => item_with_rarity(
+            &loot_name(&rarity, "Arc Wand"),
+            ItemKind::Weapon,
+            45 + bonus as u32 * 15,
+            weapon_stats(2 + bonus, 5 + bonus, 0, WAND_CRIT_CHANCE),
+            rarity,
+            item_level,
+            requirements(0, 1 + item_level / 2, 3 + item_level),
+        ),
+        1 => item_with_rarity(
+            &loot_name(&rarity, "Ember Wand"),
+            ItemKind::Weapon,
+            50 + bonus as u32 * 15,
+            weapon_stats(3 + bonus, 6 + bonus, -1, WAND_CRIT_CHANCE + 1),
+            rarity,
+            item_level,
+            requirements(0, 1 + item_level / 2, 4 + item_level),
+        ),
+        2 => item_with_rarity(
+            &loot_name(&rarity, "Silk Robe"),
+            ItemKind::Armor,
+            45 + bonus as u32 * 15,
+            item_stats(0, 0, bonus.min(2), 1 + bonus.min(2), 1),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
+        ),
+        3 => item_with_rarity(
+            &loot_name(&rarity, "Crystal Focus"),
+            ItemKind::Shield,
+            45 + bonus as u32 * 15,
+            item_stats(0, 0, bonus.min(1), 1 + bonus, 0),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
+        ),
+        4 => item_with_rarity(
+            &loot_name(&rarity, "Moon Circlet"),
+            ItemKind::Helm,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
+        ),
+        5 => item_with_rarity(
+            &loot_name(&rarity, "Spell Gloves"),
+            ItemKind::Gloves,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus, 0),
+            rarity,
+            item_level,
+            requirements(0, 1 + item_level / 2, 2 + item_level),
+        ),
+        6 => item_with_rarity(
+            &loot_name(&rarity, "Soft Slippers"),
+            ItemKind::Boots,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus.min(2), 1),
+            rarity,
+            item_level,
+            requirements(0, 1 + item_level / 2, 2 + item_level),
+        ),
+        7 => item_with_rarity(
+            &loot_name(&rarity, "Silk Sash"),
+            ItemKind::Belt,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
+        ),
+        8 => item_with_rarity(
+            &loot_name(&rarity, "Arcane Amulet"),
+            ItemKind::Amulet,
+            45 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
+        ),
+        _ => item_with_rarity(
+            &loot_name(&rarity, "Rune Ring"),
+            ItemKind::Ring,
+            30 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(0, 0, 2 + item_level),
         ),
     };
     add_random_sockets(item, rng.gen_range(0.0..1.0))

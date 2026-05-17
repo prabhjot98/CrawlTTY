@@ -163,8 +163,8 @@ The implementation uses the same model for both sides of combat. Player weapon a
 ### Status Effects
 
 - Burning: damage over time
-- Frozen: reduced movement or skipped turn chance
-- Shocked: increased damage taken
+- Frozen: skips the affected enemy's next turn in the current Sorceress implementation
+- Shocked: increases and is consumed by the next damaging hit
 - Poisoned: damage over time, reduced healing
 - Bleeding: physical damage over time
 - Cursed: reduced stats or resistance
@@ -191,9 +191,9 @@ Example skills:
 - Battle Cry: temporary damage and defense buff
 - Iron Skin: reduce incoming damage
 
-### 2. Embercaller
+### 2. Sorceress
 
-A spellcaster using fire, frost, and shock magic.
+A playable spellcaster using fire, frost, and shock magic. The MVP Sorceress starts with STR 1 / DEX 3 / INT 6, Mana, a wand, a focus offhand, and a robe. Spell damage scales with Intelligence while spell accuracy uses the normal hit-rating model from Dexterity and gear.
 
 Possible builds:
 
@@ -203,10 +203,10 @@ Possible builds:
 
 Example skills:
 
-- Firebolt: ranged fire attack
-- Frost Ring: slows nearby enemies
-- Chain Spark: jumps between enemies
-- Mana Shield: damage drains mana first
+- Firebolt: auto-targeted ranged fire attack that can apply Burning
+- Frost Ring: adjacent frost burst that can apply Frozen
+- Chain Spark: shock attack that jumps between nearby reachable enemies
+- Mana Shield: toggle that absorbs part of incoming damage by spending mana
 
 ### 3. Gravewarden
 
@@ -282,7 +282,7 @@ Example Warrior trees:
 - Defense
 - Warcries
 
-Example Embercaller trees:
+Example Sorceress trees:
 
 - Flame
 - Frost
@@ -363,6 +363,25 @@ Warrior mastery paths:
 - Deep Cut: Hemorrhage increases bleed damage against low-health enemies; Open Wound makes bleeding enemies vulnerable to physical damage; Bloodletting heals the player on bleed kills.
 - Iron Guard: Bulwark grants extra armor at low health; Shield Discipline grants dodge; Spiked Guard damages adjacent melee attackers.
 - Second Wind: Fresh Kill lets Second Wind work without Battle Cry at reduced strength; Adrenal Surge restores a Battle Cry charge; Grim Recovery turns overhealing into a temporary shield.
+
+#### Sorceress MVP Skill Tree
+
+The implemented Sorceress tree has no masteries in the MVP. Active offensive spells auto-target the nearest visible enemy when applicable; a valid cast spends mana and a turn even on a miss, while no valid target spends nothing.
+
+Flame branch:
+
+- Firebolt: active spell bound to `1`. Costs 4 mana, has no cooldown, uses normal hit chance, deals wand spell damage with Intelligence scaling, and has a rank-scaled chance to inflict Burning.
+- Kindle: passive unlocked by Firebolt rank 2. Burning enemies take rank-scaled bonus fire damage.
+
+Frost branch:
+
+- Frost Ring: active spell bound to `2`. Costs 8 mana, has a 3-turn cooldown, attacks all 8 adjacent tiles, and can Freeze enemies for their next turn.
+- Mana Shield: passive/toggle bound to `4` once unlocked by Frost Ring rank 2. Toggling is free; while active it absorbs a rank-scaled share of incoming damage at `1 mana = 1 damage prevented`.
+
+Storm branch:
+
+- Chain Spark: active spell bound to `3`. Costs 7 mana, has a 2-turn cooldown, requires line of sight for the initial target, then jumps within radius 2 to reachable enemies including diagonals. Jumps can bend around corners through open tiles but do not pass through walls.
+- Static Charge: passive unlocked by Chain Spark rank 2. Chain Spark can apply Shocked, and Shocked is consumed by the next damaging hit. Reapplying Shocked only replaces an existing shock if the new bonus is equal or stronger.
 
 ## Loot System
 
@@ -455,13 +474,14 @@ Damage should come from base item damage plus scaling bonuses from the relevant 
 
 ### Loot Goals
 
-Loot should support build experimentation. A weapon that adds fire damage should interest an Embercaller, Rogue, or Wildspeaker in different ways.
+Loot should support build experimentation. A weapon that adds fire damage should interest a Sorceress, Rogue, or Wildspeaker in different ways.
 
 Current class-specific equipment direction:
 
 - Random equipment drops route through the active character class and can produce weapons, body armor, shields/offhands, helms, gloves, boots, belts, amulets, and rings.
 - Warriors receive Warrior equipment only: swords, axes, mail armor, guard shields, iron helms, plate gloves, march boots, war belts, guard amulets, and iron rings.
 - Rogues receive Rogue equipment only: daggers, scimitars, light armor, bucklers, hooded cowls, cutpurse gloves, soft boots, utility belts, shadow amulets, and silent rings.
+- Sorceresses receive Sorceress equipment only: wands, robes, focuses, circlets, spell gloves, soft slippers, sashes, arcane amulets, and rune rings. Sorceresses can equip wands and focuses in weapon/offhand slots and cannot equip staves, melee weapons, or Warrior/Rogue shields in the MVP.
 - Bows and ranged Dexterity weapons are reserved for a future Ranger class.
 
 ## Inventory

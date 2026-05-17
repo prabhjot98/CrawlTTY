@@ -9,6 +9,7 @@ pub(crate) const ROGUE_MAX_COMBO_POINTS: u32 = 5;
 pub(crate) enum CharacterClass {
     Warrior,
     Rogue,
+    Sorceress,
 }
 
 impl CharacterClass {
@@ -16,6 +17,7 @@ impl CharacterClass {
         match self {
             CharacterClass::Warrior => "Warrior",
             CharacterClass::Rogue => "Rogue",
+            CharacterClass::Sorceress => "Sorceress",
         }
     }
 
@@ -23,6 +25,7 @@ impl CharacterClass {
         match name {
             "Warrior" | "Ironbound" => CharacterClass::Warrior,
             "Rogue" => CharacterClass::Rogue,
+            "Sorceress" => CharacterClass::Sorceress,
             _ => CharacterClass::Warrior,
         }
     }
@@ -155,11 +158,49 @@ fn default_rogue_energy() -> u32 {
     ROGUE_MAX_ENERGY
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SorceressState {
+    #[serde(default = "default_skill_rank")]
+    pub(crate) firebolt_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) frost_ring_rank: u32,
+    #[serde(default = "default_skill_rank")]
+    pub(crate) chain_spark_rank: u32,
+    #[serde(default = "default_locked_skill_rank")]
+    pub(crate) kindle_rank: u32,
+    #[serde(default = "default_locked_skill_rank")]
+    pub(crate) mana_shield_rank: u32,
+    #[serde(default = "default_locked_skill_rank")]
+    pub(crate) static_charge_rank: u32,
+    #[serde(default)]
+    pub(crate) frost_ring_cooldown: u32,
+    #[serde(default)]
+    pub(crate) chain_spark_cooldown: u32,
+    #[serde(default)]
+    pub(crate) mana_shield_active: bool,
+}
+
+impl Default for SorceressState {
+    fn default() -> Self {
+        Self {
+            firebolt_rank: 1,
+            frost_ring_rank: 1,
+            chain_spark_rank: 1,
+            kindle_rank: 0,
+            mana_shield_rank: 0,
+            static_charge_rank: 0,
+            frost_ring_cooldown: 0,
+            chain_spark_cooldown: 0,
+            mana_shield_active: false,
+        }
+    }
+}
+
 impl Character {
     #[allow(dead_code)]
     pub(crate) fn resource_label(&self) -> &'static str {
         match self.class {
-            CharacterClass::Warrior => "Mana",
+            CharacterClass::Warrior | CharacterClass::Sorceress => "Mana",
             CharacterClass::Rogue => "Energy",
         }
     }
@@ -167,7 +208,7 @@ impl Character {
     #[allow(dead_code)]
     pub(crate) fn current_resource(&self) -> u32 {
         match self.class {
-            CharacterClass::Warrior => self.mana,
+            CharacterClass::Warrior | CharacterClass::Sorceress => self.mana,
             CharacterClass::Rogue => self.rogue.energy,
         }
     }
@@ -175,7 +216,7 @@ impl Character {
     #[allow(dead_code)]
     pub(crate) fn max_resource(&self) -> u32 {
         match self.class {
-            CharacterClass::Warrior => self.max_mana(),
+            CharacterClass::Warrior | CharacterClass::Sorceress => self.max_mana(),
             CharacterClass::Rogue => ROGUE_MAX_ENERGY,
         }
     }
@@ -200,7 +241,7 @@ impl Character {
 
     pub(crate) fn restore_class_resource_full(&mut self) {
         match self.class {
-            CharacterClass::Warrior => self.mana = self.max_mana(),
+            CharacterClass::Warrior | CharacterClass::Sorceress => self.mana = self.max_mana(),
             CharacterClass::Rogue => self.rogue.energy = ROGUE_MAX_ENERGY,
         }
     }
