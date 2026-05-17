@@ -626,7 +626,11 @@ fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, a
         .map(|(index, definition)| {
             selected_line(
                 index == selected,
-                town_project_list_row_text(c, definition.project),
+                town_project_list_row_text(
+                    c,
+                    definition.project,
+                    project_dependency_depth(definition.project),
+                ),
             )
         })
         .collect::<Vec<_>>();
@@ -639,14 +643,33 @@ fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, a
     );
 }
 
-fn town_project_list_row_text(c: &Character, project: TownProject) -> String {
+fn town_project_list_row_text(
+    c: &Character,
+    project: TownProject,
+    dependency_depth: usize,
+) -> String {
     let definition = town_project_definition(project);
     let label = format!("[{}] {}", definition.group, definition.name);
+    let dependency_prefix = if dependency_depth == 0 {
+        String::new()
+    } else {
+        format!("{}└─ ", "   ".repeat(dependency_depth - 1))
+    };
     match town_project_availability(c, project) {
-        ProjectAvailability::Available => label,
-        ProjectAvailability::Completed => format!("{label} - Complete"),
-        ProjectAvailability::Locked(_) => format!("🔒{label}"),
+        ProjectAvailability::Available => format!("{dependency_prefix}{label}"),
+        ProjectAvailability::Completed => format!("{dependency_prefix}{label} - Complete"),
+        ProjectAvailability::Locked(_) => format!("{dependency_prefix}🔒{label}"),
     }
+}
+
+fn project_dependency_depth(project: TownProject) -> usize {
+    let mut depth = 0;
+    let mut current = project;
+    while let Some(parent) = project_dependency(current) {
+        depth += 1;
+        current = parent;
+    }
+    depth
 }
 
 fn render_town_project_details(frame: &mut Frame, c: &Character, selected: usize, area: Rect) {

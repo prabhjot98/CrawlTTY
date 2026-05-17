@@ -3157,10 +3157,19 @@ fn town_project_availability_uses_completion_and_quest_gates() {
         town_project_availability(&c, TownProject::ReinforcedAnvil),
         ProjectAvailability::Available
     );
+    assert_eq!(
+        town_project_availability(&c, TownProject::SocketBench),
+        ProjectAvailability::Locked("Requires Reinforced Anvil.")
+    );
 
     c.act1_completed = true;
     assert_eq!(
         town_project_availability(&c, TownProject::HerbGarden),
+        ProjectAvailability::Available
+    );
+    complete_project_for_test(&mut c, TownProject::ReinforcedAnvil);
+    assert_eq!(
+        town_project_availability(&c, TownProject::SocketBench),
         ProjectAvailability::Available
     );
 }
@@ -3284,7 +3293,17 @@ fn town_project_board_uses_list_and_details_panels() {
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("🔒 [Smith] Reinforced Anvil"))
+            .any(|line| line.contains("└─ 🔒 [Smith] Reinforced Anvil"))
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("   └─ 🔒 [Smith] Socket Bench"))
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("└─ 🔒 [Quartermaster] Pack Hooks"))
     );
     assert!(
         !lines

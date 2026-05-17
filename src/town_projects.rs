@@ -149,6 +149,15 @@ pub(crate) const BAG_UPGRADE_PROJECTS: &[(TownProject, (u16, u16))] = &[
     (TownProject::ExilesTrunk, (8, 8)),
 ];
 
+pub(crate) fn project_dependency(project: TownProject) -> Option<TownProject> {
+    match project {
+        TownProject::ReinforcedAnvil => Some(TownProject::RebuildForge),
+        TownProject::SocketBench => Some(TownProject::ReinforcedAnvil),
+        TownProject::Distillery => Some(TownProject::HerbGarden),
+        _ => previous_bag_project(project),
+    }
+}
+
 fn previous_bag_project(project: TownProject) -> Option<TownProject> {
     let index = BAG_UPGRADE_PROJECTS
         .iter()
@@ -220,10 +229,10 @@ pub(crate) fn town_project_availability(
             }
         }
         TownProject::SocketBench => {
-            if !c.act1_completed {
-                ProjectAvailability::Locked("Requires Act I completed.")
-            } else if !has_completed_project(c, TownProject::ReinforcedAnvil) {
+            if !has_completed_project(c, TownProject::ReinforcedAnvil) {
                 ProjectAvailability::Locked("Requires Reinforced Anvil.")
+            } else if !c.act1_completed {
+                ProjectAvailability::Locked("Requires Act I completed.")
             } else {
                 ProjectAvailability::Available
             }
