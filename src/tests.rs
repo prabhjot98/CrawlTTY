@@ -1767,6 +1767,30 @@ fn character_creation_active_step_uses_muted_cursed_violet_border() {
 }
 
 #[test]
+fn character_creation_selected_container_titles_do_not_show_active_text() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Name,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+
+    let screen = backend_text(&terminal);
+    assert!(screen.contains("Step 2: Name"));
+    assert!(!screen.contains("active"));
+}
+
+#[test]
 fn active_stash_grid_uses_muted_cursed_violet_border() {
     use ratatui::{Terminal, backend::TestBackend, style::Color};
 

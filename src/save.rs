@@ -138,18 +138,6 @@ impl CharacterCreationState {
     }
 }
 
-fn step_title(
-    active_step: CharacterCreationStep,
-    step: CharacterCreationStep,
-    base: &'static str,
-) -> String {
-    if active_step == step {
-        format!("{base} (active)")
-    } else {
-        base.to_string()
-    }
-}
-
 fn create_character(
     terminal: &mut ratatui::DefaultTerminal,
     startup_message: &str,
@@ -240,11 +228,7 @@ pub(crate) fn render_character_creation_screen(
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(step_title(
-                    active_step,
-                    CharacterCreationStep::Class,
-                    "Step 1: Class",
-                ))
+                .title("Step 1: Class")
                 .border_style(selected_container_border_style(
                     active_step == CharacterCreationStep::Class,
                 )),
@@ -261,11 +245,7 @@ pub(crate) fn render_character_creation_screen(
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(step_title(
-                    active_step,
-                    CharacterCreationStep::Name,
-                    "Step 2: Name",
-                ))
+                .title("Step 2: Name")
                 .border_style(selected_container_border_style(
                     active_step == CharacterCreationStep::Name,
                 )),
@@ -287,11 +267,7 @@ pub(crate) fn render_character_creation_screen(
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(step_title(
-                    active_step,
-                    CharacterCreationStep::DeathMode,
-                    "Step 3: Death Mode",
-                ))
+                .title("Step 3: Death Mode")
                 .border_style(selected_container_border_style(
                     active_step == CharacterCreationStep::DeathMode,
                 )),
