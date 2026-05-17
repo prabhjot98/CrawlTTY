@@ -599,7 +599,11 @@ pub(crate) fn render_town_projects_screen(
     );
 
     let list_width = 50;
-    let (projects_area, details_area) = if layout[1].width >= list_width + 36 {
+    let (projects_area, details_area) = if layout[1].width >= list_width * 2 {
+        let body = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(layout[1]);
+        (body[0], body[1])
+    } else if layout[1].width >= list_width + 36 {
         let body = Layout::horizontal([Constraint::Length(list_width), Constraint::Min(36)])
             .split(layout[1]);
         (body[0], body[1])
