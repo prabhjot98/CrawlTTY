@@ -810,8 +810,8 @@ Difficulty modes:
 
 Character death mode should be chosen when creating a character:
 
-- Softcore: death returns to town with penalty.
-- Hardcore: death permanently ends the character.
+- Softcore: death returns to town, clears dungeon combat state, loses 10% gold, and fully restores health and class resource.
+- Hardcore: death deletes the save, clears the active dungeon, ends the run, and returns through the normal terminal cleanup path.
 
 The game should support both modes from the design level, even if Hardcore is implemented after the first playable prototype.
 

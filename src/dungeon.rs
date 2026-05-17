@@ -66,10 +66,16 @@ pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
     true
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DungeonLoopExit {
+    ReturnedToTown,
+    HardcoreDeath,
+}
+
 pub(crate) fn dungeon_loop(
     c: &mut Character,
     terminal: &mut ratatui::DefaultTerminal,
-) -> Result<()> {
+) -> Result<DungeonLoopExit> {
     loop {
         terminal
             .draw(|frame| render_dungeon(frame, c))
@@ -110,7 +116,7 @@ pub(crate) fn dungeon_loop(
                     if try_leave_dungeon_for_town(c) {
                         full_heal_on_town_return(c);
                         save_character(c)?;
-                        break;
+                        return Ok(DungeonLoopExit::ReturnedToTown);
                     }
                 }
                 _ => {
@@ -125,15 +131,16 @@ pub(crate) fn dungeon_loop(
             if should_resolve_enemy_turns_after_action(c, before_floor) {
                 tick_player_effects(c);
                 enemy_turns(c);
-                check_death(c);
+                if check_death(c) == DeathOutcome::HardcoreDeleted {
+                    return Ok(DungeonLoopExit::HardcoreDeath);
+                }
             }
             save_character(c)?;
         }
         if c.active_dungeon.is_none() {
-            break;
+            return Ok(DungeonLoopExit::ReturnedToTown);
         }
     }
-    Ok(())
 }
 
 pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
@@ -2717,9 +2724,20 @@ pub(crate) fn use_potion(c: &mut Character) -> bool {
     }
 }
 
-pub(crate) fn check_death(c: &mut Character) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeathOutcome {
+    Alive,
+    SoftcoreRevived,
+    HardcoreDeleted,
+}
+
+pub(crate) fn check_death(c: &mut Character) -> DeathOutcome {
+    check_death_with_save_path(c, Path::new(SAVE_PATH))
+}
+
+pub(crate) fn check_death_with_save_path(c: &mut Character, save_path: &Path) -> DeathOutcome {
     if c.hp > 0 {
-        return;
+        return DeathOutcome::Alive;
     }
     match c.death_mode {
         DeathMode::Softcore => {
@@ -2731,11 +2749,13 @@ pub(crate) fn check_death(c: &mut Character) {
                 gold_reward_text(penalty)
             );
             full_heal_on_town_return(c);
+            DeathOutcome::SoftcoreRevived
         }
         DeathMode::Hardcore => {
-            let _ = fs::remove_file(SAVE_PATH);
-            println!("You died in Hardcore mode. Save deleted.");
-            std::process::exit(0);
+            let _ = fs::remove_file(save_path);
+            leave_dungeon(c);
+            c.pending_town_message = "You died in Hardcore mode. Save deleted.".to_string();
+            DeathOutcome::HardcoreDeleted
         }
     }
 }

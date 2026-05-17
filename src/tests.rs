@@ -4089,6 +4089,38 @@ fn softcore_death_clears_dungeon_and_combat_state() {
 }
 
 #[test]
+fn hardcore_death_deletes_save_and_returns_outcome() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("crawltty-hardcore-death-{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let save_path = temp_dir.join("save.json");
+    fs::write(&save_path, "hardcore save").unwrap();
+
+    let mut c = Character::new(
+        "Doomed".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Hardcore,
+    );
+    c.hp = 0;
+    c.warrior.cleave_cooldown = 1;
+    c.warrior.battle_cry_charges = 4;
+    c.warrior.second_wind_shield = 5;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    let outcome = check_death_with_save_path(&mut c, &save_path);
+
+    assert_eq!(outcome, DeathOutcome::HardcoreDeleted);
+    assert!(!save_path.exists());
+    assert!(c.active_dungeon.is_none());
+    assert_eq!(c.warrior.cleave_cooldown, 0);
+    assert_eq!(c.warrior.battle_cry_charges, 0);
+    assert_eq!(c.warrior.second_wind_shield, 0);
+    assert!(c.pending_town_message.contains("Hardcore"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn returning_to_town_restores_hp_and_mana_and_reports_it() {
     let mut c = test_character();
     c.hp = 1;

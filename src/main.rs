@@ -51,7 +51,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    {
+    let game_exit = {
         let mut terminal_session = TerminalSession::start()?;
         let mut character = load_or_create_character(&mut terminal_session.terminal)?;
         let mut town_message = take_startup_town_message(&mut character);
@@ -60,10 +60,13 @@ fn main() -> Result<()> {
             &mut terminal_session.terminal,
             &mut character,
             &mut town_message,
-        )?;
-    }
+        )?
+    };
 
-    println!("Saved. Goodbye.");
+    match game_exit {
+        GameExit::Saved => println!("Saved. Goodbye."),
+        GameExit::HardcoreDeath => println!("Hardcore character died. Save deleted. Goodbye."),
+    }
     Ok(())
 }
 
@@ -79,10 +82,12 @@ fn run_game(
     terminal: &mut ratatui::DefaultTerminal,
     character: &mut Character,
     town_message: &mut String,
-) -> Result<()> {
+) -> Result<GameExit> {
     loop {
         if character.active_dungeon.is_some() {
-            dungeon_loop(character, terminal)?;
+            if dungeon_loop(character, terminal)? == DungeonLoopExit::HardcoreDeath {
+                return Ok(GameExit::HardcoreDeath);
+            }
             if !character.pending_town_message.is_empty() {
                 *town_message = std::mem::take(&mut character.pending_town_message);
             } else {
@@ -140,13 +145,18 @@ fn run_game(
             }
             'q' | 'Q' => {
                 save_character(character)?;
-                break;
+                return Ok(GameExit::Saved);
             }
             _ => {}
         }
         save_character(character)?;
     }
-    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GameExit {
+    Saved,
+    HardcoreDeath,
 }
 
 struct TerminalSession {
