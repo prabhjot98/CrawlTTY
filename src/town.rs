@@ -2183,7 +2183,7 @@ impl AttributeChoice {
     fn benefit(self) -> &'static str {
         match self {
             AttributeChoice::Strength => "+5 max HP",
-            AttributeChoice::Dexterity => "+5 hit, +5 speed",
+            AttributeChoice::Dexterity => "+10 hit",
             AttributeChoice::Intelligence => "+5 max mana",
         }
     }

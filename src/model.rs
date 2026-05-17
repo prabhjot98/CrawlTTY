@@ -752,7 +752,7 @@ impl Character {
     }
     pub(crate) fn hit_rating(&self) -> u32 {
         let bonuses = self.socket_bonuses();
-        10 + self.effective_dexterity() * 5 + bonuses.hit_rating
+        10 + self.effective_dexterity() * 10 + bonuses.hit_rating
     }
     pub(crate) fn dodge_rating(&self) -> u32 {
         let bonuses = self.socket_bonuses();
@@ -768,11 +768,7 @@ impl Character {
             .iter()
             .map(|item| item.dodge)
             .sum();
-        (10 + self.effective_dexterity() as i32 * 3
-            + equipment_dodge
-            + bonuses.dodge_rating
-            + mastery_bonus)
-            .max(0) as u32
+        (10 + equipment_dodge + bonuses.dodge_rating + mastery_bonus).max(0) as u32
     }
     pub(crate) fn speed(&self) -> u32 {
         let bonuses = self.socket_bonuses();
@@ -781,11 +777,7 @@ impl Character {
             .iter()
             .map(|item| item.speed)
             .sum();
-        (10 + self.effective_dexterity() as i32 * 5
-            + self.equipped_weapon.speed
-            + equipment_speed
-            + bonuses.speed)
-            .max(1) as u32
+        (10 + self.equipped_weapon.speed + equipment_speed + bonuses.speed).max(1) as u32
     }
     pub(crate) fn armor(&self) -> i32 {
         let bonuses = self.socket_bonuses();

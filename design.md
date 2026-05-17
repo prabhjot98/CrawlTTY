@@ -127,9 +127,9 @@ Derived combat stats:
 
 - Health: each Strength gives +5 health.
 - Mana: each Intelligence gives +5 mana.
-- Hit rating: each Dexterity gives +5 hit rating.
-- Dodge rating: comes from Dexterity, equipment, and enemy stats.
-- Speed: each Dexterity gives +5 speed.
+- Hit rating: each Dexterity gives +10 hit rating.
+- Dodge rating: comes from base stats, equipment, socket bonuses, class skills, and enemy stats.
+- Speed: comes from base stats, equipment, and socket bonuses.
 - Turn energy: gained each tick based on speed.
 - Armor: mainly from equipment.
 - Damage: mainly from equipped weapon and that weapon's attribute scaling.
@@ -1199,7 +1199,7 @@ design.md
 - Base player health, mana, hit rating, dodge rating, and speed are each 10 before attributes.
 - Warrior starts with 6 Strength, 3 Dexterity, and 1 Intelligence.
 - Strength gives +5 health per point.
-- Dexterity gives +5 hit rating and +5 speed per point.
+- Dexterity gives +10 hit rating per point.
 - Intelligence gives +5 mana per point.
 - Hit chance uses `hit / (hit + dodge)` and is clamped between 20% and 95%.
 - Item damage scales from item base damage plus attribute scaling grades: F, D, C, B, A, S.
