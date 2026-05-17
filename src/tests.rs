@@ -27,6 +27,32 @@ fn unicode_visual_palette_uses_single_cell_non_emoji_glyphs() {
     }
 }
 
+#[test]
+fn map_enemy_display_glyphs_remain_letters() {
+    for glyph in ['r', 's', 'c', 'b', 'E', 'B', 'g', 'w', 'm', 'o', 'T'] {
+        assert_eq!(dungeon_display_glyph(glyph), glyph);
+    }
+    assert_eq!(dungeon_display_glyph('@'), PLAYER_GLYPH);
+    assert_eq!(dungeon_display_glyph('#'), WALL_GLYPH);
+    assert_eq!(dungeon_display_glyph('!'), LOOT_GLYPH);
+}
+
+#[test]
+fn inventory_item_glyphs_are_letters() {
+    assert_eq!(item_kind_glyph(ItemKind::HealthPotion), "H");
+    assert_eq!(item_kind_glyph(ItemKind::ManaPotion), "M");
+    assert_eq!(item_kind_glyph(ItemKind::Weapon), "W");
+    assert_eq!(item_kind_glyph(ItemKind::Armor), "A");
+    assert_eq!(item_kind_glyph(ItemKind::Shield), "S");
+    assert_eq!(item_kind_glyph(ItemKind::Helm), "H");
+    assert_eq!(item_kind_glyph(ItemKind::Gloves), "G");
+    assert_eq!(item_kind_glyph(ItemKind::Boots), "B");
+    assert_eq!(item_kind_glyph(ItemKind::Belt), "T");
+    assert_eq!(item_kind_glyph(ItemKind::Amulet), "U");
+    assert_eq!(item_kind_glyph(ItemKind::Ring), "R");
+    assert_eq!(item_kind_glyph(ItemKind::Gem), "G");
+}
+
 fn test_character() -> Character {
     Character::new(
         "Tester".to_string(),
@@ -2388,7 +2414,7 @@ fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_co
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Inventory - Bag 4 x 4 - 1 / 16"));
-    assert!(rendered.contains("⟦†⟧"));
+    assert!(rendered.contains("⟦W⟧"));
     assert!(rendered.contains("Crude Axe"));
     assert!(rendered.contains("Equipped Weapon: Rusted Sword"));
     assert!(rendered.contains("Delta: +2 damage  crit -3"));
@@ -2475,8 +2501,8 @@ fn stash_render_80_columns_shows_both_grids_details_message_and_commands() {
     assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
     assert!(rendered.contains("Inventory"));
     assert!(rendered.contains("Stash ✦"));
-    assert!(rendered.contains("⟦✚⟧"));
-    assert!(rendered.contains("⟦✧⟧"));
+    assert!(rendered.contains("⟦H⟧"));
+    assert!(rendered.contains("⟦M⟧"));
     assert!(rendered.contains("⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧"));
     assert!(rendered.contains("Empty cell"));
     assert!(rendered.contains("Stored item."));
@@ -3378,7 +3404,7 @@ fn merchant_sell_screen_uses_inventory_grid_layout() {
     let rendered = backend_text(&terminal);
 
     assert!(rendered.contains("Bag"));
-    assert!(rendered.contains("⟦†⟧"));
+    assert!(rendered.contains("⟦W⟧"));
     assert!(rendered.contains("Details"));
     assert!(rendered.contains("Equipped"));
     assert!(rendered.contains("Sell value:"));

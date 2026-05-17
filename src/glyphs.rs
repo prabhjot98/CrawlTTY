@@ -8,17 +8,17 @@ pub(crate) const CHEST_GLYPH: char = '◈';
 pub(crate) const LOOT_GLYPH: char = '✦';
 pub(crate) const BELL_WAVE_GLYPH: char = '✶';
 
-pub(crate) const RAT_GLYPH: char = 'ʀ';
-pub(crate) const SKELETON_GLYPH: char = '♰';
-pub(crate) const CULTIST_GLYPH: char = '☽';
-pub(crate) const BONEGUARD_GLYPH: char = '♜';
-pub(crate) const ELITE_GLYPH: char = '◆';
-pub(crate) const BELLKEEPER_GLYPH: char = 'Ω';
-pub(crate) const DUNE_STALKER_GLYPH: char = 'ϟ';
-pub(crate) const GLASS_WRAITH_GLYPH: char = '◇';
-pub(crate) const EMBER_MAGUS_GLYPH: char = 'Δ';
-pub(crate) const OBSIDIAN_GUARD_GLYPH: char = '◼';
-pub(crate) const GLASS_TYRANT_GLYPH: char = 'Ψ';
+pub(crate) const RAT_GLYPH: char = 'r';
+pub(crate) const SKELETON_GLYPH: char = 's';
+pub(crate) const CULTIST_GLYPH: char = 'c';
+pub(crate) const BONEGUARD_GLYPH: char = 'b';
+pub(crate) const ELITE_GLYPH: char = 'E';
+pub(crate) const BELLKEEPER_GLYPH: char = 'B';
+pub(crate) const DUNE_STALKER_GLYPH: char = 'g';
+pub(crate) const GLASS_WRAITH_GLYPH: char = 'w';
+pub(crate) const EMBER_MAGUS_GLYPH: char = 'm';
+pub(crate) const OBSIDIAN_GUARD_GLYPH: char = 'o';
+pub(crate) const GLASS_TYRANT_GLYPH: char = 'T';
 
 pub(crate) const LOCKED_MARKER: &str = "⊘";
 pub(crate) const ACTIVE_MARKER: &str = "✦";
@@ -30,18 +30,18 @@ pub(crate) const PREVIOUS_LOG_DIVIDER: &str = "── Previous ──";
 pub(crate) const GRID_OPEN_GLYPH: &str = "⟦";
 pub(crate) const GRID_CLOSE_GLYPH: &str = "⟧";
 pub(crate) const EMPTY_CELL_GLYPH: &str = "·";
-pub(crate) const HEALTH_POTION_GLYPH: &str = "✚";
-pub(crate) const MANA_POTION_GLYPH: &str = "✧";
-pub(crate) const WEAPON_GLYPH: &str = "†";
-pub(crate) const ARMOR_GLYPH: &str = "▣";
-pub(crate) const SHIELD_GLYPH: &str = "◖";
-pub(crate) const HELM_GLYPH: &str = "⌂";
-pub(crate) const GLOVES_GLYPH: &str = "∩";
-pub(crate) const BOOTS_GLYPH: &str = "∪";
-pub(crate) const BELT_GLYPH: &str = "═";
-pub(crate) const AMULET_GLYPH: &str = "◇";
-pub(crate) const RING_GLYPH: &str = "○";
-pub(crate) const GEM_GLYPH: &str = "◆";
+pub(crate) const HEALTH_POTION_GLYPH: &str = "H";
+pub(crate) const MANA_POTION_GLYPH: &str = "M";
+pub(crate) const WEAPON_GLYPH: &str = "W";
+pub(crate) const ARMOR_GLYPH: &str = "A";
+pub(crate) const SHIELD_GLYPH: &str = "S";
+pub(crate) const HELM_GLYPH: &str = "H";
+pub(crate) const GLOVES_GLYPH: &str = "G";
+pub(crate) const BOOTS_GLYPH: &str = "B";
+pub(crate) const BELT_GLYPH: &str = "T";
+pub(crate) const AMULET_GLYPH: &str = "U";
+pub(crate) const RING_GLYPH: &str = "R";
+pub(crate) const GEM_GLYPH: &str = "G";
 
 pub(crate) fn dungeon_display_glyph(symbol: char) -> char {
     match symbol {
@@ -94,17 +94,17 @@ pub(crate) fn unicode_width_samples() -> &'static [(&'static str, &'static str, 
         ("chest", "◈", 1),
         ("loot", "✦", 1),
         ("bell wave", "✶", 1),
-        ("rat", "ʀ", 1),
-        ("skeleton", "♰", 1),
-        ("cultist", "☽", 1),
-        ("boneguard", "♜", 1),
-        ("elite", "◆", 1),
-        ("bellkeeper", "Ω", 1),
-        ("dune stalker", "ϟ", 1),
-        ("glass wraith", "◇", 1),
-        ("ember magus", "Δ", 1),
-        ("obsidian guard", "◼", 1),
-        ("glass tyrant", "Ψ", 1),
+        ("rat", "r", 1),
+        ("skeleton", "s", 1),
+        ("cultist", "c", 1),
+        ("boneguard", "b", 1),
+        ("elite", "E", 1),
+        ("bellkeeper", "B", 1),
+        ("dune stalker", "g", 1),
+        ("glass wraith", "w", 1),
+        ("ember magus", "m", 1),
+        ("obsidian guard", "o", 1),
+        ("glass tyrant", "T", 1),
         ("locked marker", LOCKED_MARKER, 1),
         ("active marker", ACTIVE_MARKER, 1),
         ("selection cursor", SELECTION_CURSOR, 1),
