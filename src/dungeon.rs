@@ -3250,7 +3250,8 @@ pub(crate) enum DeathOutcome {
 }
 
 pub(crate) fn check_death(c: &mut Character) -> DeathOutcome {
-    check_death_with_save_path(c, Path::new(SAVE_PATH))
+    let save_path = character_save_path(c);
+    check_death_with_save_path(c, &save_path)
 }
 
 pub(crate) fn check_death_with_save_path(c: &mut Character, save_path: &Path) -> DeathOutcome {

@@ -276,6 +276,7 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
                 ("i", "inventory"),
                 ("a", "attributes"),
                 ("k", "skill tree"),
+                ("c", "characters"),
                 ("h", "help"),
                 ("q", "save+quit"),
             ],

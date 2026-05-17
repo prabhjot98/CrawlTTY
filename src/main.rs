@@ -54,11 +54,7 @@ fn main() -> Result<()> {
     fs::create_dir_all("saves").context("failed to create saves directory")?;
 
     if env::args().any(|arg| arg == "reset-save") {
-        match fs::remove_file(SAVE_PATH) {
-            Ok(()) => println!("Deleted {SAVE_PATH}."),
-            Err(err) if err.kind() == io::ErrorKind::NotFound => println!("No save file found."),
-            Err(err) => return Err(err).context("failed to delete save file"),
-        }
+        reset_saves()?;
         return Ok(());
     }
 
@@ -77,6 +73,28 @@ fn main() -> Result<()> {
     match game_exit {
         GameExit::Saved => println!("Saved. Goodbye."),
         GameExit::HardcoreDeath => println!("Hardcore character died. Save deleted. Goodbye."),
+    }
+    Ok(())
+}
+
+fn reset_saves() -> Result<()> {
+    let mut deleted = false;
+    for path in [SAVE_PATH, PROFILE_PATH] {
+        match fs::remove_file(path) {
+            Ok(()) => deleted = true,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err).with_context(|| format!("failed to delete {path}")),
+        }
+    }
+    match fs::remove_dir_all(CHARACTER_SAVE_DIR) {
+        Ok(()) => deleted = true,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err).context("failed to delete character saves"),
+    }
+    if deleted {
+        println!("Deleted saves.");
+    } else {
+        println!("No save file found.");
     }
     Ok(())
 }
@@ -142,6 +160,12 @@ fn run_game(
             }
             't' | 'T' => *town_message = quest_giver(character),
             'd' | 'D' => *town_message = enter_dungeon(character),
+            'c' | 'C' => {
+                if let Some(new_character) = character_select_menu(character, terminal)? {
+                    *character = new_character;
+                    *town_message = take_startup_town_message(character);
+                }
+            }
             'i' | 'I' => {
                 inventory_screen(character, terminal)?;
             }
