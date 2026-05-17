@@ -178,7 +178,7 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
     assert!(rendered.contains(
         "2 Venom Edge r1: cost 30 Energy. 70% damage; build 1 CP and poison 2/turn for 3 turns."
     ));
-    assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage +0%."));
+    assert!(rendered.contains("3 Eviscerate r0: cost 35 Energy. Spend CP for burst damage +0%."));
     assert!(
         rendered.contains(
             "4 Smoke Step r1: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +20 dodge. Ready in 2."
@@ -1095,6 +1095,40 @@ fn save_minor_version_mismatch_loads_existing_character() {
         LoadedSave::Reset { warning } => panic!("compatible save was reset: {warning}"),
     }
     assert!(save_path.exists());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn loading_save_normalizes_legacy_locked_skill_ranks() {
+    let mut warrior = test_character();
+    warrior.warrior.cleave_rank = 1;
+    warrior.warrior.shield_bash_rank = 1;
+    warrior.warrior.battle_cry_rank = 1;
+    warrior.warrior.deep_cut_rank = 1;
+    warrior.warrior.iron_guard_rank = 1;
+    warrior.warrior.second_wind_rank = 1;
+    let dir = env::temp_dir().join(format!(
+        "crawltty-save-locked-rank-normalize-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    let save = serde_json::json!({
+        "save_version": SAVE_VERSION,
+        "character": warrior,
+    });
+    fs::write(&save_path, serde_json::to_string_pretty(&save).unwrap()).unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Loaded(character) => {
+            assert_eq!(character.warrior.deep_cut_rank, 0);
+            assert_eq!(character.warrior.iron_guard_rank, 0);
+            assert_eq!(character.warrior.second_wind_rank, 0);
+        }
+        LoadedSave::Reset { warning } => panic!("compatible save was reset: {warning}"),
+    }
     fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -2477,7 +2511,7 @@ fn skill_screens_render_with_ratatui() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        locked_passive_tree.contains("└─🔒︎ Deep Cut upgrades at Cleave rank 2 (1/2)"),
+        locked_passive_tree.contains("└─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"),
         "{locked_passive_lines}"
     );
     assert!(locked_passive_tree.contains("Upgrade: Cleave rank 1/2"));
@@ -2490,6 +2524,43 @@ fn skill_screens_render_with_ratatui() {
     let mastery = backend_text(&terminal);
     assert!(mastery.contains("Cleave Mastery"));
     assert!(mastery.contains("Choose one free path"));
+}
+
+#[test]
+fn locked_skills_start_at_rank_zero_until_allocated() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let warrior_lines = skill_tree_lines(&c, 1, "")
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(warrior_lines.contains("> Deep Cut rank 0/5"));
+    assert!(warrior_lines.contains("   └─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"));
+
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, 1, ""))
+        .unwrap();
+    let warrior_screen = backend_text(&terminal);
+    assert!(warrior_screen.contains("Deep Cut rank 0/5"));
+    assert!(warrior_screen.contains("Next rank 1/5"));
+
+    let rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let rogue_lines = skill_tree_lines(&rogue, 1, "")
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rogue_lines.contains("> Eviscerate rank 0/5"));
+    assert!(rogue_lines.contains("   └─🔒︎ Eviscerate unlocks at Backstab rank 2 (1/2)"));
 }
 
 #[test]
@@ -2591,14 +2662,14 @@ fn new_warrior_matches_mvp_starting_state() {
     assert_eq!(c.inventory.len(), 3);
     assert_eq!(c.equipped_weapon.damage_min, 3);
     assert_eq!(c.equipped_weapon.damage_max, 5);
-    assert_eq!(c.armor(), 4); // cloth 1 + shield 1 + Iron Guard rank 1 (+2)
+    assert_eq!(c.armor(), 2); // cloth 1 + shield 1; locked Iron Guard has no bonus
     assert_eq!(
         (
             c.warrior.deep_cut_rank,
             c.warrior.iron_guard_rank,
             c.warrior.second_wind_rank
         ),
-        (1, 1, 1)
+        (0, 0, 0)
     );
     assert!(!c.bellkeeper_defeated);
     assert!(!c.act1_completed);
@@ -2781,15 +2852,15 @@ fn package_version_is_major_one_for_save_breaking_rogue_release() {
 }
 
 #[test]
-fn warrior_state_defaults_match_existing_rank_baseline() {
+fn warrior_state_defaults_keep_starters_at_one_and_locked_skills_at_zero() {
     let state = WarriorState::default();
 
     assert_eq!(state.cleave_rank, 1);
     assert_eq!(state.shield_bash_rank, 1);
     assert_eq!(state.battle_cry_rank, 1);
-    assert_eq!(state.deep_cut_rank, 1);
-    assert_eq!(state.iron_guard_rank, 1);
-    assert_eq!(state.second_wind_rank, 1);
+    assert_eq!(state.deep_cut_rank, 0);
+    assert_eq!(state.iron_guard_rank, 0);
+    assert_eq!(state.second_wind_rank, 0);
     assert_eq!(state.cleave_cooldown, 0);
     assert_eq!(state.shield_bash_cooldown, 0);
     assert_eq!(state.battle_cry_cooldown, 0);
@@ -2803,7 +2874,7 @@ fn rogue_ignores_default_warrior_passive_armor() {
     c.class = CharacterClass::Rogue;
     c.warrior = WarriorState::default();
 
-    assert_eq!(c.warrior.iron_guard_rank, 1);
+    assert_eq!(c.warrior.iron_guard_rank, 0);
     assert_eq!(iron_guard_armor_bonus(&c), 0);
     assert_eq!(c.armor(), c.equipped_armor.armor + c.equipped_shield.armor);
 }
@@ -3573,10 +3644,10 @@ fn passive_skill_upgrades_require_branch_starter_rank_two() {
     upgrade_skill(&mut c, "Iron Guard");
     upgrade_skill(&mut c, "Second Wind");
 
-    assert_eq!(c.warrior.deep_cut_rank, 2);
-    assert_eq!(c.warrior.iron_guard_rank, 2);
-    assert_eq!(c.warrior.second_wind_rank, 2);
-    assert_eq!(c.armor(), 5);
+    assert_eq!(c.warrior.deep_cut_rank, 1);
+    assert_eq!(c.warrior.iron_guard_rank, 1);
+    assert_eq!(c.warrior.second_wind_rank, 1);
+    assert_eq!(c.armor(), 4);
 
     let mut rogue = Character::new(
         "Sneak".to_string(),
@@ -3595,7 +3666,7 @@ fn passive_skill_upgrades_require_branch_starter_rank_two() {
     upgrade_skill(&mut rogue, "Rupture");
     upgrade_skill(&mut rogue, "Slip Away");
 
-    assert_eq!(rogue.rogue.eviscerate_rank, 2);
+    assert_eq!(rogue.rogue.eviscerate_rank, 1);
     assert_eq!(rogue.rogue.rupture_rank, 1);
     assert_eq!(rogue.rogue.slip_away_rank, 1);
 }

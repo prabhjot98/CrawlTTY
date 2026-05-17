@@ -494,6 +494,10 @@ pub(crate) fn default_skill_rank() -> u32 {
     1
 }
 
+pub(crate) fn default_locked_skill_rank() -> u32 {
+    0
+}
+
 pub(crate) fn default_item_level() -> u32 {
     1
 }

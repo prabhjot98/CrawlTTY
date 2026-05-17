@@ -332,15 +332,24 @@ pub(crate) fn load_character_from_path(save_path: &Path) -> Result<LoadedSave> {
 
     if header.save_version.is_some() {
         return match serde_json::from_str::<SaveFile>(&data) {
-            Ok(save) => Ok(LoadedSave::Loaded(Box::new(save.character))),
+            Ok(save) => Ok(LoadedSave::Loaded(Box::new(normalized_loaded_character(
+                save.character,
+            )))),
             Err(err) => reset_save_with_warning(save_path, bad_save_warning(save_version, &err)),
         };
     }
 
     match serde_json::from_str::<Character>(&data) {
-        Ok(character) => Ok(LoadedSave::Loaded(Box::new(character))),
+        Ok(character) => Ok(LoadedSave::Loaded(Box::new(normalized_loaded_character(
+            character,
+        )))),
         Err(err) => reset_save_with_warning(save_path, bad_save_warning(save_version, &err)),
     }
+}
+
+fn normalized_loaded_character(mut character: Character) -> Character {
+    normalize_locked_skill_ranks(&mut character);
+    character
 }
 
 pub(crate) fn save_major_version_changed(save_version: &str, game_version: &str) -> bool {

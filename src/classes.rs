@@ -50,11 +50,11 @@ pub(crate) struct WarriorState {
     pub(crate) shield_bash_rank: u32,
     #[serde(default = "default_skill_rank")]
     pub(crate) battle_cry_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default = "default_locked_skill_rank")]
     pub(crate) deep_cut_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default = "default_locked_skill_rank")]
     pub(crate) iron_guard_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default = "default_locked_skill_rank")]
     pub(crate) second_wind_rank: u32,
     #[serde(default)]
     pub(crate) cleave_cooldown: u32,
@@ -86,9 +86,9 @@ impl Default for WarriorState {
             cleave_rank: 1,
             shield_bash_rank: 1,
             battle_cry_rank: 1,
-            deep_cut_rank: 1,
-            iron_guard_rank: 1,
-            second_wind_rank: 1,
+            deep_cut_rank: 0,
+            iron_guard_rank: 0,
+            second_wind_rank: 0,
             cleave_cooldown: 0,
             shield_bash_cooldown: 0,
             battle_cry_cooldown: 0,
@@ -114,7 +114,7 @@ pub(crate) struct RogueState {
     pub(crate) backstab_rank: u32,
     #[serde(default = "default_skill_rank")]
     pub(crate) venom_edge_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default = "default_locked_skill_rank")]
     pub(crate) eviscerate_rank: u32,
     #[serde(default = "default_skill_rank")]
     pub(crate) smoke_step_rank: u32,
@@ -139,7 +139,7 @@ impl Default for RogueState {
             combo_points: 0,
             backstab_rank: 1,
             venom_edge_rank: 1,
-            eviscerate_rank: 1,
+            eviscerate_rank: 0,
             smoke_step_rank: 1,
             rupture_rank: 0,
             slip_away_rank: 0,
