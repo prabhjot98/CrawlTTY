@@ -232,34 +232,34 @@ pub(crate) fn render_character_creation_screen(
     let softcore_marker = if active_step == CharacterCreationStep::DeathMode
         && selected_death_mode == DeathMode::Softcore
     {
-        ">"
+        SELECTION_CURSOR
     } else {
         " "
     };
     let hardcore_marker = if active_step == CharacterCreationStep::DeathMode
         && selected_death_mode == DeathMode::Hardcore
     {
-        ">"
+        SELECTION_CURSOR
     } else {
         " "
     };
     let warrior_marker = if active_step == CharacterCreationStep::Class
         && selected_class == CharacterClass::Warrior
     {
-        ">"
+        SELECTION_CURSOR
     } else {
         " "
     };
     let rogue_marker =
         if active_step == CharacterCreationStep::Class && selected_class == CharacterClass::Rogue {
-            ">"
+            SELECTION_CURSOR
         } else {
             " "
         };
     let sorceress_marker = if active_step == CharacterCreationStep::Class
         && selected_class == CharacterClass::Sorceress
     {
-        ">"
+        SELECTION_CURSOR
     } else {
         " "
     };

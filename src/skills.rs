@@ -379,7 +379,11 @@ fn skill_line(text: impl Into<String>) -> Line<'static> {
 }
 
 fn selected_skill_line(selected: bool, text: impl Into<String>) -> Line<'static> {
-    let prefix = if selected { "> " } else { "  " };
+    let prefix = if selected {
+        SELECTION_CURSOR_PREFIX
+    } else {
+        "  "
+    };
     let style = if selected {
         selected_cursor_style()
     } else {
@@ -410,7 +414,7 @@ fn append_passive_unlock_line(lines: &mut Vec<Line<'static>>, c: &Character, pas
             "upgrades"
         };
         lines.push(skill_line(format!(
-            "   └─🔒︎ {passive} {action} at {} rank {} ({}/{})",
+            "   {TREE_CHILD}{LOCKED_MARKER} {passive} {action} at {} rank {} ({}/{})",
             prerequisite.starter,
             prerequisite.required_rank,
             prerequisite.current_rank.min(prerequisite.required_rank),

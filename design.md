@@ -24,7 +24,7 @@ The player is an exile descending through cursed ruins, corrupted wilderness, an
 - Keyboard controls
 - Single-player
 - Save/load support
-- ASCII-only display for maximum terminal compatibility
+- Unicode-first display using single-cell, non-emoji glyphs for readability and gothic atmosphere
 
 ## Camera and View
 
@@ -33,23 +33,23 @@ Recommended view: **top-down grid-based map**.
 Example symbols:
 
 ```text
-@  Player
-#  Wall
-.  Floor
-+  Door
->  Stairs down
-<  Stairs up
-!  Ground loot
-$  Gold
-?  Scroll
-)  Weapon
-]  Armor
-r  Rat / small beast
-s  Skeleton
-d  Demon
-B  Boss
-*  Spell effect
+☥  Player
+▓  Wall
+·  Floor
+⌄  Stairs down
+◈  Chest
+✦  Ground loot / active marker
+✶  Spell or bell-wave effect
+ʀ  Rat / small beast
+♰  Skeleton
+☽  Cultist
+♜  Boneguard
+◆  Elite
+Ω  Bellkeeper boss
+Ψ  Glass Tyrant boss
 ```
+
+The save/gameplay model may keep compact ASCII-like internal tags for compatibility, but rendered gameplay should use the Unicode visual glyph set.
 
 ## Game Loop
 
@@ -855,19 +855,19 @@ For early development, use simple gold loss and return to town.
 ### Main Screen Layout
 
 ```text
-+--------------------------------------------------+
-| Dungeon: Hollow Crypts L2        Gold: 1240      |
-| HP: 45/60  MP: 18/30                            |
-| Lv 4  XP ████████████░░░░░░░░ 60%               |
-+-----------------------------+--------------------+
-| ###########                 | Log                |
-| #.@....r..#                 | You hit rat.       |
-| #..##.....#                 | Rat dies.          |
-| #.....!...#                 | Found sword.       |
-| ###########                 |                    |
-+-----------------------------+--------------------+
-| Skills: [1]Cleave [2]Bash [R]Potion              |
-+--------------------------------------------------+
+┌──────────────────────────────────────────────────┐
+│ Dungeon: Hollow Crypts L2        Gold: 1240      │
+│ HP: 45/60  MP: 18/30                             │
+│ Lv 4  XP ████████████░░░░░░░░ 60%                │
+├─────────────────────────────┬────────────────────┤
+│ ▓▓▓▓▓▓▓▓▓▓▓                 │ Log                │
+│ ▓·☥····ʀ··▓                 │ You hit rat.       │
+│ ▓··▓▓·····▓                 │ Rat dies.          │
+│ ▓·····✦···▓                 │ Found sword.       │
+│ ▓▓▓▓▓▓▓▓▓▓▓                 │                    │
+├─────────────────────────────┴────────────────────┤
+│ Skills: 1 Cleave  2 Bash  p Potion               │
+└──────────────────────────────────────────────────┘
 ```
 
 ### Screens
@@ -892,13 +892,13 @@ Even without graphics, the game can feel responsive with:
 - Screen shake effect using brief redraw offset
 - Flashing symbols for spell effects
 - Different colors for rarity
-- Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only. HUD progress bars may use Unicode block and shade glyphs when they improve readability.
+- Unicode is the default visual language for gameplay symbols and UI chrome. Use single-cell, non-emoji glyphs only; avoid emoji-plane characters, variation selectors, and other symbols that commonly render double-width.
 - The visual identity is gothic and cursed with a restrained Diablo-like warmth: bone text on dark terminal backgrounds, charcoal-violet containers, antique-gold titles, cursed-violet focus/selection, amber loot/gold/warnings, blood-red danger, moss-green actions/safe outcomes, arcane blue resources/magic, and violet special/cursed effects.
 - Containers use muted gothic borders by default; only the actively focused container, grid, or step uses the cursed-violet border. Titles use antique gold so panel hierarchy is readable without bright default terminal whites.
 - Color remains semantic rather than decorative: danger/quit/back is blood red, safe actions are moss green, gold/items/warnings are amber, mana/magic is arcane blue, special/cursed text is violet, and ordinary text is warm bone with ash-gray muted text.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow/amber, boss red, elite magenta/violet, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find. Selectable command keys such as `W/S`, `Enter`, `Tab`, and hotkey letters are bold moss green, while exit/quit keys such as `Esc` and `q` are bold blood red; labels remain warm bone text so the actionable key is easy to scan.
-- The current implementation renders interactive screens with ratatui. The town and dungeon HUDs show level-aware XP progress as a Unicode bar, such as `Lv 4  XP ████████████░░░░░░░░ 60%`, instead of raw `XP current/needed` text. The town and character-creation screens avoid displaying the project title as in-screen branding; town instead presents Hollow's Rest as the visible location. Character creation starts inside the ratatui terminal session as three stacked step containers: class, name, then Softcore/Hardcore; the active step container uses a cursed-violet border without adding an `(active)` title suffix, inactive containers use muted charcoal-violet borders, and only the active choice step shows a `>` selection cursor so saved class/death-mode choices do not create duplicate cursors. Enter advances through the steps, Escape backs up one step, and Up/Down arrows move the current class or death-mode selection while Tab also toggles Softcore/Hardcore. Town submenus such as merchant, blacksmith, distillery, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health potions to all classes, sells lesser mana potions to Warriors, and buys unwanted inventory items through an inventory-grid sell screen with Details and Equipped panels. The Distillery town screen shows the current herb count and crafts lesser potions from herbs once the Distillery project is complete. The projects board uses an inventory-style responsive two-pane layout: a cursor-selectable project list with compact rows that mark locked projects using a leading lock symbol, omit available status text, and indent project-to-project dependencies with tree connector lines, plus a Details panel that shows the selected project's group, cost, status or lock reason, affordability, and benefit. On wide terminals the Projects and Details panels split the body evenly; medium terminals keep the project list wide enough to avoid wrapping project names and give remaining width to Details; narrow terminals stack the panels. The skills screen uses cursor selection with a responsive two-pane body: skills and details split horizontally on wide terminals and stack vertically on narrower terminals so both remain visible. The attributes screen uses cursor selection, remains viewable when no attribute points are available, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Scrollable ratatui selection lists keep the focused salvage, socket target, gem, and ground-loot entries visible as the cursor moves, with visible row counts derived from the active Ratatui frame area's usable list body so selected details remain visible and gem and ground-loot pickers using Ratatui `List`/`ListState` selection widgets. The socket bench keeps one cursor by showing the `>` cursor on the selected socket row only, with the selected item named in the socket-detail heading. Dungeon combat-log messages preserve inline item-name rarity colors, so loot-found and pickup messages show common items in warm bone, magic items in arcane blue, and rare items in amber. Selection cursors reuse the cursed-violet UI accent and animate with a subtle normal/bold pulse driven by timed redraw ticks while waiting for input. Terminal resize events trigger an immediate redraw of the active ratatui screen, keyboard handling intentionally accepts only fresh key-press events and ignores repeat/release key events so held keys do not repeat actions and release noise does not trigger menu actions, and returning from submenus relies on Ratatui's normal redraw instead of forced terminal clears to avoid unnecessary flicker.
+- The current implementation renders interactive screens with ratatui. The town and dungeon HUDs show level-aware XP progress as a Unicode bar, such as `Lv 4  XP ████████████░░░░░░░░ 60%`, instead of raw `XP current/needed` text. The dungeon map renders Unicode glyphs from the central visual palette: `☥` player, `▓` walls, `·` floors, `⌄` stairs, `◈` chests, `✦` loot, `✶` bell waves, enemy glyphs such as `ʀ`, `♰`, `☽`, `♜`, `◇`, `Δ`, and boss/elite glyphs `◆`, `Ω`, and `Ψ`. The town and character-creation screens avoid displaying the project title as in-screen branding; town instead presents Hollow's Rest as the visible location. Character creation starts inside the ratatui terminal session as three stacked step containers: class, name, then Softcore/Hardcore; the active step container uses a cursed-violet border without adding an `(active)` title suffix, inactive containers use muted charcoal-violet borders, and only the active choice step shows a `›` selection cursor so saved class/death-mode choices do not create duplicate cursors. Enter advances through the steps, Escape backs up one step, and Up/Down arrows move the current class or death-mode selection while Tab also toggles Softcore/Hardcore. Town submenus such as merchant, blacksmith, distillery, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health potions to all classes, sells lesser mana potions to Warriors, and buys unwanted inventory items through an inventory-grid sell screen with Details and Equipped panels. The Distillery town screen shows the current herb count and crafts lesser potions from herbs once the Distillery project is complete. The projects board uses an inventory-style responsive two-pane layout: a cursor-selectable project list with compact rows that mark locked projects using the single-cell `⊘` lock marker, omit available status text, and indent project-to-project dependencies with `└─` tree connector lines, plus a Details panel that shows the selected project's group, cost, status or lock reason, affordability, and benefit. Inventory, sell, and stash grids render cells with Unicode brackets such as `⟦†⟧`, `⟦✚⟧`, and `⟦·⟧`, while active grids use the `✦` marker. On wide terminals the Projects and Details panels split the body evenly; medium terminals keep the project list wide enough to avoid wrapping project names and give remaining width to Details; narrow terminals stack the panels. The skills screen uses cursor selection with a responsive two-pane body: skills and details split horizontally on wide terminals and stack vertically on narrower terminals so both remain visible. The attributes screen uses cursor selection, remains viewable when no attribute points are available, uses `→` for rank/value transitions, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Scrollable ratatui selection lists keep the focused salvage, socket target, gem, and ground-loot entries visible as the cursor moves, with visible row counts derived from the active Ratatui frame area's usable list body so selected details remain visible and gem and ground-loot pickers using Ratatui `List`/`ListState` selection widgets. The socket bench keeps one cursor by showing the `›` cursor on the selected socket row only, with the selected item named in the socket-detail heading. Dungeon combat-log messages preserve inline item-name rarity colors, so loot-found and pickup messages show common items in warm bone, magic items in arcane blue, and rare items in amber. Selection cursors reuse the cursed-violet UI accent and animate with a subtle normal/bold pulse driven by timed redraw ticks while waiting for input. Terminal resize events trigger an immediate redraw of the active ratatui screen, keyboard handling intentionally accepts only fresh key-press events and ignores repeat/release key events so held keys do not repeat actions and release noise does not trigger menu actions, and returning from submenus relies on Ratatui's normal redraw instead of forced terminal clears to avoid unnecessary flicker.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.
 - Important UI text should use the shared semantic palette: moss green for safe/positive actions, amber for gold/items/messages, blood red for danger/quit/back, arcane blue for mana/magic, antique gold for headings, and cursed violet for focus/special/cursed emphasis.
 - Animated projectile movement using short delays
@@ -1129,7 +1129,7 @@ design.md
 ### Milestone 1: Town
 
 - Create Rust project and terminal UI shell.
-- Show the ASCII town screen.
+- Show the Unicode terminal town screen.
 - Create/load character.
 - Support Softcore/Hardcore choice.
 - Show player stats, gold, inventory, and equipment.
@@ -1140,7 +1140,7 @@ design.md
 ### Milestone 2: Dungeon
 
 - Generate the first room-and-corridor dungeon floor.
-- Draw ASCII map.
+- Draw the Unicode dungeon map.
 - Move player cardinally only.
 - Add walls, floors, stairs, chests, gold, items, and collision.
 - Add enemies, speed/energy turn order, basic AI, attacks, hit chance, damage, armor, XP, and leveling.
@@ -1166,14 +1166,14 @@ design.md
 
 - Balance enemy stats, XP curve, gold drops, and item drops.
 - Improve combat log and UI readability.
-- Add color while keeping ASCII-only gameplay symbols.
+- Add color while keeping all Unicode gameplay symbols single-cell and non-emoji.
 - Test save/load, Hardcore death, dungeon reset, and boss victory flow.
 
 ## Resolved Design Decisions
 
 - Combat is fully turn-based.
 - Turn order uses a simple speed/energy system.
-- Display is ASCII only.
+- Display is Unicode-first with a tested single-cell, non-emoji visual palette.
 - Movement is cardinal only; no diagonal movement.
 - Inventory is grid-based with one-cell items, auto-compaction, and ratatui screens.
 - Skills use both mana costs and cooldowns.

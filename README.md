@@ -1,10 +1,10 @@
 # CrawlTTY
 
-CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuses on tactical turn-based combat, loot-driven progression, class builds, and readable ASCII presentation.
+CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuses on tactical turn-based combat, loot-driven progression, class builds, and a Unicode-enhanced terminal presentation.
 
 ## Current Features
 
-- ASCII terminal UI
+- Unicode terminal UI using single-cell, non-emoji glyphs for maps, cursors, locks, inventory cells, and progression bars
 - Town hub with merchant, blacksmith, stash, town projects, quest giver, dungeon entrance, and automatic full healing on return
 - Warrior, Rogue, and Sorceress classes with attributes, leveling, skills, and class-specific resources
 - Procedural 10-floor Act I dungeon and 8-floor Act II dungeon
@@ -42,7 +42,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - `i` inventory
 - `Esc` return to town / back out of menus; first floors of acts can be escaped before clearing every monster
 
-Dungeon glyphs: `!` marks ground loot.
+Dungeon glyphs use the Unicode visual set: `☥` player, `▓` wall, `·` floor, `⌄` stairs, `◈` chest, `✦` loot, `✶` bell wave, `◆` elite, and `Ω`/`Ψ` bosses.
 
 ## Running
 

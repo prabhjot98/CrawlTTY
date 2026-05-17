@@ -65,6 +65,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "unicode-width 0.2.0",
  "windows-sys 0.59.0",
 ]
 

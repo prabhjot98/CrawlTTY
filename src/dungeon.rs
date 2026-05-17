@@ -340,7 +340,7 @@ fn combat_log_lines(d: &Dungeon) -> Vec<Line<'static>> {
     let remaining = MAX_LOG_LINES_ON_SCREEN.saturating_sub(printed_current);
     if remaining > 1 && latest_header > 0 {
         lines.push(Line::styled(
-            "--- Previous ---",
+            PREVIOUS_LOG_DIVIDER,
             Style::default().fg(Color::DarkGray),
         ));
         let previous_count = remaining - 1;
@@ -589,7 +589,7 @@ fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
 }
 
 fn tile_span(ch: char) -> Span<'static> {
-    Span::styled(ch.to_string(), tile_style(ch))
+    Span::styled(dungeon_display_glyph(ch).to_string(), tile_style(ch))
 }
 
 fn tile_style(ch: char) -> Style {
@@ -2500,7 +2500,7 @@ fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, ar
     let list = List::new(items)
         .block(gothic_block("Items"))
         .highlight_style(selected_cursor_style())
-        .highlight_symbol("> ");
+        .highlight_symbol(SELECTION_CURSOR_PREFIX);
     let mut state = ListState::default();
     state.select(Some(selected.saturating_sub(offset)));
     frame.render_stateful_widget(list, area, &mut state);
