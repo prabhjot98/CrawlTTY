@@ -3126,7 +3126,7 @@ pub(crate) fn open_chest_on_player(c: &mut Character) {
         let class = c.class;
         let d = c.active_dungeon.as_mut().unwrap();
         d.chests[chest_index].opened = true;
-        let loot = random_loot_for_class(class, d.floor, rng.gen_bool(0.35));
+        let loot = random_equipment_loot_for_class(class, d.floor, rng.gen_bool(0.35));
         log_event(
             &mut d.log,
             LogKind::Loot,

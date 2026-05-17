@@ -5742,6 +5742,94 @@ fn ground_loot_picker_invalid_discard_does_not_spend_turn() {
     assert!(!result.spent_turn);
 }
 
+fn character_for_class(class: CharacterClass) -> Character {
+    Character::new(
+        format!("{} Tester", class.name()),
+        class,
+        DeathMode::Softcore,
+    )
+}
+
+#[test]
+fn chest_loot_pool_does_not_drop_potions_to_inventory() {
+    for class in [
+        CharacterClass::Warrior,
+        CharacterClass::Rogue,
+        CharacterClass::Sorceress,
+    ] {
+        let mut saw_chest_item = false;
+
+        for _ in 0..1_000 {
+            let mut c = character_for_class(class);
+            c.inventory.clear();
+            let mut d = open_test_dungeon(5, 5, Vec::new());
+            d.chests.push(Chest {
+                x: 5,
+                y: 5,
+                opened: false,
+            });
+            c.active_dungeon = Some(d);
+
+            open_chest_on_player(&mut c);
+
+            assert_eq!(c.inventory.len(), 1);
+            for item in c.inventory.iter() {
+                assert!(
+                    !matches!(item.kind, ItemKind::HealthPotion | ItemKind::ManaPotion),
+                    "{} chest loot dropped potion: {}",
+                    class.name(),
+                    item.name
+                );
+                saw_chest_item = true;
+            }
+        }
+
+        assert!(saw_chest_item, "expected {} chest item loot", class.name());
+    }
+}
+
+#[test]
+fn full_inventory_chest_loot_drops_non_potion_item_to_ground() {
+    for class in [
+        CharacterClass::Warrior,
+        CharacterClass::Rogue,
+        CharacterClass::Sorceress,
+    ] {
+        let mut saw_ground_item = false;
+
+        for _ in 0..1_000 {
+            let mut c = character_for_class(class);
+            fill_inventory_to_capacity(&mut c);
+            let mut d = open_test_dungeon(5, 5, Vec::new());
+            d.chests.push(Chest {
+                x: 5,
+                y: 5,
+                opened: false,
+            });
+            c.active_dungeon = Some(d);
+
+            open_chest_on_player(&mut c);
+
+            let d = c.active_dungeon.as_ref().unwrap();
+            assert_eq!(d.ground_items.len(), 1);
+            let item = &d.ground_items[0].item;
+            assert!(
+                !matches!(item.kind, ItemKind::HealthPotion | ItemKind::ManaPotion),
+                "{} chest ground loot dropped potion: {}",
+                class.name(),
+                item.name
+            );
+            saw_ground_item = true;
+        }
+
+        assert!(
+            saw_ground_item,
+            "expected {} chest ground loot",
+            class.name()
+        );
+    }
+}
+
 #[test]
 fn full_inventory_chest_loot_goes_to_ground() {
     let mut c = test_character();
