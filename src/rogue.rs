@@ -11,12 +11,38 @@ pub(crate) fn add_rogue_combo_point(c: &mut Character) {
     c.rogue.combo_points = (c.rogue.combo_points + 1).min(ROGUE_MAX_COMBO_POINTS);
 }
 
+pub(crate) fn backstab_base_percent_for_rank(rank: u32) -> u32 {
+    90 + rank.saturating_sub(1).min(4) * 5
+}
+
+pub(crate) fn empowered_backstab_percent_for_rank(rank: u32) -> u32 {
+    120 + rank.saturating_sub(1).min(4) * 10
+}
+
+pub(crate) fn venom_edge_percent_for_rank(rank: u32) -> u32 {
+    70 + rank.saturating_sub(1).min(4) * 5
+}
+
+pub(crate) fn eviscerate_bonus_percent_for_rank(rank: u32) -> u32 {
+    rank.saturating_sub(1).min(4) * 10
+}
+
+pub(crate) fn smoke_step_dodge_bonus_for_rank(rank: u32) -> i32 {
+    20 + rank.saturating_sub(1).min(4) as i32 * 3
+}
+
+#[allow(dead_code)]
+pub(crate) fn slip_away_dodge_bonus_for_rank(rank: u32) -> i32 {
+    5 + rank.saturating_sub(1).min(4) as i32 * 2
+}
+
 pub(crate) fn backstab_multiplier(c: &Character) -> f32 {
-    if empowered_backstab_ready(c) {
-        1.20
+    let percent = if empowered_backstab_ready(c) {
+        empowered_backstab_percent_for_rank(c.rogue.backstab_rank)
     } else {
-        0.90
-    }
+        backstab_base_percent_for_rank(c.rogue.backstab_rank)
+    };
+    percent as f32 / 100.0
 }
 
 pub(crate) fn backstab_multiplier_for_target(c: &Character, enemy_index: usize) -> f32 {
@@ -25,15 +51,16 @@ pub(crate) fn backstab_multiplier_for_target(c: &Character, enemy_index: usize) 
         .as_ref()
         .and_then(|d| d.enemies.get(enemy_index))
         .is_some_and(|enemy| enemy.poison_turns > 0);
-    if target_poisoned {
-        1.20
+    let percent = if target_poisoned {
+        empowered_backstab_percent_for_rank(c.rogue.backstab_rank)
     } else {
-        backstab_multiplier(c)
-    }
+        return backstab_multiplier(c);
+    };
+    percent as f32 / 100.0
 }
 
-pub(crate) fn venom_edge_multiplier(_c: &Character) -> f32 {
-    0.70
+pub(crate) fn venom_edge_multiplier(c: &Character) -> f32 {
+    venom_edge_percent_for_rank(c.rogue.venom_edge_rank) as f32 / 100.0
 }
 
 pub(crate) fn poison_damage_for_rank(rank: u32) -> i32 {
@@ -179,7 +206,8 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
         c.restore_rogue_energy(EVISCERATE_COST);
         return false;
     };
-    let multiplier = eviscerate_multiplier_for_points(points);
+    let multiplier = eviscerate_multiplier_for_points(points)
+        + (eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank) as f32 / 100.0);
     let outcome = damage_enemy(c, index, multiplier, "eviscerate");
     if outcome == DamageEnemyOutcome::BossDefeated {
         return true;

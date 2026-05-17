@@ -424,20 +424,27 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
             c.rogue.energy, ROGUE_MAX_ENERGY, c.rogue.combo_points, ROGUE_MAX_COMBO_POINTS
         )),
         Line::from(format!(
-            "1 Backstab r{}: cost 25 Energy. Build 1 CP; empowered after movement, smoke, or poison.",
-            c.rogue.backstab_rank
+            "1 Backstab r{}: cost 25 Energy. Build 1 CP; {}% damage, {}% empowered.",
+            c.rogue.backstab_rank,
+            backstab_base_percent_for_rank(c.rogue.backstab_rank),
+            empowered_backstab_percent_for_rank(c.rogue.backstab_rank)
         )),
         Line::from(format!(
-            "2 Venom Edge r{}: cost 30 Energy. Build 1 CP and poison for 3 turns.",
-            c.rogue.venom_edge_rank
+            "2 Venom Edge r{}: cost 30 Energy. {}% damage; build 1 CP and poison {}/turn for 3 turns.",
+            c.rogue.venom_edge_rank,
+            venom_edge_percent_for_rank(c.rogue.venom_edge_rank),
+            poison_damage_for_rank(c.rogue.venom_edge_rank)
         )),
         Line::from(format!(
-            "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage.",
-            c.rogue.eviscerate_rank
+            "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage +{}%.",
+            c.rogue.eviscerate_rank,
+            eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank)
         )),
         Line::from(format!(
-            "4 Smoke Step r{}: cost 35 Energy, cd 4. Dash 2 tiles. Ready in {}.",
-            c.rogue.smoke_step_rank, c.rogue.smoke_step_cooldown
+            "4 Smoke Step r{}: cost 35 Energy, cd 4. Dash 2 tiles, +{} dodge. Ready in {}.",
+            c.rogue.smoke_step_rank,
+            smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank),
+            c.rogue.smoke_step_cooldown
         )),
     ]
 }
@@ -1839,7 +1846,7 @@ pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
 pub(crate) fn defensive_dodge_rating(c: &Character) -> i32 {
     let smoke_dodge_bonus =
         if c.class == CharacterClass::Rogue && c.rogue.smoke_protection_turns > 0 {
-            20
+            smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank)
         } else {
             0
         };

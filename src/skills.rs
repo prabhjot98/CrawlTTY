@@ -11,7 +11,7 @@ pub(crate) fn skill_tree_menu(
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
-        clamp_selection(&mut selected, SKILL_TREE_SKILLS.len());
+        clamp_selection(&mut selected, skill_tree_skills(c).len());
         terminal
             .draw(|frame| render_skill_tree_screen(frame, c, selected, &message))
             .context("failed to draw skill tree")?;
@@ -24,12 +24,13 @@ pub(crate) fn skill_tree_menu(
             '\u{1b}' => break,
             'w' | 'W' => selected = selected.saturating_sub(1),
             's' | 'S' => {
-                if selected + 1 < SKILL_TREE_SKILLS.len() {
+                if selected + 1 < skill_tree_skills(c).len() {
                     selected += 1;
                 }
             }
             '\n' => {
-                message = choose_skill_or_mastery(c, terminal, SKILL_TREE_SKILLS[selected])?;
+                let skill = skill_tree_skills(c)[selected];
+                message = choose_skill_or_mastery_interactive(c, terminal, skill)?;
                 append_autosave_status(c, &mut message);
             }
             _ => message = "Unknown skill command.".to_string(),
@@ -38,7 +39,7 @@ pub(crate) fn skill_tree_menu(
     Ok(())
 }
 
-const SKILL_TREE_SKILLS: [&str; 6] = [
+const WARRIOR_SKILL_TREE_SKILLS: [&str; 6] = [
     "Cleave",
     "Deep Cut",
     "Shield Bash",
@@ -47,12 +48,56 @@ const SKILL_TREE_SKILLS: [&str; 6] = [
     "Second Wind",
 ];
 
+const ROGUE_SKILL_TREE_SKILLS: [&str; 6] = [
+    "Backstab",
+    "Eviscerate",
+    "Venom Edge",
+    "Rupture",
+    "Smoke Step",
+    "Slip Away",
+];
+
+fn skill_tree_skills(c: &Character) -> &'static [&'static str] {
+    match c.class {
+        CharacterClass::Warrior => &WARRIOR_SKILL_TREE_SKILLS,
+        CharacterClass::Rogue => &ROGUE_SKILL_TREE_SKILLS,
+    }
+}
+
 pub(crate) fn render_skill_tree_screen(
     frame: &mut Frame,
     c: &Character,
     selected: usize,
     message: &str,
 ) {
+    let skills = skill_tree_skills(c);
+    let selected_skill = skills[selected.min(skills.len() - 1)];
+    let title = match c.class {
+        CharacterClass::Warrior => "Warrior Skill Tree",
+        CharacterClass::Rogue => "Rogue Skill Tree",
+    };
+    render_skill_tree_layout(
+        frame,
+        skill_tree_lines(c, selected, ""),
+        selected_skill_detail_lines(c, selected_skill),
+        message,
+        title,
+        "Skill Tree: W/S or arrows=select  Enter=upgrade/mastery  Esc=back",
+    );
+}
+
+pub(crate) fn skill_tree_lines(
+    c: &Character,
+    selected: usize,
+    message: &str,
+) -> Vec<Line<'static>> {
+    match c.class {
+        CharacterClass::Warrior => warrior_skill_tree_lines(c, selected, message),
+        CharacterClass::Rogue => rogue_skill_tree_lines(c, selected, message),
+    }
+}
+
+fn warrior_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::styled(
             "Warrior Skill Tree",
@@ -61,12 +106,18 @@ pub(crate) fn render_skill_tree_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         skill_line(strip_ansi_codes(&unspent_skills_text(c.unspent_skills))),
-        Line::from(""),
-        Line::styled(
-            "Weapons Branch",
-            Style::default().add_modifier(Modifier::BOLD),
-        ),
     ];
+    if !message.is_empty() {
+        lines.push(Line::styled(
+            message.to_string(),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::styled(
+        "Weapons Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
     append_skill_choice_lines(&mut lines, selected, "Cleave", c.warrior.cleave_rank);
     append_mastery_status_lines(&mut lines, c, "Cleave");
     append_passive_unlock_line(&mut lines, c, "Deep Cut");
@@ -114,17 +165,52 @@ pub(crate) fn render_skill_tree_screen(
     lines.push(skill_line(
         "Each rank upgrade costs 1 skill point. Masteries are free at rank 5.",
     ));
+    lines
+}
 
-    render_skill_tree_layout(
-        frame,
-        lines,
-        selected_skill_detail_lines(
-            c,
-            SKILL_TREE_SKILLS[selected.min(SKILL_TREE_SKILLS.len() - 1)],
+fn rogue_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        Line::styled(
+            "Rogue Skill Tree",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
         ),
-        message,
-        "Skill Tree: W/S or arrows=select  Enter=upgrade/mastery  Esc=back",
-    );
+        skill_line(strip_ansi_codes(&unspent_skills_text(c.unspent_skills))),
+    ];
+    if !message.is_empty() {
+        lines.push(Line::styled(
+            message.to_string(),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::styled(
+        "Daggers Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(&mut lines, selected, "Backstab", c.rogue.backstab_rank);
+    append_passive_unlock_line(&mut lines, c, "Eviscerate");
+    append_skill_choice_lines(&mut lines, selected, "Eviscerate", c.rogue.eviscerate_rank);
+    lines.push(Line::styled(
+        "Venom Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(&mut lines, selected, "Venom Edge", c.rogue.venom_edge_rank);
+    append_passive_unlock_line(&mut lines, c, "Rupture");
+    append_skill_choice_lines(&mut lines, selected, "Rupture", c.rogue.rupture_rank);
+    lines.push(Line::styled(
+        "Smoke Branch",
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    append_skill_choice_lines(&mut lines, selected, "Smoke Step", c.rogue.smoke_step_rank);
+    append_passive_unlock_line(&mut lines, c, "Slip Away");
+    append_skill_choice_lines(&mut lines, selected, "Slip Away", c.rogue.slip_away_rank);
+    lines.push(Line::from(""));
+    lines.push(skill_line(
+        "Each rank upgrade costs 1 skill point. Masteries are Warrior-only.",
+    ));
+    lines
 }
 
 fn skill_line(text: impl Into<String>) -> Line<'static> {
@@ -143,16 +229,25 @@ fn selected_skill_line(selected: bool, text: impl Into<String>) -> Line<'static>
     Line::styled(format!("{prefix}{}", strip_ansi_codes(&text.into())), style)
 }
 
+fn skill_choice_index(name: &str) -> usize {
+    WARRIOR_SKILL_TREE_SKILLS
+        .iter()
+        .position(|skill| *skill == name)
+        .or_else(|| {
+            ROGUE_SKILL_TREE_SKILLS
+                .iter()
+                .position(|skill| *skill == name)
+        })
+        .unwrap_or(0)
+}
+
 fn append_skill_choice_lines(
     lines: &mut Vec<Line<'static>>,
     selected: usize,
     name: &str,
     rank: u32,
 ) {
-    let index = SKILL_TREE_SKILLS
-        .iter()
-        .position(|skill| *skill == name)
-        .unwrap_or(0);
+    let index = skill_choice_index(name);
     lines.push(selected_skill_line(
         selected == index,
         format!("{name} rank {rank}/5"),
@@ -189,11 +284,16 @@ fn append_mastery_status_lines(lines: &mut Vec<Line<'static>>, c: &Character, sk
     }
 }
 
+fn skill_supports_mastery(c: &Character, skill: &str) -> bool {
+    c.class == CharacterClass::Warrior && WARRIOR_SKILL_TREE_SKILLS.contains(&skill)
+}
+
 fn render_skill_tree_layout(
     frame: &mut Frame,
     skill_lines: Vec<Line<'static>>,
     detail_lines: Vec<Line<'static>>,
     message: &str,
+    screen_title: &str,
     commands: &str,
 ) {
     let footer_height = if message.is_empty() { 3 } else { 4 };
@@ -204,11 +304,8 @@ fn render_skill_tree_layout(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new("Warrior Skill Tree").block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Warrior Skill Tree"),
-        ),
+        Paragraph::new(screen_title.to_string())
+            .block(Block::default().borders(Borders::ALL).title(screen_title)),
         layout[0],
     );
 
@@ -271,7 +368,7 @@ fn selected_skill_detail_lines(c: &Character, skill: &str) -> Vec<Line<'static>>
     ));
     if rank >= 5 {
         lines.push(skill_line("MAX RANK"));
-        if mastery_for_skill(c, skill).is_none() {
+        if skill_supports_mastery(c, skill) && mastery_for_skill(c, skill).is_none() {
             lines.push(skill_line("Enter opens a free mastery choice."));
         }
     } else {
@@ -326,6 +423,47 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
             "Triggers while Battle Cry is active.".to_string(),
             "Passive; requires Battle Cry rank 2.".to_string(),
         ],
+        "Backstab" => vec![
+            format!(
+                "{}% weapon damage; {}% when empowered",
+                backstab_base_percent_for_rank(rank),
+                empowered_backstab_percent_for_rank(rank)
+            ),
+            "25 Energy; builds 1 combo point.".to_string(),
+            "Empowered after movement, smoke, or attacking a poisoned target.".to_string(),
+        ],
+        "Eviscerate" => vec![
+            format!(
+                "Spend combo points for burst damage; rank adds +{} percentage points.",
+                eviscerate_bonus_percent_for_rank(rank)
+            ),
+            "35 Energy; consumes all combo points.".to_string(),
+            "Requires Backstab rank 2.".to_string(),
+        ],
+        "Venom Edge" => vec![
+            format!("{}% weapon damage", venom_edge_percent_for_rank(rank)),
+            format!(
+                "Poison deals {}/turn for 3 turns.",
+                poison_damage_for_rank(rank)
+            ),
+            "30 Energy; builds 1 combo point.".to_string(),
+        ],
+        "Rupture" => vec![
+            "Venom branch upgrade.".to_string(),
+            "Requires Venom Edge rank 2.".to_string(),
+        ],
+        "Smoke Step" => vec![
+            "35 Energy, cooldown 4; dash up to 2 cardinal tiles.".to_string(),
+            format!(
+                "+{} dodge while smoke protected.",
+                smoke_step_dodge_bonus_for_rank(rank)
+            ),
+            "Empowers your next Backstab.".to_string(),
+        ],
+        "Slip Away" => vec![
+            "Eviscerate grants brief smoke protection.".to_string(),
+            "Smoke branch upgrade; requires Smoke Step rank 2.".to_string(),
+        ],
         _ => vec![format!("Unknown skill for {}.", c.name)],
     }
 }
@@ -367,12 +505,25 @@ fn render_skill_lines_screen(
     );
 }
 
-pub(crate) fn choose_skill_or_mastery(
+pub(crate) fn choose_skill_or_mastery(c: &mut Character, skill: &str) -> String {
+    if skill_rank(c, skill) >= 5 {
+        if let Some(mastery) = mastery_for_skill(c, skill) {
+            return format!("{skill} already has a mastery: {}.", mastery.name());
+        }
+        return "That skill is already at max rank.".to_string();
+    }
+    upgrade_skill(c, skill)
+}
+
+pub(crate) fn choose_skill_or_mastery_interactive(
     c: &mut Character,
     terminal: &mut ratatui::DefaultTerminal,
     skill: &str,
 ) -> Result<String> {
     if skill_rank(c, skill) >= 5 {
+        if !skill_supports_mastery(c, skill) {
+            return Ok("That skill is already at max rank.".to_string());
+        }
         if mastery_for_skill(c, skill).is_some() {
             return Ok(format!(
                 "{skill} already has a mastery: {}.",
@@ -381,7 +532,7 @@ pub(crate) fn choose_skill_or_mastery(
         }
         return mastery_menu(c, terminal, skill);
     }
-    Ok(upgrade_skill(c, skill))
+    Ok(choose_skill_or_mastery(c, skill))
 }
 
 pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
@@ -401,6 +552,12 @@ pub(crate) fn upgrade_skill(c: &mut Character, skill: &str) -> String {
         "Deep Cut" => c.warrior.deep_cut_rank += 1,
         "Iron Guard" => c.warrior.iron_guard_rank += 1,
         "Second Wind" => c.warrior.second_wind_rank += 1,
+        "Backstab" if c.class == CharacterClass::Rogue => c.rogue.backstab_rank += 1,
+        "Venom Edge" if c.class == CharacterClass::Rogue => c.rogue.venom_edge_rank += 1,
+        "Eviscerate" if c.class == CharacterClass::Rogue => c.rogue.eviscerate_rank += 1,
+        "Smoke Step" if c.class == CharacterClass::Rogue => c.rogue.smoke_step_rank += 1,
+        "Rupture" if c.class == CharacterClass::Rogue => c.rogue.rupture_rank += 1,
+        "Slip Away" if c.class == CharacterClass::Rogue => c.rogue.slip_away_rank += 1,
         _ => return "Unknown skill.".to_string(),
     }
     c.unspent_skills -= 1;
@@ -624,14 +781,25 @@ pub(crate) fn render_mastery_screen(frame: &mut Frame, c: &Character, skill: &st
 }
 
 pub(crate) fn skill_rank(c: &Character, skill: &str) -> u32 {
-    match skill {
-        "Cleave" => c.warrior.cleave_rank,
-        "Shield Bash" => c.warrior.shield_bash_rank,
-        "Battle Cry" => c.warrior.battle_cry_rank,
-        "Deep Cut" => c.warrior.deep_cut_rank,
-        "Iron Guard" => c.warrior.iron_guard_rank,
-        "Second Wind" => c.warrior.second_wind_rank,
-        _ => 5,
+    match c.class {
+        CharacterClass::Warrior => match skill {
+            "Cleave" => c.warrior.cleave_rank,
+            "Shield Bash" => c.warrior.shield_bash_rank,
+            "Battle Cry" => c.warrior.battle_cry_rank,
+            "Deep Cut" => c.warrior.deep_cut_rank,
+            "Iron Guard" => c.warrior.iron_guard_rank,
+            "Second Wind" => c.warrior.second_wind_rank,
+            _ => 5,
+        },
+        CharacterClass::Rogue => match skill {
+            "Backstab" => c.rogue.backstab_rank,
+            "Venom Edge" => c.rogue.venom_edge_rank,
+            "Eviscerate" => c.rogue.eviscerate_rank,
+            "Smoke Step" => c.rogue.smoke_step_rank,
+            "Rupture" => c.rogue.rupture_rank,
+            "Slip Away" => c.rogue.slip_away_rank,
+            _ => 5,
+        },
     }
 }
 
@@ -642,23 +810,43 @@ struct SkillPrerequisite {
 }
 
 fn passive_prerequisite(c: &Character, skill: &str) -> Option<SkillPrerequisite> {
-    match skill {
-        "Deep Cut" => Some(SkillPrerequisite {
-            starter: "Cleave",
-            current_rank: c.warrior.cleave_rank,
-            required_rank: 2,
-        }),
-        "Iron Guard" => Some(SkillPrerequisite {
-            starter: "Shield Bash",
-            current_rank: c.warrior.shield_bash_rank,
-            required_rank: 2,
-        }),
-        "Second Wind" => Some(SkillPrerequisite {
-            starter: "Battle Cry",
-            current_rank: c.warrior.battle_cry_rank,
-            required_rank: 2,
-        }),
-        _ => None,
+    match c.class {
+        CharacterClass::Warrior => match skill {
+            "Deep Cut" => Some(SkillPrerequisite {
+                starter: "Cleave",
+                current_rank: c.warrior.cleave_rank,
+                required_rank: 2,
+            }),
+            "Iron Guard" => Some(SkillPrerequisite {
+                starter: "Shield Bash",
+                current_rank: c.warrior.shield_bash_rank,
+                required_rank: 2,
+            }),
+            "Second Wind" => Some(SkillPrerequisite {
+                starter: "Battle Cry",
+                current_rank: c.warrior.battle_cry_rank,
+                required_rank: 2,
+            }),
+            _ => None,
+        },
+        CharacterClass::Rogue => match skill {
+            "Eviscerate" => Some(SkillPrerequisite {
+                starter: "Backstab",
+                current_rank: c.rogue.backstab_rank,
+                required_rank: 2,
+            }),
+            "Rupture" => Some(SkillPrerequisite {
+                starter: "Venom Edge",
+                current_rank: c.rogue.venom_edge_rank,
+                required_rank: 2,
+            }),
+            "Slip Away" => Some(SkillPrerequisite {
+                starter: "Smoke Step",
+                current_rank: c.rogue.smoke_step_rank,
+                required_rank: 2,
+            }),
+            _ => None,
+        },
     }
 }
 

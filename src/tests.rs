@@ -172,14 +172,18 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
         .join("\n");
 
     assert!(rendered.contains("Rogue: Energy 45/100  CP 0/5"));
-    assert!(rendered.contains(
-        "1 Backstab r1: cost 25 Energy. Build 1 CP; empowered after movement, smoke, or poison."
-    ));
     assert!(
-        rendered.contains("2 Venom Edge r1: cost 30 Energy. Build 1 CP and poison for 3 turns.")
+        rendered.contains("1 Backstab r1: cost 25 Energy. Build 1 CP; 90% damage, 120% empowered.")
     );
-    assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage."));
-    assert!(rendered.contains("4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles. Ready in 2."));
+    assert!(rendered.contains(
+        "2 Venom Edge r1: cost 30 Energy. 70% damage; build 1 CP and poison 2/turn for 3 turns."
+    ));
+    assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage +0%."));
+    assert!(
+        rendered.contains(
+            "4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles, +20 dodge. Ready in 2."
+        )
+    );
 }
 
 #[test]
@@ -642,6 +646,10 @@ fn smoke_protection_adds_rogue_defensive_dodge_bonus() {
     rogue.rogue.smoke_protection_turns = 1;
 
     assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 20);
+
+    rogue.rogue.smoke_step_rank = 5;
+
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 32);
 
     let mut warrior = test_character();
     warrior.rogue.smoke_protection_turns = 1;
@@ -1360,6 +1368,29 @@ fn skill_screens_render_with_ratatui() {
     let mastery = backend_text(&terminal);
     assert!(mastery.contains("Cleave Mastery"));
     assert!(mastery.contains("Choose one free path"));
+}
+
+#[test]
+fn rogue_skill_screen_renders_with_ratatui() {
+    let c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let lines = skill_tree_lines(&c, 0, "");
+    let text = lines
+        .into_iter()
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(text.contains("Rogue Skill Tree"));
+    assert!(text.contains("Backstab"));
+    assert!(text.contains("Venom Edge"));
+    assert!(text.contains("Eviscerate"));
+    assert!(text.contains("Smoke Step"));
+    assert!(text.contains("Rupture"));
+    assert!(text.contains("Slip Away"));
 }
 
 #[test]
@@ -2107,7 +2138,37 @@ fn skill_rank_scaling_matches_design() {
     assert_eq!(iron_guard_armor_bonus_for_rank(5), 6);
     assert_eq!(second_wind_heal_percent_for_rank(1), 10);
     assert_eq!(second_wind_heal_percent_for_rank(5), 30);
+    assert_eq!(backstab_base_percent_for_rank(1), 90);
+    assert_eq!(backstab_base_percent_for_rank(5), 110);
+    assert_eq!(empowered_backstab_percent_for_rank(1), 120);
+    assert_eq!(empowered_backstab_percent_for_rank(5), 160);
+    assert_eq!(venom_edge_percent_for_rank(1), 70);
+    assert_eq!(venom_edge_percent_for_rank(5), 90);
+    assert_eq!(eviscerate_bonus_percent_for_rank(1), 0);
+    assert_eq!(eviscerate_bonus_percent_for_rank(5), 40);
+    assert_eq!(smoke_step_dodge_bonus_for_rank(1), 20);
+    assert_eq!(smoke_step_dodge_bonus_for_rank(5), 32);
+    assert_eq!(slip_away_dodge_bonus_for_rank(1), 5);
+    assert_eq!(slip_away_dodge_bonus_for_rank(5), 13);
     assert_eq!(next_skill_rank(5), 5);
+}
+
+#[test]
+fn rogue_skill_upgrades_spend_points_and_scale_values() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.unspent_skills = 1;
+
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Backstab"),
+        "Upgraded Backstab to rank 2."
+    );
+    assert_eq!(c.rogue.backstab_rank, 2);
+    assert_eq!(c.unspent_skills, 0);
+    assert!(backstab_base_percent_for_rank(2) > backstab_base_percent_for_rank(1));
 }
 
 #[test]
@@ -2170,6 +2231,27 @@ fn passive_skill_upgrades_require_branch_starter_rank_two() {
     assert_eq!(c.warrior.iron_guard_rank, 2);
     assert_eq!(c.warrior.second_wind_rank, 2);
     assert_eq!(c.armor(), 5);
+
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    assert!(unmet_skill_prerequisite(&rogue, "Eviscerate").is_some());
+    assert!(unmet_skill_prerequisite(&rogue, "Rupture").is_some());
+    assert!(unmet_skill_prerequisite(&rogue, "Slip Away").is_some());
+
+    rogue.unspent_skills = 6;
+    rogue.rogue.backstab_rank = 2;
+    rogue.rogue.venom_edge_rank = 2;
+    rogue.rogue.smoke_step_rank = 2;
+    upgrade_skill(&mut rogue, "Eviscerate");
+    upgrade_skill(&mut rogue, "Rupture");
+    upgrade_skill(&mut rogue, "Slip Away");
+
+    assert_eq!(rogue.rogue.eviscerate_rank, 2);
+    assert_eq!(rogue.rogue.rupture_rank, 2);
+    assert_eq!(rogue.rogue.slip_away_rank, 2);
 }
 
 #[test]
