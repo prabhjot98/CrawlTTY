@@ -3274,7 +3274,22 @@ fn town_project_board_uses_list_and_details_panels() {
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("> [Appraiser] Hire Appraiser - Available"))
+            .any(|line| line.contains("> [Appraiser] Hire Appraiser"))
+    );
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("Hire Appraiser - Available"))
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("🔒 [Smith] Reinforced Anvil"))
+    );
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("Reinforced Anvil - Locked"))
     );
     assert!(rendered.contains("Group: Appraiser"));
     assert!(rendered.contains("Cost: 250 gold"));

@@ -641,19 +641,11 @@ fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, a
 
 fn town_project_list_row_text(c: &Character, project: TownProject) -> String {
     let definition = town_project_definition(project);
-    format!(
-        "[{}] {} - {}",
-        definition.group,
-        definition.name,
-        town_project_compact_status_text(c, project)
-    )
-}
-
-fn town_project_compact_status_text(c: &Character, project: TownProject) -> &'static str {
+    let label = format!("[{}] {}", definition.group, definition.name);
     match town_project_availability(c, project) {
-        ProjectAvailability::Available => "Available",
-        ProjectAvailability::Completed => "Complete",
-        ProjectAvailability::Locked(_) => "Locked",
+        ProjectAvailability::Available => label,
+        ProjectAvailability::Completed => format!("{label} - Complete"),
+        ProjectAvailability::Locked(_) => format!("🔒{label}"),
     }
 }
 
