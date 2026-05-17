@@ -197,32 +197,41 @@ pub(crate) fn render_character_creation_screen(
         layout[0],
     );
 
-    let softcore_marker = if selected_death_mode == DeathMode::Softcore {
+    let softcore_marker = if active_step == CharacterCreationStep::DeathMode
+        && selected_death_mode == DeathMode::Softcore
+    {
         ">"
     } else {
         " "
     };
-    let hardcore_marker = if selected_death_mode == DeathMode::Hardcore {
+    let hardcore_marker = if active_step == CharacterCreationStep::DeathMode
+        && selected_death_mode == DeathMode::Hardcore
+    {
         ">"
     } else {
         " "
     };
-    let warrior_marker = if selected_class == CharacterClass::Warrior {
+    let warrior_marker = if active_step == CharacterCreationStep::Class
+        && selected_class == CharacterClass::Warrior
+    {
         ">"
     } else {
         " "
     };
-    let rogue_marker = if selected_class == CharacterClass::Rogue {
-        ">"
-    } else {
-        " "
-    };
+    let rogue_marker =
+        if active_step == CharacterCreationStep::Class && selected_class == CharacterClass::Rogue {
+            ">"
+        } else {
+            " "
+        };
 
     frame.render_widget(
         Paragraph::new(vec![
             Line::styled(
                 format!("{warrior_marker} Warrior - armored melee skills and mana."),
-                if selected_class == CharacterClass::Warrior {
+                if active_step == CharacterCreationStep::Class
+                    && selected_class == CharacterClass::Warrior
+                {
                     selected_cursor_style()
                 } else {
                     Style::default().fg(Color::Cyan)
@@ -230,7 +239,9 @@ pub(crate) fn render_character_creation_screen(
             ),
             Line::styled(
                 format!("{rogue_marker} Rogue - dagger burst, Energy, and combo points."),
-                if selected_class == CharacterClass::Rogue {
+                if active_step == CharacterCreationStep::Class
+                    && selected_class == CharacterClass::Rogue
+                {
                     selected_cursor_style()
                 } else {
                     Style::default().fg(Color::Green)
@@ -269,7 +280,9 @@ pub(crate) fn render_character_creation_screen(
         Paragraph::new(vec![
             Line::styled(
                 format!("{softcore_marker} Softcore - death returns you to town."),
-                if selected_death_mode == DeathMode::Softcore {
+                if active_step == CharacterCreationStep::DeathMode
+                    && selected_death_mode == DeathMode::Softcore
+                {
                     selected_cursor_style()
                 } else {
                     Style::default().fg(Color::Green)
@@ -277,7 +290,9 @@ pub(crate) fn render_character_creation_screen(
             ),
             Line::styled(
                 format!("{hardcore_marker} Hardcore - death permanently ends the character."),
-                if selected_death_mode == DeathMode::Hardcore {
+                if active_step == CharacterCreationStep::DeathMode
+                    && selected_death_mode == DeathMode::Hardcore
+                {
                     selected_cursor_style()
                 } else {
                     Style::default().fg(Color::Red)

@@ -1824,6 +1824,62 @@ fn character_creation_active_step_uses_muted_cursed_violet_border() {
 }
 
 #[test]
+fn character_creation_only_shows_cursor_for_active_choice_step() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Name,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+    let name_step = backend_text(&terminal);
+    assert_eq!(name_step.matches('>').count(), 0);
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Class,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+    let class_step = backend_text(&terminal);
+    assert_eq!(class_step.matches('>').count(), 1);
+    assert!(class_step.contains("> Warrior"));
+    assert!(!class_step.contains("> Softcore"));
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::DeathMode,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+    let death_mode_step = backend_text(&terminal);
+    assert_eq!(death_mode_step.matches('>').count(), 1);
+    assert!(!death_mode_step.contains("> Warrior"));
+    assert!(death_mode_step.contains("> Softcore"));
+}
+
+#[test]
 fn character_creation_selected_container_titles_do_not_show_active_text() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -1861,6 +1917,26 @@ fn active_stash_grid_uses_muted_cursed_violet_border() {
     let cursed_violet = Color::Rgb(148, 80, 190);
     assert_ne!(cell_fg_at(&terminal, 0, 3), cursed_violet);
     assert_eq!(cell_fg_at(&terminal, 18, 3), cursed_violet);
+}
+
+#[test]
+fn stash_only_shows_cursor_on_active_grid() {
+    use ratatui::{Terminal, backend::TestBackend, style::Color};
+
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, vec![rusted_sword()]);
+    c.stash = ItemGrid::new(8, 8, vec![crude_axe()]);
+    let mut terminal = Terminal::new(TestBackend::new(120, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_stash_screen(frame, &c, StashSide::Stash, 0, 0, ""))
+        .unwrap();
+
+    assert_eq!(
+        cell_fg_at(&terminal, 20, 4),
+        SELECTED_CONTAINER_BORDER_COLOR
+    );
+    assert_eq!(cell_fg_at(&terminal, 2, 4), Color::White);
 }
 
 #[test]
@@ -2091,6 +2167,25 @@ fn full_socket_screen_keeps_selected_socket_details_visible() {
     assert!(rendered.contains("Socket Sword 15"));
     assert!(rendered.contains("Sockets: Socket Sword 15"));
     assert!(rendered.contains("> 1. Empty"));
+}
+
+#[test]
+fn socket_bench_only_shows_socket_cursor() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.equipped_weapon.sockets = vec![None];
+    c.equipped_armor.sockets = vec![None];
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_socket_bench_screen(frame, &c, 0, 0, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert_eq!(rendered.matches('>').count(), 1);
+    assert!(rendered.contains("> 1. Empty"));
+    assert!(!rendered.contains("> Weapon:"));
 }
 
 #[test]
@@ -2346,7 +2441,8 @@ fn character_creation_renders_class_choices() {
     assert!(text.contains("Warrior"));
     assert!(text.contains("Rogue"));
     assert!(text.contains("> Rogue"));
-    assert!(text.contains("> Hardcore"));
+    assert!(text.contains("Hardcore"));
+    assert!(!text.contains("> Hardcore"));
 }
 
 #[test]

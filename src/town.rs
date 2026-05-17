@@ -1230,18 +1230,13 @@ pub(crate) fn render_socket_bench_screen(
             .unwrap_or(0);
         let max_rows = visible_rows_for_lines_screen(frame.area(), message, 4 + socket_detail_rows);
         let offset = scroll_offset(selected_item, targets.len(), max_rows);
-        for (visible_index, target) in targets
-            .iter()
-            .copied()
-            .skip(offset)
-            .take(max_rows)
-            .enumerate()
-        {
+        for target in targets.iter().copied().skip(offset).take(max_rows) {
             if let Some(item) = target_item(c, target) {
-                lines.push(selected_line(
-                    offset + visible_index == selected_item,
-                    format!("{}: {}", target_label(target), item.name),
-                ));
+                lines.push(plain_line(format!(
+                    "  {}: {}",
+                    target_label(target),
+                    item.name
+                )));
             }
         }
         lines.push(Line::from(""));
@@ -1700,7 +1695,7 @@ pub(crate) fn render_stash_screen(
         render_item_grid(
             frame,
             &c.inventory,
-            inv_selected,
+            active_grid_cursor(side, StashSide::Inventory, inv_selected),
             body[0],
             &inventory_title,
             side == StashSide::Inventory,
@@ -1708,7 +1703,7 @@ pub(crate) fn render_stash_screen(
         render_item_grid(
             frame,
             &c.stash,
-            stash_selected,
+            active_grid_cursor(side, StashSide::Stash, stash_selected),
             body[1],
             &stash_title,
             side == StashSide::Stash,
@@ -1735,7 +1730,7 @@ pub(crate) fn render_stash_screen(
         render_item_grid(
             frame,
             &c.inventory,
-            inv_selected,
+            active_grid_cursor(side, StashSide::Inventory, inv_selected),
             grids[0],
             &inventory_title,
             side == StashSide::Inventory,
@@ -1743,7 +1738,7 @@ pub(crate) fn render_stash_screen(
         render_item_grid(
             frame,
             &c.stash,
-            stash_selected,
+            active_grid_cursor(side, StashSide::Stash, stash_selected),
             grids[1],
             &stash_title,
             side == StashSide::Stash,
@@ -1753,6 +1748,14 @@ pub(crate) fn render_stash_screen(
 
     let commands = "Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back";
     render_commands_footer(frame, layout[2], footer_text(message, commands));
+}
+
+fn active_grid_cursor(active_side: StashSide, grid_side: StashSide, selected: usize) -> usize {
+    if active_side == grid_side {
+        selected
+    } else {
+        usize::MAX
+    }
 }
 
 fn render_stash_details(
