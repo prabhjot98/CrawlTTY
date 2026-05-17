@@ -115,6 +115,11 @@ pub(crate) fn dungeon_loop(
                 return Err(err);
             }
         };
+        if matches!(key, 'h' | 'H') {
+            clear_recent_unknown_dungeon_commands(c);
+            help_screen(terminal)?;
+            continue;
+        }
         if is_known_dungeon_command_for(c, key) {
             clear_recent_unknown_dungeon_commands(c);
         }
@@ -561,6 +566,7 @@ fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
             ("p", "potion"),
             ("g", "pickup"),
             ("i", "inventory"),
+            ("h", "help"),
             ("Esc", "town"),
         ],
         CharacterClass::Rogue => vec![
@@ -572,6 +578,7 @@ fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
             ("p", "potion"),
             ("g", "pickup"),
             ("i", "inventory"),
+            ("h", "help"),
             ("Esc", "town"),
         ],
         CharacterClass::Sorceress => vec![
@@ -583,6 +590,7 @@ fn dungeon_command_entries(c: &Character) -> Vec<(&'static str, &'static str)> {
             ("p", "potion"),
             ("g", "pickup"),
             ("i", "inventory"),
+            ("h", "help"),
             ("Esc", "town"),
         ],
     }
@@ -768,6 +776,8 @@ pub(crate) fn is_known_dungeon_command_for(c: &Character, key: char) -> bool {
             | 'G'
             | 'i'
             | 'I'
+            | 'h'
+            | 'H'
             | '\u{1b}'
     ) || ((c.class == CharacterClass::Rogue || c.class == CharacterClass::Sorceress) && key == '4')
 }

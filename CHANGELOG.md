@@ -4,4 +4,5 @@ All notable player-facing gameplay changes should be recorded here.
 
 ## Unreleased
 
+- Added a searchable in-game help glossary opened with `h`/`H` from town or dungeon.
 - Added this changelog so future gameplay changes have a dedicated place to be recorded.

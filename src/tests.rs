@@ -175,6 +175,13 @@ fn readme_lists_distillery_town_control() {
 }
 
 #[test]
+fn readme_lists_help_control() {
+    let readme = include_str!("../README.md");
+
+    assert!(readme.contains("`h` help"));
+}
+
+#[test]
 fn class_resource_labels_match_active_class() {
     let warrior = Character::new(
         "War".to_string(),
@@ -1705,6 +1712,144 @@ fn ui_palette_exposes_gothic_cursed_semantic_styles() {
         container_border_style(true),
         Style::default().fg(SELECTED_CONTAINER_BORDER_COLOR)
     );
+}
+
+#[test]
+fn help_topics_cover_requested_and_major_game_keywords() {
+    let keywords: Vec<_> = help_topics().iter().map(|topic| topic.keyword).collect();
+    for required in [
+        "Strength",
+        "Dexterity",
+        "Intelligence",
+        "Burning",
+        "Bleeding",
+        "Gold",
+        "Health",
+        "Mana",
+        "Energy",
+        "Combo Points",
+        "Armor",
+        "Dodge Rating",
+        "Hit Rating",
+        "Speed",
+        "Critical Chance",
+        "Poisoned",
+        "Frozen",
+        "Shocked",
+        "Stunned",
+        "Warrior",
+        "Rogue",
+        "Sorceress",
+        "Cleave",
+        "Backstab",
+        "Firebolt",
+        "Quest",
+        "Stash",
+        "Town Projects",
+        "Sockets",
+        "Gems",
+        "Bellkeeper",
+        "Glass Tyrant",
+        "Hardcore",
+        "Softcore",
+        "Hollow Crypts",
+        "Glass Wastes",
+    ] {
+        assert!(
+            keywords.contains(&required),
+            "missing help topic {required}"
+        );
+    }
+    assert!(
+        keywords.len() >= 90,
+        "glossary should include broad game vocabulary"
+    );
+}
+
+#[test]
+fn help_search_filters_keywords_case_insensitively_and_keeps_selection_valid() {
+    let mut state = HelpScreenState::new();
+    state.handle_key('d');
+    state.handle_key('E');
+    state.handle_key('x');
+
+    let filtered: Vec<_> = state
+        .filtered_topics()
+        .iter()
+        .map(|topic| topic.keyword)
+        .collect();
+    assert!(filtered.contains(&"Dexterity"));
+    assert!(
+        filtered
+            .iter()
+            .all(|keyword| keyword.to_ascii_lowercase().contains("dex"))
+    );
+    assert_eq!(state.selected_topic().unwrap().keyword, "Dexterity");
+
+    state.handle_key('\u{8}');
+    assert_eq!(state.query(), "dE");
+}
+
+#[test]
+fn help_screen_renders_search_keyword_list_details_and_footer() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut state = HelpScreenState::new();
+    state.handle_key('g');
+    state.handle_key('o');
+    state.handle_key('l');
+    state.handle_key('d');
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+
+    terminal
+        .draw(|frame| render_help_screen(frame, &state))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(
+        rendered.contains("Search: gold"),
+        "{}",
+        backend_lines(&terminal).join("\n")
+    );
+    assert!(rendered.contains("Gold"));
+    assert!(rendered.contains("currency"));
+    assert!(rendered.contains("Up/Down=select"));
+    assert!(rendered.contains("Esc=back"));
+}
+
+#[test]
+fn town_footer_advertises_help_hotkey() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+    terminal.draw(|frame| render_town(frame, &c, "")).unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(
+        rendered.contains("h=help"),
+        "{}",
+        backend_lines(&terminal).join("\n")
+    );
+}
+
+#[test]
+fn dungeon_footer_and_known_commands_include_help_hotkey() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let mut terminal = Terminal::new(TestBackend::new(100, 32)).unwrap();
+    terminal.draw(|frame| render_dungeon(frame, &c)).unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(
+        rendered.contains("h=help"),
+        "{}",
+        backend_lines(&terminal).join("\n")
+    );
+    assert!(is_known_dungeon_command_for(&c, 'h'));
+    assert!(is_known_dungeon_command_for(&c, 'H'));
 }
 
 #[test]

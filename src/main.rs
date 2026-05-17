@@ -11,6 +11,7 @@ mod classes;
 mod dungeon;
 mod dungeon_gen;
 mod glyphs;
+mod help;
 mod input;
 mod inventory;
 mod items;
@@ -27,6 +28,8 @@ pub(crate) use classes::*;
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
 pub(crate) use glyphs::*;
+#[allow(unused_imports)]
+pub(crate) use help::*;
 pub(crate) use input::{
     KEY_ARROW_DOWN, KEY_ARROW_UP, UiInput, read_ui_input, read_ui_input_nav_timed,
     read_ui_input_raw_arrows_timed, read_ui_input_timed, set_ratatui_owns_raw_mode,
@@ -147,6 +150,9 @@ fn run_game(
             }
             'k' | 'K' => {
                 skill_tree_menu(character, terminal)?;
+            }
+            'h' | 'H' => {
+                help_screen(terminal)?;
             }
             'q' | 'Q' => {
                 save_character(character)?;
