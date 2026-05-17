@@ -615,12 +615,13 @@ pub(crate) fn use_chain_spark(c: &mut Character) -> bool {
 
 pub(crate) fn toggle_mana_shield(c: &mut Character) -> bool {
     if c.sorceress.mana_shield_rank == 0 {
+        let message = if c.sorceress.frost_ring_rank < 2 {
+            "Mana Shield requires Frost Ring rank 2."
+        } else {
+            "Mana Shield is unlocked; spend a skill point to learn it."
+        };
         if let Some(d) = c.active_dungeon.as_mut() {
-            log_event(
-                &mut d.log,
-                LogKind::Warn,
-                "Mana Shield requires Frost Ring rank 2.",
-            );
+            log_event(&mut d.log, LogKind::Warn, message);
         }
         return false;
     }

@@ -514,9 +514,15 @@ fn sorceress_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
         )),
     ];
     if c.sorceress.mana_shield_rank == 0 {
-        lines.push(Line::from(
-            "4 Mana Shield: locked; requires Frost Ring rank 2.",
-        ));
+        if c.sorceress.frost_ring_rank < 2 {
+            lines.push(Line::from(
+                "4 Mana Shield: locked; requires Frost Ring rank 2.",
+            ));
+        } else {
+            lines.push(Line::from(
+                "4 Mana Shield: unlearned; spend a skill point to learn it.",
+            ));
+        }
     } else {
         lines.push(Line::from(format!(
             "4 Mana Shield r{}: free toggle. Absorbs {}% at 1 mana per damage.",

@@ -238,6 +238,25 @@ fn sorceress_skill_help_lines_show_mana_cooldowns_and_locked_mana_shield() {
 }
 
 #[test]
+fn sorceress_unlearned_mana_shield_help_shows_skill_point_prompt() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.frost_ring_rank = 2;
+
+    let rendered = dungeon_skill_help_lines(&c)
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("4 Mana Shield: unlearned; spend a skill point to learn it."));
+    assert!(!rendered.contains("4 Mana Shield: locked; requires Frost Ring rank 2."));
+}
+
+#[test]
 fn sorceress_unlocked_mana_shield_help_shows_absorption_and_state() {
     let mut c = Character::new(
         "Lyra".to_string(),
@@ -512,6 +531,29 @@ fn mana_shield_hotkey_toggles_freely_after_unlock() {
     assert!(c.sorceress.mana_shield_active);
     assert!(!handle_class_skill_key(&mut c, '4'));
     assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn mana_shield_hotkey_reports_unlearned_after_prerequisite_is_met() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.frost_ring_rank = 2;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(!handle_class_skill_key(&mut c, '4'));
+
+    assert!(!c.sorceress.mana_shield_active);
+    assert!(
+        c.active_dungeon
+            .as_ref()
+            .unwrap()
+            .log
+            .iter()
+            .any(|line| line.contains("Mana Shield is unlocked; spend a skill point to learn it."))
+    );
 }
 
 #[test]
