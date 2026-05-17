@@ -878,6 +878,27 @@ pub(crate) fn unmet_skill_prerequisite(c: &Character, skill: &str) -> Option<Str
     })
 }
 
+pub(crate) fn normalize_locked_skill_ranks(c: &mut Character) {
+    if c.warrior.cleave_rank < 2 {
+        c.warrior.deep_cut_rank = 0;
+    }
+    if c.warrior.shield_bash_rank < 2 {
+        c.warrior.iron_guard_rank = 0;
+    }
+    if c.warrior.battle_cry_rank < 2 {
+        c.warrior.second_wind_rank = 0;
+    }
+    if c.rogue.backstab_rank < 2 {
+        c.rogue.eviscerate_rank = 0;
+    }
+    if c.rogue.venom_edge_rank < 2 {
+        c.rogue.rupture_rank = 0;
+    }
+    if c.rogue.smoke_step_rank < 2 {
+        c.rogue.slip_away_rank = 0;
+    }
+}
+
 pub(crate) fn next_skill_rank(rank: u32) -> u32 {
     (rank + 1).min(5)
 }
@@ -918,10 +939,14 @@ pub(crate) fn battle_cry_bonus_percent(c: &Character) -> u32 {
     battle_cry_bonus_percent_for_rank(c.warrior.battle_cry_rank)
 }
 pub(crate) fn deep_cut_chance_for_rank(rank: u32) -> u32 {
-    10 + rank.min(5) * 5
+    if rank == 0 { 0 } else { 10 + rank.min(5) * 5 }
 }
 pub(crate) fn deep_cut_damage_for_rank(rank: u32) -> i32 {
-    1 + rank.min(5).div_ceil(2) as i32
+    if rank == 0 {
+        0
+    } else {
+        1 + rank.min(5).div_ceil(2) as i32
+    }
 }
 pub(crate) fn iron_guard_armor_bonus(c: &Character) -> i32 {
     if !c.is_warrior() {
@@ -930,14 +955,18 @@ pub(crate) fn iron_guard_armor_bonus(c: &Character) -> i32 {
     iron_guard_armor_bonus_for_rank(c.warrior.iron_guard_rank)
 }
 pub(crate) fn iron_guard_armor_bonus_for_rank(rank: u32) -> i32 {
-    1 + rank.min(5) as i32
+    if rank == 0 { 0 } else { 1 + rank.min(5) as i32 }
 }
 pub(crate) fn second_wind_heal_percent_for_rank(rank: u32) -> u32 {
-    5 + rank.min(5) * 5
+    if rank == 0 { 0 } else { 5 + rank.min(5) * 5 }
 }
 pub(crate) fn second_wind_heal_amount(c: &Character) -> u32 {
     if !c.is_warrior() {
         return 0;
     }
-    ((c.max_hp() * second_wind_heal_percent_for_rank(c.warrior.second_wind_rank)) / 100).max(1)
+    let heal_percent = second_wind_heal_percent_for_rank(c.warrior.second_wind_rank);
+    if heal_percent == 0 {
+        return 0;
+    }
+    ((c.max_hp() * heal_percent) / 100).max(1)
 }
