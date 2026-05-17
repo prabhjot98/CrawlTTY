@@ -5,7 +5,19 @@ use ratatui::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub(crate) const TEXT_PRIMARY_COLOR: Color = Color::Rgb(214, 203, 177);
+pub(crate) const TEXT_MUTED_COLOR: Color = Color::Rgb(108, 101, 112);
+pub(crate) const CONTAINER_BORDER_COLOR: Color = Color::Rgb(75, 67, 84);
 pub(crate) const SELECTED_CONTAINER_BORDER_COLOR: Color = Color::Rgb(148, 80, 190);
+pub(crate) const TITLE_COLOR: Color = Color::Rgb(201, 163, 86);
+pub(crate) const DANGER_COLOR: Color = Color::Rgb(188, 54, 54);
+pub(crate) const ACTION_COLOR: Color = Color::Rgb(93, 153, 112);
+pub(crate) const WARNING_COLOR: Color = Color::Rgb(214, 157, 73);
+pub(crate) const ARCANE_COLOR: Color = Color::Rgb(113, 151, 201);
+pub(crate) const CURSED_COLOR: Color = Color::Rgb(177, 93, 204);
+pub(crate) const RARITY_COMMON_COLOR: Color = TEXT_PRIMARY_COLOR;
+pub(crate) const RARITY_MAGIC_COLOR: Color = Color::Rgb(113, 151, 201);
+pub(crate) const RARITY_RARE_COLOR: Color = Color::Rgb(214, 157, 73);
 pub(crate) const CURSOR_PULSE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(350);
 
 static CURSOR_PULSE_FRAME: AtomicBool = AtomicBool::new(true);
@@ -31,12 +43,42 @@ pub(crate) fn toggle_cursor_pulse_frame() {
     CURSOR_PULSE_FRAME.fetch_xor(true, Ordering::Relaxed);
 }
 
-pub(crate) fn selected_container_border_style(selected: bool) -> Style {
+pub(crate) fn body_style() -> Style {
+    Style::default().fg(TEXT_PRIMARY_COLOR)
+}
+
+pub(crate) fn muted_style() -> Style {
+    Style::default().fg(TEXT_MUTED_COLOR)
+}
+
+pub(crate) fn title_style() -> Style {
+    Style::default()
+        .fg(TITLE_COLOR)
+        .add_modifier(Modifier::BOLD)
+}
+
+pub(crate) fn container_border_style(selected: bool) -> Style {
     if selected {
         Style::default().fg(SELECTED_CONTAINER_BORDER_COLOR)
     } else {
-        Style::default()
+        Style::default().fg(CONTAINER_BORDER_COLOR)
     }
+}
+
+pub(crate) fn selected_container_border_style(selected: bool) -> Style {
+    container_border_style(selected)
+}
+
+pub(crate) fn gothic_block(title: impl Into<String>) -> Block<'static> {
+    gothic_block_selected(title, false)
+}
+
+pub(crate) fn gothic_block_selected(title: impl Into<String>, selected: bool) -> Block<'static> {
+    Block::default()
+        .borders(Borders::ALL)
+        .title_style(title_style())
+        .title(title.into())
+        .border_style(selected_container_border_style(selected))
 }
 
 pub(crate) fn footer_text(message: &str, commands: &str) -> String {
@@ -50,7 +92,7 @@ pub(crate) fn footer_text(message: &str, commands: &str) -> String {
 pub(crate) fn render_commands_footer(frame: &mut Frame, area: Rect, footer: impl Into<String>) {
     frame.render_widget(
         Paragraph::new(footer.into())
-            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .block(gothic_block("Commands"))
             .wrap(Wrap { trim: false }),
         area,
     );
@@ -65,15 +107,10 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
     .split(frame.area());
 
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(
-            "CrawlTTY",
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
+        Span::styled("CrawlTTY", title_style()),
         Span::raw("  Hollow's Rest"),
     ]))
-    .block(Block::default().borders(Borders::ALL).title("Town"));
+    .block(gothic_block("Town"));
     frame.render_widget(title, layout[0]);
 
     let mut lines = vec![
@@ -85,17 +122,17 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
             Span::raw(" the "),
             Span::styled(
                 c.class_name().to_string(),
-                Style::default().fg(Color::Green),
+                Style::default().fg(ACTION_COLOR),
             ),
             Span::raw("  "),
-            stat_span(format!("Level {}", c.level), Color::Cyan),
+            stat_span(format!("Level {}", c.level), TITLE_COLOR),
             Span::raw("  "),
             stat_span(
                 format!("XP {}/{}", c.xp, xp_required_for_next_level(c.level)),
-                Color::Magenta,
+                CURSED_COLOR,
             ),
             Span::raw("  "),
-            stat_span(format!("Gold {}", c.gold), Color::Yellow),
+            stat_span(format!("Gold {}", c.gold), WARNING_COLOR),
         ]),
         Line::from(vec![
             stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
@@ -107,7 +144,7 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
                     c.current_resource(),
                     c.max_resource()
                 ),
-                Color::Blue,
+                ARCANE_COLOR,
             ),
         ]),
         Line::from(vec![
@@ -131,7 +168,7 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
             Span::raw("  "),
             stat_span(
                 format!("Unspent skills: {}", c.unspent_skills),
-                Color::Magenta,
+                CURSED_COLOR,
             ),
         ]),
         Line::from(""),
@@ -146,18 +183,18 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
         lines.push(Line::from(""));
         lines.push(Line::styled(
             strip_ansi_codes(town_message),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(WARNING_COLOR),
         ));
     }
 
     lines.push(Line::from(""));
     lines.push(Line::styled(
         "Town services: use the footer commands below to choose a service.",
-        Style::default().add_modifier(Modifier::BOLD),
+        title_style(),
     ));
 
     let body = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .block(gothic_block("Status"))
         .wrap(Wrap { trim: false });
     frame.render_widget(body, layout[1]);
 
@@ -184,7 +221,7 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
             ],
         ),
     ])
-    .block(Block::default().borders(Borders::ALL).title("Commands"));
+    .block(gothic_block("Commands"));
     frame.render_widget(footer, layout[2]);
 }
 
@@ -208,32 +245,32 @@ pub(crate) fn strip_ansi_codes(text: &str) -> String {
 
 pub(crate) fn rarity_color(rarity: &Rarity) -> Color {
     match rarity {
-        Rarity::Common => Color::White,
-        Rarity::Magic => Color::Blue,
-        Rarity::Rare => Color::Yellow,
+        Rarity::Common => RARITY_COMMON_COLOR,
+        Rarity::Magic => RARITY_MAGIC_COLOR,
+        Rarity::Rare => RARITY_RARE_COLOR,
     }
 }
 
 pub(crate) fn stat_span(text: impl Into<String>, color: Color) -> Span<'static> {
-    Span::styled(text.into(), Style::default().fg(color))
+    Span::styled(
+        text.into(),
+        Style::default().fg(color).add_modifier(Modifier::BOLD),
+    )
 }
 
 pub(crate) fn command_line(title: &str, commands: &[(&str, &str)]) -> Line<'static> {
     let mut spans = Vec::new();
     if !title.is_empty() {
-        spans.push(Span::styled(
-            format!("{title}: "),
-            Style::default().add_modifier(Modifier::BOLD),
-        ));
+        spans.push(Span::styled(format!("{title}: "), title_style()));
     }
     for (index, (key, label)) in commands.iter().enumerate() {
         if index > 0 {
             spans.push(Span::raw("  "));
         }
         let color = if *key == "q" {
-            Color::Red
+            DANGER_COLOR
         } else {
-            Color::Green
+            ACTION_COLOR
         };
         spans.push(Span::styled(
             (*key).to_string(),
