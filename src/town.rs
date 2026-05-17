@@ -579,30 +579,123 @@ pub(crate) fn render_town_projects_screen(
     selected: usize,
     message: &str,
 ) {
+    const PROJECT_COMMANDS: &str = "Projects: W/S or arrows=select  Enter=fund project  Esc=back";
+
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+
+    frame.render_widget(
+        Paragraph::new(format!(
+            "Town Projects - {}",
+            strip_ansi_codes(&gold_text(c.gold))
+        ))
+        .block(gothic_block("Town Projects")),
+        layout[0],
+    );
+
+    let list_width = 50;
+    let (projects_area, details_area) = if layout[1].width >= list_width + 36 {
+        let body = Layout::horizontal([Constraint::Length(list_width), Constraint::Min(36)])
+            .split(layout[1]);
+        (body[0], body[1])
+    } else {
+        let body =
+            Layout::vertical([Constraint::Percentage(60), Constraint::Min(5)]).split(layout[1]);
+        (body[0], body[1])
+    };
+
+    render_town_project_list(frame, c, selected, projects_area);
+    render_town_project_details(frame, c, selected, details_area);
+    render_commands_footer(frame, layout[2], footer_text(message, PROJECT_COMMANDS));
+}
+
+fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, area: Rect) {
+    let visible_rows = usize::from(area.height.saturating_sub(2)).max(1);
+    let selected = selected.min(TOWN_PROJECTS.len().saturating_sub(1));
+    let offset = scroll_offset(selected, TOWN_PROJECTS.len(), visible_rows);
+    let lines = TOWN_PROJECTS
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(visible_rows)
+        .map(|(index, definition)| {
+            selected_line(
+                index == selected,
+                town_project_list_row_text(c, definition.project),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(gothic_block("Projects"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn town_project_list_row_text(c: &Character, project: TownProject) -> String {
+    let definition = town_project_definition(project);
+    format!(
+        "[{}] {} - {}",
+        definition.group,
+        definition.name,
+        town_project_compact_status_text(c, project)
+    )
+}
+
+fn town_project_compact_status_text(c: &Character, project: TownProject) -> &'static str {
+    match town_project_availability(c, project) {
+        ProjectAvailability::Available => "Available",
+        ProjectAvailability::Completed => "Complete",
+        ProjectAvailability::Locked(_) => "Locked",
+    }
+}
+
+fn render_town_project_details(frame: &mut Frame, c: &Character, selected: usize, area: Rect) {
     let selected_project =
         TOWN_PROJECTS[selected.min(TOWN_PROJECTS.len().saturating_sub(1))].project;
-    let mut lines = vec![plain_line(format!(
-        "Town Projects - {}",
-        strip_ansi_codes(&gold_text(c.gold))
-    ))];
-    lines.push(Line::from(""));
-    lines.extend(TOWN_PROJECTS.iter().enumerate().map(|(i, definition)| {
-        selected_line(i == selected, town_project_row_text(c, definition.project))
-    }));
+    frame.render_widget(
+        Paragraph::new(town_project_detail_lines(c, selected_project))
+            .block(gothic_block("Details"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn town_project_detail_lines(c: &Character, project: TownProject) -> Vec<Line<'static>> {
+    let definition = town_project_definition(project);
+    let mut lines = vec![
+        Line::styled(definition.name, title_style()),
+        Line::from(""),
+        plain_line(format!("Group: {}", definition.group)),
+        plain_line(format!("Cost: {} gold", definition.cost)),
+        plain_line(format!("Status: {}", town_project_status_text(c, project))),
+    ];
+
+    lines.push(plain_line(town_project_affordability_text(c, project)));
     lines.extend([
         Line::from(""),
-        Line::styled("Selected", Style::default().add_modifier(Modifier::BOLD)),
-        plain_line(town_project_definition(selected_project).name),
-        plain_line(town_project_definition(selected_project).benefit),
+        plain_line(format!("Benefit: {}", definition.benefit)),
     ]);
-    render_lines_screen(
-        frame,
-        "Town Projects",
-        "Projects",
-        lines,
-        message,
-        "Projects: W/S or arrows=select  Enter=fund project  Esc=back",
-    );
+    lines
+}
+
+fn town_project_affordability_text(c: &Character, project: TownProject) -> String {
+    let definition = town_project_definition(project);
+    match town_project_availability(c, project) {
+        ProjectAvailability::Completed => "Already funded.".to_string(),
+        ProjectAvailability::Locked(reason) => reason.to_string(),
+        ProjectAvailability::Available if c.gold >= definition.cost => "Ready to fund.".to_string(),
+        ProjectAvailability::Available => {
+            format!("You need {} more gold.", definition.cost - c.gold)
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

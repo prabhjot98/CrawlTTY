@@ -253,6 +253,7 @@ pub(crate) fn town_project_status_text(c: &Character, project: TownProject) -> S
     }
 }
 
+#[cfg(test)]
 pub(crate) fn town_project_row_text(c: &Character, project: TownProject) -> String {
     let definition = town_project_definition(project);
     format!(
