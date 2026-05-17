@@ -13,7 +13,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - Grid-based bag and stash inventory, equipment, selling, salvaging, shard-only gear upgrading, and gold-funded town projects
 - Quartermaster town projects upgrade bag capacity from `4 x 4` to `8 x 8`
 - Ground loot pickup with `g`, plus automatic pickup when walking over a single item and bag space is available
-- Save/load support via JSON saves
+- Save/load support via JSON profile data and per-character saves; startup resumes the last played character
 
 ## Controls
 
@@ -26,6 +26,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - `p` town projects
 - `t` quest giver
 - `d` dungeon
+- `c` characters / create new character
 - `i` inventory
 - `a` attributes
 - `k` skill tree
@@ -68,11 +69,14 @@ cargo check
 
 ## Save Files
 
-Saves are written to:
+Saves are written to a small profile plus one file per character:
 
 ```text
-saves/save.json
+saves/profile.json
+saves/characters/<character-id>.json
 ```
+
+The profile tracks the last played character so startup resumes it automatically. Character stashes are stored inside each character save and are not shared. The legacy `saves/save.json` is migrated into the per-character layout when no character saves exist.
 
 The `saves/` directory is local/generated data and should not be committed.
 

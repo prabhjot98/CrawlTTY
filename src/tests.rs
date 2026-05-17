@@ -1838,6 +1838,200 @@ fn save_character_writes_atomically() {
 }
 
 #[test]
+fn save_character_profile_tracks_last_character_and_per_character_file() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-multi-save-profile-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+
+    let mara = Character::new(
+        "Mara".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    save_active_character_to_paths(&mara, &profile_path, &character_dir).unwrap();
+
+    let profile: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&profile_path).unwrap()).unwrap();
+    assert_eq!(profile["last_character_id"], "mara");
+    assert!(character_dir.join("mara.json").exists());
+
+    let loaded = load_last_character_from_paths(&profile_path, &character_dir).unwrap();
+    assert_eq!(loaded.unwrap().name, "Mara");
+
+    let shade = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Hardcore,
+    );
+    save_active_character_to_paths(&shade, &profile_path, &character_dir).unwrap();
+
+    let profile: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&profile_path).unwrap()).unwrap();
+    assert_eq!(profile["last_character_id"], "shade");
+    assert!(character_dir.join("mara.json").exists());
+    assert!(character_dir.join("shade.json").exists());
+    assert_eq!(
+        load_last_character_from_paths(&profile_path, &character_dir)
+            .unwrap()
+            .unwrap()
+            .name,
+        "Shade"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn character_summaries_are_loaded_from_per_character_directory() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-multi-save-list-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+
+    let mara = Character::new(
+        "Mara".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    let mut shade = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Hardcore,
+    );
+    shade.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    shade.active_dungeon.as_mut().unwrap().floor = 4;
+    save_active_character_to_paths(&shade, &profile_path, &character_dir).unwrap();
+    save_active_character_to_paths(&mara, &profile_path, &character_dir).unwrap();
+
+    let summaries = load_character_summaries_from_dir(&character_dir).unwrap();
+    assert_eq!(
+        summaries
+            .iter()
+            .map(|summary| summary.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["mara", "shade"]
+    );
+    assert_eq!(summaries[0].name, "Mara");
+    assert_eq!(summaries[0].class_name, "Warrior");
+    assert_eq!(summaries[0].death_mode, DeathMode::Softcore);
+    assert_eq!(summaries[0].location, "Town");
+    assert_eq!(summaries[1].name, "Shade");
+    assert_eq!(summaries[1].class_name, "Rogue");
+    assert_eq!(summaries[1].death_mode, DeathMode::Hardcore);
+    assert_eq!(summaries[1].location, "Dungeon L4");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn per_character_saves_keep_stashes_separate() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-per-character-stash-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+
+    let mut mara = Character::new(
+        "Mara".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    let shade = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    mara.stash.push(mana_potion());
+
+    save_active_character_to_paths(&mara, &profile_path, &character_dir).unwrap();
+    save_active_character_to_paths(&shade, &profile_path, &character_dir).unwrap();
+
+    let loaded_mara = match load_character_from_path(&character_dir.join("mara.json")).unwrap() {
+        LoadedSave::Loaded(character) => character,
+        LoadedSave::Reset { warning } => panic!("mara should load: {warning}"),
+    };
+    let loaded_shade = match load_character_from_path(&character_dir.join("shade.json")).unwrap() {
+        LoadedSave::Loaded(character) => character,
+        LoadedSave::Reset { warning } => panic!("shade should load: {warning}"),
+    };
+
+    assert_eq!(loaded_mara.stash.len(), 1);
+    assert_eq!(loaded_shade.stash.len(), 0);
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn startup_load_prefers_last_character_from_profile() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-load-last-character-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+
+    let mara = Character::new(
+        "Mara".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    let shade = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Hardcore,
+    );
+    save_active_character_to_paths(&mara, &profile_path, &character_dir).unwrap();
+    save_active_character_to_paths(&shade, &profile_path, &character_dir).unwrap();
+
+    let loaded =
+        load_startup_character_from_paths(&profile_path, &character_dir, &dir.join("save.json"))
+            .unwrap();
+    assert_eq!(loaded.unwrap().name, "Shade");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_single_save_migrates_to_profile_and_character_file() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-legacy-multi-save-migration-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+    let legacy_path = dir.join("save.json");
+
+    let legacy = Character::new(
+        "Old Hero".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    save_character_to_path(&legacy, &legacy_path).unwrap();
+
+    let loaded =
+        load_startup_character_from_paths(&profile_path, &character_dir, &legacy_path).unwrap();
+    assert_eq!(loaded.unwrap().name, "Old Hero");
+    assert!(character_dir.join("old-hero.json").exists());
+    let profile: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&profile_path).unwrap()).unwrap();
+    assert_eq!(profile["last_character_id"], "old-hero");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn save_major_version_mismatch_resets_save() {
     let c = test_character();
     let dir = env::temp_dir().join(format!(
@@ -2577,6 +2771,46 @@ fn wide_inventory_render_keeps_bag_grid_content_sized_with_character_panel_to_th
 }
 
 #[test]
+fn character_select_screen_lists_saved_characters_and_new_character_row() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let summaries = vec![
+        CharacterSummary {
+            id: "mara".to_string(),
+            name: "Mara".to_string(),
+            class_name: "Warrior".to_string(),
+            level: 8,
+            death_mode: DeathMode::Softcore,
+            location: "Town".to_string(),
+        },
+        CharacterSummary {
+            id: "shade".to_string(),
+            name: "Shade".to_string(),
+            class_name: "Rogue".to_string(),
+            level: 3,
+            death_mode: DeathMode::Hardcore,
+            location: "Dungeon L4".to_string(),
+        },
+    ];
+    let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
+    terminal
+        .draw(|frame| render_character_select_screen(frame, &summaries, "shade", 1, ""))
+        .unwrap();
+    let body = backend_text(&terminal);
+
+    assert!(body.contains("Characters"));
+    assert!(body.contains("Mara"));
+    assert!(body.contains("Warrior"));
+    assert!(body.contains("Lv 8"));
+    assert!(body.contains("Shade"));
+    assert!(body.contains("Hardcore"));
+    assert!(body.contains("Dungeon L4"));
+    assert!(body.contains("+ New Character"));
+    assert!(body.contains("n=new"));
+    assert!(body.contains("Esc=back"));
+}
+
+#[test]
 fn character_creation_renders_as_stepped_ratatui_screen() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -3027,6 +3261,18 @@ fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
     assert!(attributes.contains("Spend Attributes (0 left)"));
     assert!(attributes.contains("No unspent attribute points."));
     assert!(attributes.contains("Esc=back"));
+}
+
+#[test]
+fn town_footer_lists_character_switch_command() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    terminal.draw(|frame| render_town(frame, &c, "")).unwrap();
+    let body = backend_text(&terminal);
+
+    assert!(body.contains("c=characters"));
 }
 
 #[test]
@@ -7347,6 +7593,31 @@ fn hardcore_death_deletes_save_and_returns_outcome() {
     assert!(c.pending_town_message.contains("Hardcore"));
 
     let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn hardcore_death_deletes_active_character_save_file() {
+    let mut c = Character::new(
+        format!("Doomed Hero {}", std::process::id()),
+        CharacterClass::Rogue,
+        DeathMode::Hardcore,
+    );
+    let save_path = character_save_path(&c);
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(&save_path, "hardcore save").unwrap();
+    assert!(save_path.exists());
+
+    c.hp = 0;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let outcome = check_death(&mut c);
+
+    assert_eq!(outcome, DeathOutcome::HardcoreDeleted);
+    assert!(!save_path.exists());
+    assert!(c.active_dungeon.is_none());
+
+    let _ = fs::remove_file(&save_path);
 }
 
 #[test]

@@ -1,6 +1,8 @@
 use crate::*;
 
 pub(crate) const SAVE_PATH: &str = "saves/save.json";
+pub(crate) const PROFILE_PATH: &str = "saves/profile.json";
+pub(crate) const CHARACTER_SAVE_DIR: &str = "saves/characters";
 pub(crate) const MAP_W: i32 = 40;
 pub(crate) const MAP_H: i32 = 16;
 pub(crate) const ACT1_FLOORS: u32 = 10;
@@ -34,6 +36,15 @@ pub(crate) const WHITE: &str = "\x1b[37m";
 pub(crate) enum DeathMode {
     Softcore,
     Hardcore,
+}
+
+impl DeathMode {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            DeathMode::Softcore => "Softcore",
+            DeathMode::Hardcore => "Hardcore",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

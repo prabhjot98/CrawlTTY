@@ -3,6 +3,7 @@ use ratatui::{
     prelude::*,
     widgets::{Paragraph, Wrap},
 };
+use std::path::PathBuf;
 
 pub(crate) const SAVE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LEGACY_SAVE_VERSION: &str = "0.0.0";
@@ -23,22 +24,206 @@ struct SaveFileRef<'a> {
     character: &'a Character,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct SaveProfile {
+    last_character_id: String,
+}
+
 #[derive(Debug)]
 pub(crate) enum LoadedSave {
     Loaded(Box<Character>),
     Reset { warning: String },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CharacterSummary {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) class_name: String,
+    pub(crate) level: u32,
+    pub(crate) death_mode: DeathMode,
+    pub(crate) location: String,
+}
+
+pub(crate) fn character_id_from_name(name: &str) -> String {
+    let mut id = String::new();
+    let mut last_dash = false;
+    for ch in name.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            id.push(ch.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash && !id.is_empty() {
+            id.push('-');
+            last_dash = true;
+        }
+    }
+    while id.ends_with('-') {
+        id.pop();
+    }
+    if id.is_empty() {
+        "character".to_string()
+    } else {
+        id
+    }
+}
+
+fn character_file_path(character_dir: &Path, id: &str) -> PathBuf {
+    character_dir.join(format!("{id}.json"))
+}
+
+pub(crate) fn character_save_path(character: &Character) -> PathBuf {
+    character_file_path(
+        Path::new(CHARACTER_SAVE_DIR),
+        &character_id_from_name(&character.name),
+    )
+}
+
+pub(crate) fn save_active_character_to_paths(
+    character: &Character,
+    profile_path: &Path,
+    character_dir: &Path,
+) -> Result<()> {
+    let id = character_id_from_name(&character.name);
+    save_character_to_path(character, &character_file_path(character_dir, &id))?;
+    save_profile_to_path(profile_path, &id)
+}
+
+fn save_profile_to_path(profile_path: &Path, last_character_id: &str) -> Result<()> {
+    if let Some(parent) = profile_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent).context("failed to create save profile directory")?;
+    }
+    let profile = SaveProfile {
+        last_character_id: last_character_id.to_string(),
+    };
+    let data =
+        serde_json::to_string_pretty(&profile).context("failed to serialize save profile")?;
+    let tmp_path = profile_path.with_file_name(format!(
+        "{}.tmp",
+        profile_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("profile.json")
+    ));
+    {
+        let mut file =
+            fs::File::create(&tmp_path).context("failed to create temporary profile file")?;
+        file.write_all(data.as_bytes())
+            .context("failed to write temporary profile file")?;
+        file.sync_all()
+            .context("failed to flush temporary profile file")?;
+    }
+    replace_file(&tmp_path, profile_path).context("failed to replace save profile")
+}
+
+pub(crate) fn load_last_character_from_paths(
+    profile_path: &Path,
+    character_dir: &Path,
+) -> Result<Option<Character>> {
+    if !profile_path.exists() {
+        return Ok(None);
+    }
+    let data = fs::read_to_string(profile_path).context("failed to read save profile")?;
+    let profile: SaveProfile =
+        serde_json::from_str(&data).context("failed to load save profile")?;
+    let character_path = character_file_path(character_dir, &profile.last_character_id);
+    if !character_path.exists() {
+        return Ok(None);
+    }
+    match load_character_from_path(&character_path)? {
+        LoadedSave::Loaded(character) => Ok(Some(*character)),
+        LoadedSave::Reset { warning } => {
+            drop(warning);
+            Ok(None)
+        }
+    }
+}
+
+pub(crate) fn load_character_summaries_from_dir(
+    character_dir: &Path,
+) -> Result<Vec<CharacterSummary>> {
+    if !character_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut summaries = Vec::new();
+    for entry in fs::read_dir(character_dir).context("failed to read character save directory")? {
+        let entry = entry.context("failed to read character save entry")?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let id = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("character")
+            .to_string();
+        match load_character_from_path(&path)? {
+            LoadedSave::Loaded(character) => summaries.push(character_summary(&id, &character)),
+            LoadedSave::Reset { warning } => drop(warning),
+        }
+    }
+    summaries.sort_by(|left, right| {
+        left.name
+            .to_lowercase()
+            .cmp(&right.name.to_lowercase())
+            .then(left.id.cmp(&right.id))
+    });
+    Ok(summaries)
+}
+
+fn character_summary(id: &str, character: &Character) -> CharacterSummary {
+    CharacterSummary {
+        id: id.to_string(),
+        name: character.name.clone(),
+        class_name: character.class_name().to_string(),
+        level: character.level,
+        death_mode: character.death_mode,
+        location: character
+            .active_dungeon
+            .as_ref()
+            .map(|dungeon| format!("Dungeon L{}", dungeon.floor))
+            .unwrap_or_else(|| "Town".to_string()),
+    }
+}
+
 pub(crate) fn load_or_create_character(
     terminal: &mut ratatui::DefaultTerminal,
 ) -> Result<Character> {
-    if Path::new(SAVE_PATH).exists() {
-        match load_character_from_path(Path::new(SAVE_PATH))? {
-            LoadedSave::Loaded(character) => return Ok(*character),
-            LoadedSave::Reset { warning } => return create_character(terminal, &warning),
-        }
+    if let Some(character) = load_startup_character_from_paths(
+        Path::new(PROFILE_PATH),
+        Path::new(CHARACTER_SAVE_DIR),
+        Path::new(SAVE_PATH),
+    )? {
+        return Ok(character);
     }
-    create_character(terminal, "")
+    let character = create_character(terminal, "")?;
+    save_character(&character)?;
+    Ok(character)
+}
+
+pub(crate) fn load_startup_character_from_paths(
+    profile_path: &Path,
+    character_dir: &Path,
+    legacy_save_path: &Path,
+) -> Result<Option<Character>> {
+    if let Some(character) = load_last_character_from_paths(profile_path, character_dir)? {
+        return Ok(Some(character));
+    }
+    if legacy_save_path.exists() && load_character_summaries_from_dir(character_dir)?.is_empty() {
+        return match load_character_from_path(legacy_save_path)? {
+            LoadedSave::Loaded(character) => {
+                save_active_character_to_paths(&character, profile_path, character_dir)?;
+                Ok(Some(*character))
+            }
+            LoadedSave::Reset { warning } => {
+                drop(warning);
+                Ok(None)
+            }
+        };
+    }
+    Ok(None)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -203,6 +388,167 @@ fn create_character(
         if let Some(character) = state.handle_key(key) {
             return Ok(character);
         }
+    }
+}
+
+pub(crate) fn render_character_select_screen(
+    frame: &mut Frame,
+    summaries: &[CharacterSummary],
+    current_id: &str,
+    selected: usize,
+    message: &str,
+) {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(6),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    frame.render_widget(
+        Paragraph::new("Choose a hero, or create a new one.").block(gothic_block("Characters")),
+        layout[0],
+    );
+
+    let mut lines = Vec::new();
+    for (index, summary) in summaries.iter().enumerate() {
+        let marker = if selected == index {
+            SELECTION_CURSOR
+        } else {
+            " "
+        };
+        let current = if summary.id == current_id {
+            " current"
+        } else {
+            ""
+        };
+        let style = if selected == index {
+            selected_cursor_style()
+        } else if summary.death_mode == DeathMode::Hardcore {
+            Style::default().fg(DANGER_COLOR)
+        } else {
+            Style::default()
+        };
+        lines.push(Line::styled(
+            format!(
+                "{marker} {:<16} {:<10} Lv {:<3} {:<8} {}{current}",
+                summary.name,
+                summary.class_name,
+                summary.level,
+                summary.death_mode.label(),
+                summary.location
+            ),
+            style,
+        ));
+    }
+    let new_index = summaries.len();
+    let new_marker = if selected == new_index {
+        SELECTION_CURSOR
+    } else {
+        " "
+    };
+    let new_style = if selected == new_index {
+        selected_cursor_style()
+    } else {
+        Style::default().fg(ACTION_COLOR)
+    };
+    lines.push(Line::styled(
+        format!("{new_marker} + New Character"),
+        new_style,
+    ));
+
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(gothic_block_selected("Saved Characters", true))
+            .wrap(Wrap { trim: false }),
+        layout[1],
+    );
+    let footer = if message.is_empty() {
+        "Up/Down=select  Enter=play  n=new  Esc=back".to_string()
+    } else {
+        format!("{message}\nUp/Down=select  Enter=play  n=new  Esc=back")
+    };
+    frame.render_widget(
+        Paragraph::new(command_footer_lines(footer)).block(gothic_block("Commands")),
+        layout[2],
+    );
+}
+
+pub(crate) fn character_select_menu(
+    current: &Character,
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<Option<Character>> {
+    save_character(current)?;
+    let current_id = character_id_from_name(&current.name);
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        let summaries = load_character_summaries_from_dir(Path::new(CHARACTER_SAVE_DIR))?;
+        selected = selected.min(summaries.len());
+        terminal
+            .draw(|frame| {
+                render_character_select_screen(frame, &summaries, &current_id, selected, &message)
+            })
+            .context("failed to draw character selection")?;
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
+        };
+        match key {
+            'w' | 'W' => {
+                selected = selected.saturating_sub(1);
+                message.clear();
+            }
+            's' | 'S' => {
+                selected = (selected + 1).min(summaries.len());
+                message.clear();
+            }
+            'n' | 'N' => match create_new_character_from_menu(terminal)? {
+                Ok(new_character) => return Ok(Some(new_character)),
+                Err(error_message) => message = error_message,
+            },
+            '\n' if selected == summaries.len() => {
+                match create_new_character_from_menu(terminal)? {
+                    Ok(new_character) => return Ok(Some(new_character)),
+                    Err(error_message) => message = error_message,
+                }
+            }
+            '\n' => {
+                if let Some(summary) = summaries.get(selected) {
+                    if summary.id == current_id {
+                        message = format!("{} is already active.", summary.name);
+                    } else if let LoadedSave::Loaded(character) = load_character_from_path(
+                        &character_file_path(Path::new(CHARACTER_SAVE_DIR), &summary.id),
+                    )? {
+                        save_profile_to_path(Path::new(PROFILE_PATH), &summary.id)?;
+                        return Ok(Some(*character));
+                    } else {
+                        message = "That character save could not be loaded.".to_string();
+                    }
+                }
+            }
+            '\u{1b}' => return Ok(None),
+            _ => {}
+        }
+    }
+}
+
+fn create_new_character_from_menu(
+    terminal: &mut ratatui::DefaultTerminal,
+) -> Result<std::result::Result<Character, String>> {
+    let new_character = create_character(terminal, "")?;
+    let new_id = character_id_from_name(&new_character.name);
+    if character_file_path(Path::new(CHARACTER_SAVE_DIR), &new_id).exists() {
+        Ok(Err(
+            "A character with that save name already exists.".to_string()
+        ))
+    } else {
+        save_character(&new_character)?;
+        Ok(Ok(new_character))
     }
 }
 
@@ -431,7 +777,11 @@ fn bad_save_warning(save_version: &str, err: &serde_json::Error) -> String {
 }
 
 pub(crate) fn save_character(character: &Character) -> Result<()> {
-    save_character_to_path(character, Path::new(SAVE_PATH))
+    save_active_character_to_paths(
+        character,
+        Path::new(PROFILE_PATH),
+        Path::new(CHARACTER_SAVE_DIR),
+    )
 }
 
 pub(crate) fn append_autosave_status(character: &Character, message: &mut String) {
