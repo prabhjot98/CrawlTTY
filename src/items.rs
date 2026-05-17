@@ -66,7 +66,14 @@ pub(crate) fn requirements(strength: u32, dexterity: u32, intelligence: u32) -> 
 pub(crate) fn item(name: &str, kind: ItemKind, value: u32, stats: ItemStats) -> Item {
     let required_strength = match kind {
         ItemKind::Weapon => stats.damage_max.max(0) as u32,
-        ItemKind::Armor | ItemKind::Shield => (stats.armor + 3).max(0) as u32,
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => (stats.armor + 3).max(0) as u32,
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => 0,
     };
     let required_dexterity = if kind == ItemKind::Weapon && name.contains("Sword") {
@@ -287,9 +294,37 @@ pub(crate) fn worn_shield() -> Item {
     )
 }
 pub(crate) fn empty_offhand() -> Item {
+    empty_slot("Empty Offhand", ItemKind::Shield)
+}
+
+pub(crate) fn empty_helm() -> Item {
+    empty_slot("Empty Helm", ItemKind::Helm)
+}
+
+pub(crate) fn empty_gloves() -> Item {
+    empty_slot("Empty Gloves", ItemKind::Gloves)
+}
+
+pub(crate) fn empty_boots() -> Item {
+    empty_slot("Empty Boots", ItemKind::Boots)
+}
+
+pub(crate) fn empty_belt() -> Item {
+    empty_slot("Empty Belt", ItemKind::Belt)
+}
+
+pub(crate) fn empty_amulet() -> Item {
+    empty_slot("Empty Amulet", ItemKind::Amulet)
+}
+
+pub(crate) fn empty_ring() -> Item {
+    empty_slot("Empty Ring", ItemKind::Ring)
+}
+
+fn empty_slot(name: &str, kind: ItemKind) -> Item {
     item_with_rarity(
-        "Empty Offhand",
-        ItemKind::Shield,
+        name,
+        kind,
         0,
         item_stats(0, 0, 0, 0, 0),
         Rarity::Common,

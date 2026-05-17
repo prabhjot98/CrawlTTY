@@ -233,6 +233,13 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
         equipment_line("Weapon", &c.equipped_weapon),
         equipment_line("Armor ", &c.equipped_armor),
         equipment_line("Shield", &c.equipped_shield),
+        equipment_line("Helm  ", &c.equipped_helm),
+        equipment_line("Gloves", &c.equipped_gloves),
+        equipment_line("Boots ", &c.equipped_boots),
+        equipment_line("Belt  ", &c.equipped_belt),
+        equipment_line("Amulet", &c.equipped_amulet),
+        equipment_line("Ring 1", &c.equipped_ring1),
+        equipment_line("Ring 2", &c.equipped_ring2),
         Line::from(""),
         town_quest_line(c),
     ];
