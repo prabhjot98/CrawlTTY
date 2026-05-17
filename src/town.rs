@@ -362,7 +362,7 @@ pub(crate) fn render_distillery_screen(
         lines.extend(
             c.inventory
                 .iter()
-                .take(inventory_visible_rows(8))
+                .take(visible_rows_for_area(frame.area(), 8))
                 .map(|item| plain_line(item_summary(item))),
         );
     }
@@ -409,7 +409,7 @@ pub(crate) fn render_merchant_screen(
         lines.extend(
             c.inventory
                 .iter()
-                .take(inventory_visible_rows(12))
+                .take(visible_rows_for_area(frame.area(), 12))
                 .map(|item| plain_line(item_summary(item))),
         );
     }
@@ -663,7 +663,7 @@ pub(crate) fn render_salvage_screen(
     if c.inventory.is_empty() {
         lines.push(plain_line("Inventory is empty."));
     } else {
-        let max_rows = inventory_visible_rows(8);
+        let max_rows = visible_rows_for_area(frame.area(), 8);
         let offset = scroll_offset(selected, c.inventory.len(), max_rows);
         lines.extend(
             c.inventory
@@ -1209,7 +1209,7 @@ pub(crate) fn render_socket_bench_screen(
             "Socketed Gear",
             Style::default().add_modifier(Modifier::BOLD),
         ));
-        let max_rows = inventory_visible_rows(7);
+        let max_rows = visible_rows_for_area(frame.area(), 7);
         let offset = scroll_offset(selected_item, targets.len(), max_rows);
         for (visible_index, target) in targets
             .iter()
@@ -1554,7 +1554,7 @@ pub(crate) fn render_sell_items_screen(
     if c.inventory.is_empty() {
         lines.push(plain_line("Inventory is empty."));
     } else {
-        let max_rows = inventory_visible_rows(8);
+        let max_rows = visible_rows_for_area(frame.area(), 8);
         let offset = scroll_offset(selected, c.inventory.len(), max_rows);
         lines.extend(
             c.inventory

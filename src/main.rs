@@ -1,5 +1,4 @@
 pub(crate) use anyhow::{Context, Result};
-pub(crate) use crossterm::terminal::size as terminal_size;
 pub(crate) use rand::Rng;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use std::{

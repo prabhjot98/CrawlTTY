@@ -244,9 +244,8 @@ pub(crate) fn log_inventory_action(c: &mut Character, message: &str) {
     }
 }
 
-pub(crate) fn inventory_visible_rows(reserved_rows: u16) -> usize {
-    let (_, height) = terminal_size().unwrap_or((80, 24));
-    height.saturating_sub(reserved_rows).max(5) as usize
+pub(crate) fn visible_rows_for_area(area: Rect, reserved_rows: u16) -> usize {
+    area.height.saturating_sub(reserved_rows).max(5) as usize
 }
 
 pub(crate) fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
