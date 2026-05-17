@@ -515,6 +515,48 @@ fn mana_shield_hotkey_toggles_freely_after_unlock() {
 }
 
 #[test]
+fn mana_shield_turns_off_when_spells_spend_last_mana() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.mana = FIREBOLT_MANA_COST;
+    c.sorceress.mana_shield_rank = 1;
+    c.sorceress.mana_shield_active = true;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![skeleton(5, 2)]));
+
+    assert!(use_firebolt_with_rolls(&mut c, 1.0, 0.0, 0.0));
+
+    assert_eq!(c.mana, 0);
+    assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn mana_shield_cannot_toggle_on_without_mana() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.mana = 0;
+    c.sorceress.mana_shield_rank = 1;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(!handle_class_skill_key(&mut c, '4'));
+
+    assert!(!c.sorceress.mana_shield_active);
+    assert!(
+        c.active_dungeon
+            .as_ref()
+            .unwrap()
+            .log
+            .iter()
+            .any(|line| line.contains("Mana Shield requires mana."))
+    );
+}
+
+#[test]
 fn chain_spark_requires_initial_line_of_sight_and_miss_ends_chain() {
     let mut c = Character::new(
         "Lyra".to_string(),
