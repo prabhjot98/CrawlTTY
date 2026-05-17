@@ -15,9 +15,13 @@ pub(crate) fn inventory_screen(
         terminal
             .draw(|frame| render_inventory_screen(frame, c, selected, &message))
             .context("failed to draw inventory")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -142,9 +146,7 @@ pub(crate) fn inventory_cell_spans(
     selected: bool,
 ) -> Vec<Span<'static>> {
     let label = inventory_cell_label(grid, index);
-    let focus_style = Style::default()
-        .fg(Color::Green)
-        .add_modifier(Modifier::BOLD);
+    let focus_style = selected_cursor_style();
 
     let Some(item) = grid.get(index) else {
         let style = if selected {

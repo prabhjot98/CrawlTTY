@@ -3,8 +3,33 @@ use ratatui::{
     prelude::*,
     widgets::{Block, Borders, Paragraph, Wrap},
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(crate) const SELECTED_CONTAINER_BORDER_COLOR: Color = Color::Rgb(148, 80, 190);
+pub(crate) const CURSOR_PULSE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(350);
+
+static CURSOR_PULSE_FRAME: AtomicBool = AtomicBool::new(true);
+
+pub(crate) fn cursor_style(cursor_frame: bool) -> Style {
+    let style = Style::default().fg(SELECTED_CONTAINER_BORDER_COLOR);
+    if cursor_frame {
+        style.add_modifier(Modifier::BOLD)
+    } else {
+        style
+    }
+}
+
+pub(crate) fn selected_cursor_style() -> Style {
+    cursor_style(cursor_pulse_frame())
+}
+
+pub(crate) fn cursor_pulse_frame() -> bool {
+    CURSOR_PULSE_FRAME.load(Ordering::Relaxed)
+}
+
+pub(crate) fn toggle_cursor_pulse_frame() {
+    CURSOR_PULSE_FRAME.fetch_xor(true, Ordering::Relaxed);
+}
 
 pub(crate) fn selected_container_border_style(selected: bool) -> Style {
     if selected {

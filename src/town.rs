@@ -97,9 +97,7 @@ fn plain_line(text: impl Into<String>) -> Line<'static> {
 fn selected_line(selected: bool, text: impl Into<String>) -> Line<'static> {
     let prefix = if selected { "> " } else { "  " };
     let style = if selected {
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD)
+        selected_cursor_style()
     } else {
         Style::default()
     };
@@ -119,9 +117,13 @@ pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTermina
         terminal
             .draw(|frame| render_merchant_screen(frame, c, selected, &message))
             .context("failed to draw merchant")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -291,9 +293,13 @@ pub(crate) fn distillery(c: &mut Character, terminal: &mut ratatui::DefaultTermi
         terminal
             .draw(|frame| render_distillery_screen(frame, c, selected, &message))
             .context("failed to draw distillery")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -430,9 +436,13 @@ pub(crate) fn blacksmith(c: &mut Character, terminal: &mut ratatui::DefaultTermi
         terminal
             .draw(|frame| render_blacksmith_screen(frame, c, selected, &message))
             .context("failed to draw blacksmith")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -537,9 +547,13 @@ pub(crate) fn town_projects_menu(
         terminal
             .draw(|frame| render_town_projects_screen(frame, c, selected, &message))
             .context("failed to draw town projects")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -610,9 +624,13 @@ pub(crate) fn salvage_screen(
         terminal
             .draw(|frame| render_salvage_screen(frame, c, selected, &message))
             .context("failed to draw salvage")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1119,9 +1137,13 @@ pub(crate) fn socket_bench_screen(
                 render_socket_bench_screen(frame, c, selected_item, selected_socket, &message)
             })
             .context("failed to draw socket bench")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1268,9 +1290,13 @@ fn filled_socket_action_screen(
                 )
             })
             .context("failed to draw filled socket action")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1394,9 +1420,13 @@ fn gem_picker_screen(
         terminal
             .draw(|frame| render_gem_picker_screen(frame, c, selected, &message))
             .context("failed to draw gem picker")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1462,11 +1492,7 @@ pub(crate) fn render_gem_picker_screen(
             .collect::<Vec<_>>();
         let list = List::new(items)
             .block(Block::default().borders(Borders::ALL).title("Gems"))
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(selected_cursor_style())
             .highlight_symbol("> ");
         let mut state = ListState::default();
         state.select(Some(selected.saturating_sub(offset)));
@@ -1497,9 +1523,13 @@ pub(crate) fn sell_item_screen(
         terminal
             .draw(|frame| render_sell_items_screen(frame, c, selected, &message))
             .context("failed to draw sell items")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1586,9 +1616,13 @@ pub(crate) fn stash_menu(c: &mut Character, terminal: &mut ratatui::DefaultTermi
                 render_stash_screen(frame, c, side, inv_selected, stash_selected, &message)
             })
             .context("failed to draw stash")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1856,9 +1890,13 @@ pub(crate) fn spend_attributes(
         terminal
             .draw(|frame| render_spend_attributes_screen(frame, c, selected, &message))
             .context("failed to draw attributes")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -1992,9 +2030,7 @@ fn attribute_choice_line(
     c: &Character,
 ) -> Line<'static> {
     let marker_style = if selected {
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD)
+        selected_cursor_style()
     } else {
         Style::default()
     };

@@ -865,6 +865,27 @@ fn terminal_resize_event_requests_redraw() {
 }
 
 #[test]
+fn cursor_pulse_styles_share_cursed_violet_and_toggle_bold() {
+    use ratatui::style::Modifier;
+
+    let dim = cursor_style(false);
+    let bright = cursor_style(true);
+
+    assert_eq!(dim.fg, Some(SELECTED_CONTAINER_BORDER_COLOR));
+    assert_eq!(bright.fg, Some(SELECTED_CONTAINER_BORDER_COLOR));
+    assert!(!dim.add_modifier.contains(Modifier::BOLD));
+    assert!(bright.add_modifier.contains(Modifier::BOLD));
+}
+
+#[test]
+fn cursor_pulse_timeout_returns_tick() {
+    assert_eq!(
+        terminal_event_timeout_to_input(None, true, false).unwrap(),
+        UiInput::Tick
+    );
+}
+
+#[test]
 fn terminal_key_release_events_are_ignored() {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -1191,8 +1212,50 @@ fn inventory_cell_label_shows_item_kind_or_empty_cell() {
 }
 
 #[test]
+fn cursor_style_uses_cursed_violet() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let grid = ItemGrid::new(2, 2, vec![rusted_sword()]);
+
+    let selected_item = inventory_cell_spans(&grid, 0, true);
+    assert_eq!(
+        selected_item[1].style.fg,
+        Some(SELECTED_CONTAINER_BORDER_COLOR)
+    );
+
+    let selected_empty = inventory_cell_spans(&grid, 1, true);
+    assert!(
+        selected_empty
+            .iter()
+            .all(|span| span.style.fg == Some(SELECTED_CONTAINER_BORDER_COLOR))
+    );
+
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Class,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        cell_fg_at_text(&terminal, "Warrior"),
+        SELECTED_CONTAINER_BORDER_COLOR
+    );
+    assert_ne!(
+        cell_fg_at_text(&terminal, "Rogue"),
+        SELECTED_CONTAINER_BORDER_COLOR
+    );
+}
+
+#[test]
 fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
-    use ratatui::style::{Color, Modifier, Style};
+    use ratatui::style::{Color, Style};
 
     let mut rare_sword = rusted_sword();
     rare_sword.rarity = Rarity::Rare;
@@ -1204,12 +1267,7 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
     assert_eq!(rare_selected[0].content.as_ref(), "[");
     assert_eq!(rare_selected[0].style, Style::default().fg(Color::Yellow));
     assert_eq!(rare_selected[1].content.as_ref(), "W");
-    assert_eq!(
-        rare_selected[1].style,
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD)
-    );
+    assert_eq!(rare_selected[1].style, selected_cursor_style());
     assert_eq!(rare_selected[2].content.as_ref(), "]");
     assert_eq!(rare_selected[2].style, Style::default().fg(Color::Yellow));
 
@@ -1226,12 +1284,11 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
             .collect::<Vec<_>>(),
         vec!["[", ".", "]"]
     );
-    assert!(empty_selected.iter().all(|span| {
-        span.style
-            == Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD)
-    }));
+    assert!(
+        empty_selected
+            .iter()
+            .all(|span| { span.style == selected_cursor_style() })
+    );
 }
 
 #[test]

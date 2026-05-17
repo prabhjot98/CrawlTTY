@@ -156,9 +156,13 @@ fn create_character(
                 )
             })
             .context("failed to draw character creation")?;
-        let key = match read_ui_input_raw_arrows()? {
+        let key = match read_ui_input_raw_arrows_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         if let Some(character) = state.handle_key(key) {
             return Ok(character);
@@ -218,11 +222,19 @@ pub(crate) fn render_character_creation_screen(
         Paragraph::new(vec![
             Line::styled(
                 format!("{warrior_marker} Warrior - armored melee skills and mana."),
-                Style::default().fg(Color::Cyan),
+                if selected_class == CharacterClass::Warrior {
+                    selected_cursor_style()
+                } else {
+                    Style::default().fg(Color::Cyan)
+                },
             ),
             Line::styled(
                 format!("{rogue_marker} Rogue - dagger burst, Energy, and combo points."),
-                Style::default().fg(Color::Green),
+                if selected_class == CharacterClass::Rogue {
+                    selected_cursor_style()
+                } else {
+                    Style::default().fg(Color::Green)
+                },
             ),
         ])
         .block(
@@ -257,11 +269,19 @@ pub(crate) fn render_character_creation_screen(
         Paragraph::new(vec![
             Line::styled(
                 format!("{softcore_marker} Softcore - death returns you to town."),
-                Style::default().fg(Color::Green),
+                if selected_death_mode == DeathMode::Softcore {
+                    selected_cursor_style()
+                } else {
+                    Style::default().fg(Color::Green)
+                },
             ),
             Line::styled(
                 format!("{hardcore_marker} Hardcore - death permanently ends the character."),
-                Style::default().fg(Color::Red),
+                if selected_death_mode == DeathMode::Hardcore {
+                    selected_cursor_style()
+                } else {
+                    Style::default().fg(Color::Red)
+                },
             ),
         ])
         .block(

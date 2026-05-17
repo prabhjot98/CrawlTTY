@@ -25,11 +25,13 @@ pub(crate) use classes::*;
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
 pub(crate) use input::{
-    KEY_ARROW_DOWN, KEY_ARROW_UP, UiInput, read_ui_input, read_ui_input_nav,
-    read_ui_input_raw_arrows, set_ratatui_owns_raw_mode,
+    KEY_ARROW_DOWN, KEY_ARROW_UP, UiInput, read_ui_input, read_ui_input_nav_timed,
+    read_ui_input_raw_arrows_timed, read_ui_input_timed, set_ratatui_owns_raw_mode,
 };
 #[cfg(test)]
-pub(crate) use input::{terminal_event_to_input, terminal_event_to_input_raw_arrows};
+pub(crate) use input::{
+    terminal_event_timeout_to_input, terminal_event_to_input, terminal_event_to_input_raw_arrows,
+};
 pub(crate) use inventory::*;
 pub(crate) use items::*;
 pub(crate) use model::*;
@@ -104,7 +106,7 @@ fn run_game(
             .context("failed to draw town")?;
         let key = match read_ui_input() {
             Ok(UiInput::Key(key)) => key,
-            Ok(UiInput::Redraw) => continue,
+            Ok(UiInput::Redraw | UiInput::Tick) => continue,
             Err(err) => {
                 save_character(character)?;
                 return Err(err);

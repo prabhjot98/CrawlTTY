@@ -6,6 +6,7 @@ use crossterm::{
 use std::{
     io,
     sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
 };
 
 static RATATUI_OWNS_RAW_MODE: AtomicBool = AtomicBool::new(false);
@@ -14,6 +15,7 @@ static RATATUI_OWNS_RAW_MODE: AtomicBool = AtomicBool::new(false);
 pub(crate) enum UiInput {
     Key(char),
     Redraw,
+    Tick,
 }
 
 pub(crate) const KEY_ARROW_UP: char = '\u{10}';
@@ -38,25 +40,48 @@ impl Drop for RawModeGuard {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn read_ui_input_nav() -> Result<UiInput> {
-    read_ui_input_with_options(true, false)
+    read_ui_input_with_options(true, false, None)
+}
+
+pub(crate) fn read_ui_input_nav_timed(timeout: Duration) -> Result<UiInput> {
+    read_ui_input_with_options(true, false, Some(timeout))
 }
 
 pub(crate) fn read_ui_input() -> Result<UiInput> {
-    read_ui_input_with_options(false, false)
+    read_ui_input_with_options(false, false, None)
 }
 
+pub(crate) fn read_ui_input_timed(timeout: Duration) -> Result<UiInput> {
+    read_ui_input_with_options(false, false, Some(timeout))
+}
+
+#[allow(dead_code)]
 pub(crate) fn read_ui_input_raw_arrows() -> Result<UiInput> {
-    read_ui_input_with_options(false, true)
+    read_ui_input_with_options(false, true, None)
 }
 
-fn read_ui_input_with_options(navigation: bool, raw_arrows: bool) -> Result<UiInput> {
+pub(crate) fn read_ui_input_raw_arrows_timed(timeout: Duration) -> Result<UiInput> {
+    read_ui_input_with_options(false, true, Some(timeout))
+}
+
+fn read_ui_input_with_options(
+    navigation: bool,
+    raw_arrows: bool,
+    timeout: Option<Duration>,
+) -> Result<UiInput> {
     let _raw_mode = if RATATUI_OWNS_RAW_MODE.load(Ordering::Relaxed) {
         None
     } else {
         Some(RawModeGuard::new().context("failed to enable raw mode")?)
     };
     loop {
+        if let Some(timeout) = timeout {
+            if !event::poll(timeout).context("failed to poll terminal event")? {
+                return Ok(UiInput::Tick);
+            }
+        }
         if let Some(input) = terminal_event_to_input_with_options(
             event::read().context("failed to read terminal event")?,
             navigation,
@@ -75,6 +100,21 @@ pub(crate) fn terminal_event_to_input(event: Event, navigation: bool) -> Result<
 #[cfg(test)]
 pub(crate) fn terminal_event_to_input_raw_arrows(event: Event) -> Result<Option<UiInput>> {
     terminal_event_to_input_with_options(event, false, true)
+}
+
+#[cfg(test)]
+pub(crate) fn terminal_event_timeout_to_input(
+    event: Option<Event>,
+    navigation: bool,
+    raw_arrows: bool,
+) -> Result<UiInput> {
+    match event {
+        Some(event) => Ok(
+            terminal_event_to_input_with_options(event, navigation, raw_arrows)?
+                .unwrap_or(UiInput::Tick),
+        ),
+        None => Ok(UiInput::Tick),
+    }
 }
 
 fn terminal_event_to_input_with_options(

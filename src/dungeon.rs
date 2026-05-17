@@ -88,7 +88,7 @@ pub(crate) fn dungeon_loop(
             .context("failed to draw dungeon")?;
         let key = match read_ui_input() {
             Ok(UiInput::Key(key)) => key,
-            Ok(UiInput::Redraw) => continue,
+            Ok(UiInput::Redraw | UiInput::Tick) => continue,
             Err(err) => {
                 save_character(c)?;
                 return Err(err);
@@ -2151,9 +2151,13 @@ pub(crate) fn ground_loot_picker(
         terminal
             .draw(|frame| render_ground_loot_picker(frame, c, selected, &message))
             .context("failed to draw ground loot picker")?;
-        let key = match read_ui_input()? {
+        let key = match read_ui_input_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -2256,11 +2260,7 @@ fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, ar
         .collect::<Vec<_>>();
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title("Items"))
-        .highlight_style(
-            Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD),
-        )
+        .highlight_style(selected_cursor_style())
         .highlight_symbol("> ");
     let mut state = ListState::default();
     state.select(Some(selected.saturating_sub(offset)));

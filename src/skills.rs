@@ -15,9 +15,13 @@ pub(crate) fn skill_tree_menu(
         terminal
             .draw(|frame| render_skill_tree_screen(frame, c, selected, &message))
             .context("failed to draw skill tree")?;
-        let key = match read_ui_input_nav()? {
+        let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
+            UiInput::Tick => {
+                toggle_cursor_pulse_frame();
+                continue;
+            }
         };
         message.clear();
         match key {
@@ -220,9 +224,7 @@ fn skill_line(text: impl Into<String>) -> Line<'static> {
 fn selected_skill_line(selected: bool, text: impl Into<String>) -> Line<'static> {
     let prefix = if selected { "> " } else { "  " };
     let style = if selected {
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD)
+        selected_cursor_style()
     } else {
         Style::default()
     };
@@ -753,7 +755,7 @@ pub(crate) fn mastery_menu(
         let options = mastery_options(c, skill);
         let key = match read_ui_input()? {
             UiInput::Key(key) => key,
-            UiInput::Redraw => continue,
+            UiInput::Redraw | UiInput::Tick => continue,
         };
         match key {
             key @ ('1' | '2' | '3') => {
