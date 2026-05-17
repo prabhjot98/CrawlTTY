@@ -4887,6 +4887,30 @@ fn town_project_board_uses_list_and_details_panels() {
 }
 
 #[test]
+fn town_project_board_colors_completed_and_purchasable_rows() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.gold = 1_000;
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    let selected = TOWN_PROJECTS
+        .iter()
+        .position(|definition| definition.project == TownProject::SocketBench)
+        .unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_town_projects_screen(frame, &c, selected, ""))
+        .unwrap();
+
+    assert_eq!(
+        cell_fg_at_text(&terminal, "Rebuild the Forge"),
+        TEXT_MUTED_COLOR
+    );
+    assert_eq!(cell_fg_at_text(&terminal, "Hire Appraiser"), ACTION_COLOR);
+}
+
+#[test]
 fn wide_town_project_board_gives_details_half_width_without_wrapping_project_names() {
     use ratatui::{Terminal, backend::TestBackend};
 

@@ -632,13 +632,11 @@ fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, a
         .skip(offset)
         .take(visible_rows)
         .map(|(index, definition)| {
-            selected_line(
+            town_project_list_row_line(
+                c,
+                definition.project,
+                project_dependency_depth(definition.project),
                 index == selected,
-                town_project_list_row_text(
-                    c,
-                    definition.project,
-                    project_dependency_depth(definition.project),
-                ),
             )
         })
         .collect::<Vec<_>>();
@@ -649,6 +647,42 @@ fn render_town_project_list(frame: &mut Frame, c: &Character, selected: usize, a
             .wrap(Wrap { trim: false }),
         area,
     );
+}
+
+fn town_project_list_row_line(
+    c: &Character,
+    project: TownProject,
+    dependency_depth: usize,
+    selected: bool,
+) -> Line<'static> {
+    let prefix = if selected {
+        SELECTION_CURSOR_PREFIX
+    } else {
+        "  "
+    };
+    let cursor_style = if selected {
+        selected_cursor_style()
+    } else {
+        Style::default()
+    };
+    let text_style = town_project_list_row_status_style(c, project).unwrap_or(cursor_style);
+    Line::from(vec![
+        Span::styled(prefix.to_string(), cursor_style),
+        Span::styled(
+            town_project_list_row_text(c, project, dependency_depth),
+            text_style,
+        ),
+    ])
+}
+
+fn town_project_list_row_status_style(c: &Character, project: TownProject) -> Option<Style> {
+    match town_project_availability(c, project) {
+        ProjectAvailability::Completed => Some(muted_style()),
+        ProjectAvailability::Available if c.gold >= town_project_definition(project).cost => {
+            Some(Style::default().fg(ACTION_COLOR))
+        }
+        ProjectAvailability::Available | ProjectAvailability::Locked(_) => None,
+    }
 }
 
 fn town_project_list_row_text(
