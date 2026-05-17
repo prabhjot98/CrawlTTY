@@ -91,11 +91,72 @@ pub(crate) fn footer_text(message: &str, commands: &str) -> String {
 
 pub(crate) fn render_commands_footer(frame: &mut Frame, area: Rect, footer: impl Into<String>) {
     frame.render_widget(
-        Paragraph::new(footer.into())
+        Paragraph::new(command_footer_lines(footer.into()))
             .block(gothic_block("Commands"))
             .wrap(Wrap { trim: false }),
         area,
     );
+}
+
+pub(crate) fn command_footer_lines(footer: impl AsRef<str>) -> Vec<Line<'static>> {
+    footer.as_ref().lines().map(command_footer_line).collect()
+}
+
+fn command_footer_line(text: &str) -> Line<'static> {
+    if text.is_empty() {
+        return Line::from("");
+    }
+    if !text.contains('=') {
+        return Line::from(vec![Span::styled(
+            text.to_string(),
+            Style::default().fg(WARNING_COLOR),
+        )]);
+    }
+
+    let mut spans = Vec::new();
+    for (index, segment) in text.split("  ").enumerate() {
+        if index > 0 {
+            spans.push(Span::raw("  "));
+        }
+        spans.extend(command_footer_segment_spans(segment));
+    }
+    Line::from(spans)
+}
+
+fn command_footer_segment_spans(segment: &str) -> Vec<Span<'static>> {
+    let Some((key_text, label)) = segment.split_once('=') else {
+        return vec![Span::styled(segment.to_string(), body_style())];
+    };
+
+    let mut spans = command_key_spans(key_text);
+    spans.push(Span::styled(format!("={label}"), body_style()));
+    spans
+}
+
+fn command_key_spans(key_text: &str) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    let mut keys = key_text;
+    if let Some((title, rest)) = key_text.split_once(": ") {
+        spans.push(Span::styled(format!("{title}: "), title_style()));
+        keys = rest;
+    }
+
+    for (index, key) in keys.split(" or ").enumerate() {
+        if index > 0 {
+            spans.push(Span::styled(" or ", body_style()));
+        }
+        spans.push(Span::styled(key.to_string(), command_key_style(key)));
+    }
+    spans
+}
+
+fn command_key_style(key: &str) -> Style {
+    let color = if key.eq_ignore_ascii_case("q") || key.eq_ignore_ascii_case("esc") {
+        DANGER_COLOR
+    } else {
+        ACTION_COLOR
+    };
+    Style::default().fg(color).add_modifier(Modifier::BOLD)
 }
 
 pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) {

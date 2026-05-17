@@ -1365,6 +1365,47 @@ fn command_and_stat_text_use_gothic_semantic_colors() {
 }
 
 #[test]
+fn commands_footer_colors_selectable_keys() {
+    use ratatui::style::{Modifier, Style};
+
+    let lines = command_footer_lines("Dropped item.\nW/S or arrows=select  Enter=choose  Esc=back");
+
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0].spans[0].content.as_ref(), "Dropped item.");
+    assert_eq!(lines[0].spans[0].style, Style::default().fg(WARNING_COLOR));
+
+    let command_spans = &lines[1].spans;
+    assert_eq!(command_spans[0].content.as_ref(), "W/S");
+    assert_eq!(
+        command_spans[0].style,
+        Style::default()
+            .fg(ACTION_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(command_spans[2].content.as_ref(), "arrows");
+    assert_eq!(
+        command_spans[2].style,
+        Style::default()
+            .fg(ACTION_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(command_spans[5].content.as_ref(), "Enter");
+    assert_eq!(
+        command_spans[5].style,
+        Style::default()
+            .fg(ACTION_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(command_spans[8].content.as_ref(), "Esc");
+    assert_eq!(
+        command_spans[8].style,
+        Style::default()
+            .fg(DANGER_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+}
+
+#[test]
 fn selected_item_detail_lines_empty_cell_uses_passed_grid_label_and_capacity() {
     let c = test_character();
     let lines = selected_item_detail_lines(&c, &c.stash, "Stash", None);

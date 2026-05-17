@@ -306,7 +306,7 @@ pub(crate) fn render_character_creation_screen(
         format!("{message}\n{commands}")
     };
     frame.render_widget(
-        Paragraph::new(footer).block(gothic_block("Commands")),
+        Paragraph::new(command_footer_lines(footer)).block(gothic_block("Commands")),
         layout[5],
     );
 }

@@ -517,7 +517,7 @@ fn render_skill_lines_screen(
         format!("{message}\n{commands}")
     };
     frame.render_widget(
-        Paragraph::new(footer).block(gothic_block("Commands")),
+        Paragraph::new(command_footer_lines(footer)).block(gothic_block("Commands")),
         layout[2],
     );
 }
