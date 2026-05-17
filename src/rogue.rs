@@ -75,6 +75,10 @@ pub(crate) fn poison_damage_for_rank(rank: u32) -> i32 {
     1 + rank.min(5).div_ceil(2) as i32
 }
 
+pub(crate) fn rupture_poison_duration_for_rank(rank: u32) -> u32 {
+    3 + rank.saturating_sub(1).min(4)
+}
+
 pub(crate) fn eviscerate_multiplier_for_points(points: u32) -> f32 {
     match points.min(5) {
         0 => 0.0,
@@ -186,13 +190,14 @@ pub(crate) fn use_venom_edge(c: &mut Character) -> bool {
         return true;
     }
     let poison_damage = poison_damage_for_rank(c.rogue.venom_edge_rank);
+    let poison_turns = rupture_poison_duration_for_rank(c.rogue.rupture_rank);
     if let Some(enemy) = c
         .active_dungeon
         .as_mut()
         .and_then(|d| d.enemies.get_mut(index))
     {
         if enemy.hp > 0 {
-            enemy.poison_turns = enemy.poison_turns.max(3);
+            enemy.poison_turns = enemy.poison_turns.max(poison_turns);
             enemy.poison_damage = enemy.poison_damage.max(poison_damage);
         }
     }

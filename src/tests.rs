@@ -434,6 +434,34 @@ fn venom_edge_applies_poison_and_grants_combo_point() {
 }
 
 #[test]
+fn rupture_rank_extends_venom_edge_poison_duration() {
+    let mut rank_one = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rank_one.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+    assert!(use_venom_edge(&mut rank_one));
+
+    let rank_one_duration = rank_one.active_dungeon.as_ref().unwrap().enemies[0].poison_turns;
+
+    let mut rank_five = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    rank_five.rogue.rupture_rank = 5;
+    rank_five.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+    assert!(use_venom_edge(&mut rank_five));
+
+    let rank_five_duration = rank_five.active_dungeon.as_ref().unwrap().enemies[0].poison_turns;
+    assert_eq!(rank_one_duration, 3);
+    assert_eq!(rank_five_duration, 7);
+}
+
+#[test]
 fn poison_tick_damages_decrements_and_awards_rewards() {
     let mut enemy = enemy(
         "Poison Tick Dummy",
@@ -1374,10 +1402,10 @@ fn skill_screens_render_with_ratatui() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        locked_passive_tree.contains("└─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"),
+        locked_passive_tree.contains("└─🔒︎ Deep Cut upgrades at Cleave rank 2 (1/2)"),
         "{locked_passive_lines}"
     );
-    assert!(locked_passive_tree.contains("Unlock: Cleave rank 1/2"));
+    assert!(locked_passive_tree.contains("Upgrade: Cleave rank 1/2"));
     assert!(!locked_passive_tree.contains("branch starter"));
 
     c.warrior.cleave_rank = 5;
@@ -1391,6 +1419,8 @@ fn skill_screens_render_with_ratatui() {
 
 #[test]
 fn rogue_skill_screen_renders_with_ratatui() {
+    use ratatui::{Terminal, backend::TestBackend};
+
     let c = Character::new(
         "Sneak".to_string(),
         CharacterClass::Rogue,
@@ -1410,6 +1440,13 @@ fn rogue_skill_screen_renders_with_ratatui() {
     assert!(text.contains("Smoke Step"));
     assert!(text.contains("Rupture"));
     assert!(text.contains("Slip Away"));
+
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, 3, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+    assert!(rendered.contains("Venom Edge poison lasts 3 turns."));
 }
 
 #[test]
@@ -2163,6 +2200,8 @@ fn skill_rank_scaling_matches_design() {
     assert_eq!(empowered_backstab_percent_for_rank(5), 160);
     assert_eq!(venom_edge_percent_for_rank(1), 70);
     assert_eq!(venom_edge_percent_for_rank(5), 90);
+    assert_eq!(rupture_poison_duration_for_rank(1), 3);
+    assert_eq!(rupture_poison_duration_for_rank(5), 7);
     assert_eq!(eviscerate_bonus_percent_for_rank(1), 0);
     assert_eq!(eviscerate_bonus_percent_for_rank(5), 40);
     assert_eq!(smoke_step_dodge_bonus_for_rank(1), 20);

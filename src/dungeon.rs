@@ -430,10 +430,11 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
             empowered_backstab_percent_for_rank(c.rogue.backstab_rank)
         )),
         Line::from(format!(
-            "2 Venom Edge r{}: cost 30 Energy. {}% damage; build 1 CP and poison {}/turn for 3 turns.",
+            "2 Venom Edge r{}: cost 30 Energy. {}% damage; build 1 CP and poison {}/turn for {} turns.",
             c.rogue.venom_edge_rank,
             venom_edge_percent_for_rank(c.rogue.venom_edge_rank),
-            poison_damage_for_rank(c.rogue.venom_edge_rank)
+            poison_damage_for_rank(c.rogue.venom_edge_rank),
+            rupture_poison_duration_for_rank(c.rogue.rupture_rank)
         )),
         Line::from(format!(
             "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage +{}%.",

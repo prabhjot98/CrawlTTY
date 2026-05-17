@@ -262,7 +262,7 @@ fn append_passive_unlock_line(lines: &mut Vec<Line<'static>>, c: &Character, pas
             ""
         };
         lines.push(skill_line(format!(
-            "   └─{marker}{passive} unlocks at {} rank {} ({}/{})",
+            "   └─{marker}{passive} upgrades at {} rank {} ({}/{})",
             prerequisite.starter,
             prerequisite.required_rank,
             prerequisite.current_rank.min(prerequisite.required_rank),
@@ -346,7 +346,7 @@ fn selected_skill_detail_lines(c: &Character, skill: &str) -> Vec<Line<'static>>
     ];
     if let Some(prerequisite) = passive_prerequisite(c, skill) {
         lines.push(skill_line(format!(
-            "Unlock: {} rank {}/{}",
+            "Upgrade: {} rank {}/{}",
             prerequisite.starter,
             prerequisite.current_rank.min(prerequisite.required_rank),
             prerequisite.required_rank
@@ -443,13 +443,17 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
         "Venom Edge" => vec![
             format!("{}% weapon damage", venom_edge_percent_for_rank(rank)),
             format!(
-                "Poison deals {}/turn for 3 turns.",
-                poison_damage_for_rank(rank)
+                "Poison deals {}/turn for {} turns.",
+                poison_damage_for_rank(rank),
+                rupture_poison_duration_for_rank(c.rogue.rupture_rank)
             ),
             "30 Energy; builds 1 combo point.".to_string(),
         ],
         "Rupture" => vec![
-            "Venom branch upgrade.".to_string(),
+            format!(
+                "Venom Edge poison lasts {} turns.",
+                rupture_poison_duration_for_rank(rank)
+            ),
             "Requires Venom Edge rank 2.".to_string(),
         ],
         "Smoke Step" => vec![

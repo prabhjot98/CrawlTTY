@@ -225,7 +225,7 @@ Example skills:
 
 ### 4. Rogue
 
-A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture upgrades require Venom Edge rank 2, and Slip Away upgrades require Smoke Step rank 2. Smoke Step spends Energy to dash 1-2 cardinal tiles along a clear path to an open destination, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus Slip Away, and enables an empowered Backstab on the next player action.
+A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture upgrades require Venom Edge rank 2, and Slip Away upgrades require Smoke Step rank 2. Rupture extends Venom Edge poison duration by rank. Smoke Step spends Energy to dash 1-2 cardinal tiles along a clear path to an open destination, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus Slip Away, and enables an empowered Backstab on the next player action.
 
 Possible builds:
 
@@ -239,7 +239,7 @@ Example skills:
 - Venom Edge: melee builder that poisons the target and grants a combo point
 - Eviscerate: finisher that spends internal combo points for heavy physical burst
 - Smoke Step: short cardinal dash that grants brief protection and enables an empowered Backstab
-- Rupture: Venom branch upgrade gated by Venom Edge rank 2
+- Rupture: Venom branch upgrade that extends Venom Edge poison duration
 - Slip Away: Smoke branch upgrade gated by Smoke Step rank 2
 
 ### 5. Wildspeaker
