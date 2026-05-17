@@ -3295,6 +3295,7 @@ fn sorceress_scaling_helpers_match_mvp_numbers() {
             .collect::<Vec<_>>(),
         vec![2, 2, 3, 3, 4]
     );
+    assert_eq!(mana_shield_absorb_percent_for_rank(0), 0);
     assert_eq!(
         (1..=5)
             .map(mana_shield_absorb_percent_for_rank)

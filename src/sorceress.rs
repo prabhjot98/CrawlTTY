@@ -44,7 +44,11 @@ pub(crate) fn chain_spark_hit_count_for_rank(rank: u32) -> usize {
 }
 
 pub(crate) fn mana_shield_absorb_percent_for_rank(rank: u32) -> u32 {
-    35 + rank.saturating_sub(1).min(4) * 5
+    if rank == 0 {
+        0
+    } else {
+        35 + rank.saturating_sub(1).min(4) * 5
+    }
 }
 
 pub(crate) fn kindle_fire_bonus_percent_for_rank(rank: u32) -> u32 {
