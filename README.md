@@ -6,7 +6,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 
 - ASCII terminal UI
 - Town hub with merchant, blacksmith, stash, town projects, quest giver, dungeon entrance, and automatic full healing on return
-- Warrior class with attributes, leveling, skills, and mastery choices
+- Warrior and Rogue classes with attributes, leveling, skills, and class-specific resources
 - Procedural 10-floor Act I dungeon and 8-floor Act II dungeon
 - Turn-based combat with enemies, elites, chests, loot, XP, gold, and potions
 - Bellkeeper and Glass Tyrant boss encounters
@@ -36,6 +36,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 - `1` Cleave
 - `2` Shield Bash
 - `3` Battle Cry
+- Rogue: `1` Backstab, `2` Venom Edge, `3` Eviscerate, `4` Smoke Step
 - `p` drink lesser health potion
 - `g` pick up loot on current tile
 - `i` inventory
@@ -74,6 +75,8 @@ saves/save.json
 ```
 
 The `saves/` directory is local/generated data and should not be committed.
+
+The 1.0.0 multi-class release intentionally resets saves from older major versions.
 
 The inventory grid rework changed the save shape for inventory, stash, and active dungeon ground loot. During local development, old saves may fail to load and can be reset with:
 
