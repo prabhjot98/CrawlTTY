@@ -1,6 +1,6 @@
 use crate::ItemKind;
 
-pub(crate) const PLAYER_GLYPH: char = '☥';
+pub(crate) const PLAYER_GLYPH: char = '@';
 pub(crate) const WALL_GLYPH: char = '▓';
 pub(crate) const FLOOR_GLYPH: char = '·';
 pub(crate) const STAIRS_DOWN_GLYPH: char = '⌄';
@@ -87,7 +87,7 @@ pub(crate) fn item_kind_glyph(kind: ItemKind) -> &'static str {
 #[cfg(test)]
 pub(crate) fn unicode_width_samples() -> &'static [(&'static str, &'static str, usize)] {
     &[
-        ("player", "☥", 1),
+        ("player", "@", 1),
         ("wall", "▓", 1),
         ("floor", "·", 1),
         ("stairs down", "⌄", 1),

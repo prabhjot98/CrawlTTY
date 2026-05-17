@@ -28,6 +28,12 @@ fn unicode_visual_palette_uses_single_cell_non_emoji_glyphs() {
 }
 
 #[test]
+fn player_glyph_is_classic_at_sign() {
+    assert_eq!(PLAYER_GLYPH, '@');
+    assert_eq!(dungeon_display_glyph('@'), '@');
+}
+
+#[test]
 fn map_enemy_display_glyphs_remain_letters() {
     for glyph in ['r', 's', 'c', 'b', 'E', 'B', 'g', 'w', 'm', 'o', 'T'] {
         assert_eq!(dungeon_display_glyph(glyph), glyph);
