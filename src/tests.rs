@@ -865,6 +865,19 @@ fn terminal_resize_event_requests_redraw() {
 }
 
 #[test]
+fn terminal_key_release_events_are_ignored() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    let event = Event::Key(KeyEvent::new_with_kind(
+        KeyCode::Char('x'),
+        KeyModifiers::NONE,
+        KeyEventKind::Release,
+    ));
+
+    assert_eq!(terminal_event_to_input(event, true).unwrap(), None);
+}
+
+#[test]
 fn valid_dungeon_command_clears_recent_unknown_command_logs() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));

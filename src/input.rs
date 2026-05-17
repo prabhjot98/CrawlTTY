@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::{
@@ -63,7 +63,10 @@ pub(crate) fn terminal_event_to_input(event: Event, navigation: bool) -> Result<
     match event {
         Event::Resize(_, _) => Ok(Some(UiInput::Redraw)),
         Event::Key(KeyEvent {
-            code, modifiers, ..
+            code,
+            modifiers,
+            kind: KeyEventKind::Press,
+            ..
         }) => {
             if modifiers.contains(KeyModifiers::CONTROL) && matches!(code, KeyCode::Char('c')) {
                 return Err(anyhow!("input interrupted"));
@@ -82,6 +85,7 @@ pub(crate) fn terminal_event_to_input(event: Event, navigation: bool) -> Result<
             };
             Ok(key.map(UiInput::Key))
         }
+        Event::Key(_) => Ok(None),
         _ => Ok(None),
     }
 }
