@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
@@ -2245,31 +2245,26 @@ fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, ar
     let indices = ground_item_indices_on_player_tile(d);
     let max_rows = area.height.saturating_sub(2).max(1) as usize;
     let offset = scroll_offset(selected, indices.len(), max_rows);
-    let lines = indices
+    let items = indices
         .into_iter()
         .skip(offset)
         .take(max_rows)
-        .enumerate()
-        .map(|(visible_index, ground_index)| {
-            let tile_index = offset + visible_index;
-            let item = &d.ground_items[ground_index].item;
-            let prefix = if tile_index == selected { "> " } else { "  " };
-            Line::styled(
-                format!("{prefix}{}", strip_ansi_codes(&item.name)),
-                if tile_index == selected {
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::White)
-                },
-            )
+        .map(|ground_index| {
+            ListItem::new(strip_ansi_codes(&d.ground_items[ground_index].item.name))
+                .style(Style::default().fg(Color::White))
         })
         .collect::<Vec<_>>();
-    frame.render_widget(
-        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Items")),
-        area,
-    );
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title("Items"))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol("> ");
+    let mut state = ListState::default();
+    state.select(Some(selected.saturating_sub(offset)));
+    frame.render_stateful_widget(list, area, &mut state);
 }
 
 fn ground_item_detail_lines(c: &Character, selected: usize) -> Vec<Line<'static>> {

@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 pub(crate) fn quest_giver(c: &mut Character) -> String {
@@ -1429,37 +1429,62 @@ pub(crate) fn render_gem_picker_screen(
         .filter(|(_, item)| matches!(item.kind, ItemKind::Gem))
         .map(|(index, _)| index)
         .collect();
-    let mut lines = vec![Line::styled(
-        "Select Gem",
-        Style::default().add_modifier(Modifier::BOLD),
-    )];
-    lines.push(Line::from(""));
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(8),
+        Constraint::Length(footer_height),
+    ])
+    .split(frame.area());
+    frame.render_widget(
+        Paragraph::new("Select Gem")
+            .block(Block::default().borders(Borders::ALL).title("Select Gem")),
+        layout[0],
+    );
+
     if gems.is_empty() {
-        lines.push(plain_line("No gems in inventory."));
-    } else {
-        let max_rows = inventory_visible_rows(5);
-        let offset = scroll_offset(selected, gems.len(), max_rows);
-        lines.extend(
-            gems.iter()
-                .copied()
-                .skip(offset)
-                .take(max_rows)
-                .enumerate()
-                .map(|(visible_index, inventory_index)| {
-                    selected_line(
-                        offset + visible_index == selected,
-                        item_summary(&c.inventory[inventory_index]),
-                    )
-                }),
+        frame.render_widget(
+            Paragraph::new("No gems in inventory.")
+                .block(Block::default().borders(Borders::ALL).title("Gems")),
+            layout[1],
         );
+    } else {
+        let max_rows = layout[1].height.saturating_sub(2).max(1) as usize;
+        let offset = scroll_offset(selected, gems.len(), max_rows);
+        let items = gems
+            .iter()
+            .copied()
+            .skip(offset)
+            .take(max_rows)
+            .map(|inventory_index| {
+                ListItem::new(strip_ansi_codes(&item_summary(
+                    &c.inventory[inventory_index],
+                )))
+                .style(Style::default().fg(Color::White))
+            })
+            .collect::<Vec<_>>();
+        let list = List::new(items)
+            .block(Block::default().borders(Borders::ALL).title("Gems"))
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol("> ");
+        let mut state = ListState::default();
+        state.select(Some(selected.saturating_sub(offset)));
+        frame.render_stateful_widget(list, layout[1], &mut state);
     }
-    render_lines_screen(
-        frame,
-        "Select Gem",
-        "Gems",
-        lines,
-        message,
-        "Gems: W/S or arrows=select  Enter=choose  Esc=back",
+
+    let commands = "Gems: W/S or arrows=select  Enter=choose  Esc=back";
+    let footer = if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    };
+    frame.render_widget(
+        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        layout[2],
     );
 }
 
