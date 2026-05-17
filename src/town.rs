@@ -1619,7 +1619,7 @@ pub(crate) fn sell_item_screen(
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
-        clamp_selection(&mut selected, c.inventory.len());
+        clamp_grid_cursor(&mut selected, &c.inventory);
         terminal
             .draw(|frame| render_sell_items_screen(frame, c, selected, &message))
             .context("failed to draw sell items")?;
@@ -1634,15 +1634,16 @@ pub(crate) fn sell_item_screen(
         message.clear();
         match key {
             '\u{1b}' => break,
-            'w' | 'W' => selected = selected.saturating_sub(1),
-            's' | 'S' => {
-                if selected + 1 < c.inventory.len() {
-                    selected += 1;
-                }
+            'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => {
+                selected = move_grid_cursor(selected, c.inventory.columns, c.inventory.rows, key);
             }
             '\n' => {
                 if c.inventory.is_empty() {
                     message = "Inventory is empty.".to_string();
+                    continue;
+                }
+                if selected >= c.inventory.len() {
+                    message = "No item selected.".to_string();
                     continue;
                 }
                 let item = c.inventory.remove(selected);
@@ -1663,44 +1664,70 @@ pub(crate) fn render_sell_items_screen(
     selected: usize,
     message: &str,
 ) {
-    let mut lines = vec![
-        plain_line(format!(
-            "Sell Items - {}",
-            strip_ansi_codes(&gold_text(c.gold))
-        )),
-        Line::from(""),
-    ];
-    if c.inventory.is_empty() {
-        lines.push(plain_line("Inventory is empty."));
-    } else {
-        let max_rows = visible_rows_for_wrapped_lines_screen(frame.area(), message, 5, 2);
-        let offset = scroll_offset(selected, c.inventory.len(), max_rows);
-        lines.extend(
-            c.inventory
-                .iter()
-                .skip(offset)
-                .take(max_rows)
-                .enumerate()
-                .map(|(visible_index, item)| {
-                    selected_line(offset + visible_index == selected, item_summary(item))
-                }),
-        );
-        let item = &c.inventory[selected.min(c.inventory.len() - 1)];
+    const SELL_COMMANDS: &str = "WASD/Arrows=move  Enter=sell  Esc=back";
+
+    let area = frame.area();
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let layout = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(10),
+        Constraint::Length(footer_height),
+    ])
+    .split(area);
+    let title = Paragraph::new(format!(
+        "Sell Items - Bag {} x {} - {} / {} - {}",
+        c.inventory.columns,
+        c.inventory.rows,
+        c.inventory.len(),
+        c.inventory.capacity(),
+        strip_ansi_codes(&gold_text(c.gold))
+    ))
+    .block(gothic_block("Sell Items"));
+    frame.render_widget(title, layout[0]);
+
+    let selected_item = c.inventory.get(selected);
+    let grid_width = item_grid_render_width(&c.inventory);
+    let grid_height = c.inventory.rows.saturating_add(2);
+    let (grid_area, details_area, equipped_area) =
+        if layout[1].width >= grid_width.saturating_add(64) {
+            let body = Layout::horizontal([
+                Constraint::Length(grid_width),
+                Constraint::Min(32),
+                Constraint::Min(32),
+            ])
+            .split(layout[1]);
+            (body[0], body[1], body[2])
+        } else {
+            let details_height = if selected_item.is_some() { 7 } else { 5 };
+            let body = Layout::vertical([
+                Constraint::Length(grid_height),
+                Constraint::Length(details_height),
+                Constraint::Min(3),
+            ])
+            .split(layout[1]);
+            (body[0], body[1], body[2])
+        };
+    render_item_grid(frame, &c.inventory, selected, grid_area, "Bag", false);
+    let details =
+        Paragraph::new(sell_item_detail_lines(c, selected_item)).block(gothic_block("Details"));
+    frame.render_widget(details, details_area);
+    let equipped = Paragraph::new(selected_item_equipped_comparison_lines(c, selected_item))
+        .block(gothic_block("Equipped"));
+    frame.render_widget(equipped, equipped_area);
+
+    render_commands_footer(frame, layout[2], footer_text(message, SELL_COMMANDS));
+}
+
+fn sell_item_detail_lines(c: &Character, item: Option<&Item>) -> Vec<Line<'static>> {
+    let mut lines = selected_item_detail_lines(c, &c.inventory, "Bag", item);
+    if let Some(item) = item {
         lines.push(Line::from(""));
-        lines.push(plain_line(format!("Selected: {}", item_summary(item))));
         lines.push(plain_line(format!(
             "Sell value: {} gold",
             sell_value(c, item)
         )));
     }
-    render_lines_screen(
-        frame,
-        "Sell Items",
-        "Inventory",
-        lines,
-        message,
-        "Sell: W/S or arrows=select  Enter=sell  Esc=back",
-    );
+    lines
 }
 
 pub(crate) fn stash_menu(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {

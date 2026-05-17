@@ -2262,6 +2262,27 @@ fn inventory_adjacent_screens_render_with_ratatui() {
 }
 
 #[test]
+fn merchant_sell_screen_uses_inventory_grid_layout() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, vec![rusted_sword()]);
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_sell_items_screen(frame, &c, 0, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Bag"));
+    assert!(rendered.contains("[W]"));
+    assert!(rendered.contains("Details"));
+    assert!(rendered.contains("Equipped"));
+    assert!(rendered.contains("Sell value:"));
+    assert!(!rendered.contains("> Rusted Sword"));
+}
+
+#[test]
 fn gem_picker_scroll_keeps_high_selected_gem_visible() {
     use ratatui::{Terminal, backend::TestBackend};
 
