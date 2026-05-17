@@ -13,7 +13,7 @@ pub(crate) fn quest_giver(c: &mut Character) -> String {
         c.unspent_skills += 2;
         c.unspent_attributes += 3;
         c.hp = c.max_hp();
-        c.mana = c.max_mana();
+        c.restore_class_resource_full();
         c.act2_completed = true;
         "Quest complete: Shatter the Glass Tyrant. Reward: 250 gold, +2 skill points, +3 attributes, full heal."
             .to_string()
@@ -25,7 +25,7 @@ pub(crate) fn quest_giver(c: &mut Character) -> String {
         c.gold += 100;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
-        c.mana = c.max_mana();
+        c.restore_class_resource_full();
         c.act1_completed = true;
         "Quest complete: Silence the Bellkeeper. Reward: 100 gold, +1 skill point, full heal, Act II unlocked."
             .to_string()
@@ -40,7 +40,7 @@ pub(crate) const TOWN_FULL_HEAL_MESSAGE: &str = "You were fully healed.";
 
 pub(crate) fn full_heal(c: &mut Character) {
     c.hp = c.max_hp();
-    c.mana = c.max_mana();
+    c.restore_class_resource_full();
 }
 
 pub(crate) fn append_pending_town_message(c: &mut Character, message: &str) {

@@ -2469,7 +2469,7 @@ pub(crate) fn add_xp(c: &mut Character, amount: u32) -> Vec<u32> {
         c.unspent_attributes += 3;
         c.unspent_skills += 1;
         c.hp = c.max_hp();
-        c.mana = c.max_mana();
+        c.restore_class_resource_full();
     }
     levels_gained
 }

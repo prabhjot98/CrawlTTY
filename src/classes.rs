@@ -194,4 +194,11 @@ impl Character {
             .saturating_add(amount)
             .min(ROGUE_MAX_ENERGY);
     }
+
+    pub(crate) fn restore_class_resource_full(&mut self) {
+        match self.class {
+            CharacterClass::Warrior => self.mana = self.max_mana(),
+            CharacterClass::Rogue => self.rogue.energy = ROGUE_MAX_ENERGY,
+        }
+    }
 }

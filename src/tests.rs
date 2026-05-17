@@ -2179,6 +2179,21 @@ fn leveling_doubles_xp_requirements_and_grants_points() {
 }
 
 #[test]
+fn rogue_level_up_restores_energy() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.rogue.energy = 0;
+
+    let levels_gained = add_xp(&mut c, 40);
+
+    assert_eq!(levels_gained, vec![2]);
+    assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
+}
+
+#[test]
 fn skill_rank_scaling_matches_design() {
     assert_eq!(cleave_percent_for_rank(1), 80);
     assert_eq!(cleave_percent_for_rank(5), 120);
@@ -3768,6 +3783,23 @@ fn returning_to_town_restores_hp_and_mana_and_reports_it() {
 
     assert_eq!(c.hp, c.max_hp());
     assert_eq!(c.mana, c.max_mana());
+    assert_eq!(c.pending_town_message, TOWN_FULL_HEAL_MESSAGE);
+}
+
+#[test]
+fn returning_to_town_restores_rogue_energy() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.hp = 1;
+    c.rogue.energy = 0;
+
+    full_heal_on_town_return(&mut c);
+
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
     assert_eq!(c.pending_town_message, TOWN_FULL_HEAL_MESSAGE);
 }
 

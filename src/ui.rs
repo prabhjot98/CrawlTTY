@@ -48,7 +48,15 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
         Line::from(vec![
             stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
             Span::raw("  "),
-            stat_span(format!("Mana {}/{}", c.mana, c.max_mana()), Color::Blue),
+            stat_span(
+                format!(
+                    "{} {}/{}",
+                    c.resource_label(),
+                    c.current_resource(),
+                    c.max_resource()
+                ),
+                Color::Blue,
+            ),
         ]),
         Line::from(vec![
             stat_span(format!("STR {}", c.strength), Color::Red),
