@@ -149,7 +149,14 @@ pub(crate) fn damage_enemy_with_rogue_effect(
             );
         }
     }
-    if killed && resolve_enemy_death(c, &mut d, enemy_index, EnemyDeathCause::Effect { source }) {
+    if killed
+        && resolve_enemy_death_and_roll_loot(
+            c,
+            &mut d,
+            enemy_index,
+            EnemyDeathCause::Effect { source },
+        )
+    {
         finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
         return DamageEnemyOutcome::BossDefeated;
     }

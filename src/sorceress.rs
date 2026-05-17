@@ -44,7 +44,11 @@ pub(crate) fn chain_spark_hit_count_for_rank(rank: u32) -> usize {
 }
 
 pub(crate) fn mana_shield_absorb_percent_for_rank(rank: u32) -> u32 {
-    35 + rank.saturating_sub(1).min(4) * 5
+    if rank == 0 {
+        0
+    } else {
+        35 + rank.saturating_sub(1).min(4) * 5
+    }
 }
 
 pub(crate) fn kindle_fire_bonus_percent_for_rank(rank: u32) -> u32 {
@@ -160,6 +164,13 @@ fn log_sorceress_warning(c: &mut Character, message: impl Into<String>) {
     }
 }
 
+fn spend_sorceress_mana(c: &mut Character, amount: u32) {
+    c.mana = c.mana.saturating_sub(amount);
+    if c.mana == 0 {
+        c.sorceress.mana_shield_active = false;
+    }
+}
+
 fn spell_damage_after_mitigation(
     c: &Character,
     enemy: &Enemy,
@@ -205,7 +216,7 @@ pub(crate) fn use_firebolt_with_rolls(
         log_sorceress_warning(c, "No enemy in sight.");
         return false;
     };
-    c.mana -= FIREBOLT_MANA_COST;
+    spend_sorceress_mana(c, FIREBOLT_MANA_COST);
 
     let Some(mut d) = c.active_dungeon.take() else {
         return false;
@@ -330,7 +341,7 @@ fn use_frost_ring_with_roll_source(
         log_sorceress_warning(c, "No enemies in Frost Ring range.");
         return false;
     }
-    c.mana -= FROST_RING_MANA_COST;
+    spend_sorceress_mana(c, FROST_RING_MANA_COST);
     c.sorceress.frost_ring_cooldown = FROST_RING_COOLDOWN;
 
     let Some(mut d) = c.active_dungeon.take() else {
@@ -510,7 +521,7 @@ fn use_chain_spark_with_roll_source(
         log_sorceress_warning(c, "No enemy in sight.");
         return false;
     };
-    c.mana -= CHAIN_SPARK_MANA_COST;
+    spend_sorceress_mana(c, CHAIN_SPARK_MANA_COST);
     c.sorceress.chain_spark_cooldown = CHAIN_SPARK_COOLDOWN;
 
     let Some(mut d) = c.active_dungeon.take() else {
@@ -604,12 +615,19 @@ pub(crate) fn use_chain_spark(c: &mut Character) -> bool {
 
 pub(crate) fn toggle_mana_shield(c: &mut Character) -> bool {
     if c.sorceress.mana_shield_rank == 0 {
+        let message = if c.sorceress.frost_ring_rank < 2 {
+            "Mana Shield requires Frost Ring rank 2."
+        } else {
+            "Mana Shield is unlocked; spend a skill point to learn it."
+        };
         if let Some(d) = c.active_dungeon.as_mut() {
-            log_event(
-                &mut d.log,
-                LogKind::Warn,
-                "Mana Shield requires Frost Ring rank 2.",
-            );
+            log_event(&mut d.log, LogKind::Warn, message);
+        }
+        return false;
+    }
+    if !c.sorceress.mana_shield_active && c.mana == 0 {
+        if let Some(d) = c.active_dungeon.as_mut() {
+            log_event(&mut d.log, LogKind::Warn, "Mana Shield requires mana.");
         }
         return false;
     }

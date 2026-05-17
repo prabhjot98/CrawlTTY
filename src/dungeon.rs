@@ -529,9 +529,15 @@ fn sorceress_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
         )),
     ];
     if c.sorceress.mana_shield_rank == 0 {
-        lines.push(Line::from(
-            "4 Mana Shield: locked; requires Frost Ring rank 2.",
-        ));
+        if c.sorceress.frost_ring_rank < 2 {
+            lines.push(Line::from(
+                "4 Mana Shield: locked; requires Frost Ring rank 2.",
+            ));
+        } else {
+            lines.push(Line::from(
+                "4 Mana Shield: unlearned; spend a skill point to learn it.",
+            ));
+        }
     } else {
         lines.push(Line::from(format!(
             "4 Mana Shield r{}: free toggle. Absorbs {}% at 1 mana per damage.",
@@ -1556,7 +1562,7 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             );
             if d.enemies[i].hp <= 0 {
                 let ground_items_before_death = d.ground_items.len();
-                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Bleed) {
+                if resolve_enemy_death_and_roll_loot(c, &mut d, i, EnemyDeathCause::Bleed) {
                     finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
                     return;
                 }
@@ -1579,7 +1585,12 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             );
             if d.enemies[i].hp <= 0 {
                 let ground_items_before_death = d.ground_items.len();
-                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Effect { source: "Poison" }) {
+                if resolve_enemy_death_and_roll_loot(
+                    c,
+                    &mut d,
+                    i,
+                    EnemyDeathCause::Effect { source: "Poison" },
+                ) {
                     finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
                     return;
                 }
@@ -1602,8 +1613,12 @@ pub(crate) fn enemy_turns(c: &mut Character) {
             );
             if d.enemies[i].hp <= 0 {
                 let ground_items_before_death = d.ground_items.len();
-                if resolve_enemy_death(c, &mut d, i, EnemyDeathCause::Effect { source: "Burning" })
-                {
+                if resolve_enemy_death_and_roll_loot(
+                    c,
+                    &mut d,
+                    i,
+                    EnemyDeathCause::Effect { source: "Burning" },
+                ) {
                     finish_boss_defeat_after_effect_kill(c, d, ground_items_before_death);
                     return;
                 }
@@ -1963,13 +1978,33 @@ pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index
     false
 }
 
+pub(crate) fn resolve_enemy_death_and_roll_loot(
+    c: &mut Character,
+    d: &mut Dungeon,
+    enemy_index: usize,
+    cause: EnemyDeathCause<'_>,
+) -> bool {
+    let should_roll_regular_loot = d
+        .enemies
+        .get(enemy_index)
+        .is_some_and(|enemy| enemy.hp <= 0 && !enemy.is_boss);
+    if resolve_enemy_death(c, d, enemy_index, cause) {
+        true
+    } else {
+        if should_roll_regular_loot {
+            maybe_drop_loot_in_dungeon(c, d, enemy_index, false);
+        }
+        false
+    }
+}
+
 pub(crate) fn resolve_enemy_killed_by_effect(
     c: &mut Character,
     d: &mut Dungeon,
     enemy_index: usize,
     source: &str,
 ) -> bool {
-    resolve_enemy_death(c, d, enemy_index, EnemyDeathCause::Effect { source })
+    resolve_enemy_death_and_roll_loot(c, d, enemy_index, EnemyDeathCause::Effect { source })
 }
 
 pub(crate) fn can_cultist_ranged_attack(d: &Dungeon, enemy_index: usize) -> bool {
