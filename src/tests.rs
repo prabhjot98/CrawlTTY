@@ -878,6 +878,39 @@ fn cursor_pulse_styles_share_cursed_violet_and_toggle_bold() {
 }
 
 #[test]
+fn ui_palette_exposes_gothic_cursed_semantic_styles() {
+    use ratatui::style::{Color, Modifier, Style};
+
+    assert_eq!(TEXT_PRIMARY_COLOR, Color::Rgb(214, 203, 177));
+    assert_eq!(TEXT_MUTED_COLOR, Color::Rgb(108, 101, 112));
+    assert_eq!(CONTAINER_BORDER_COLOR, Color::Rgb(75, 67, 84));
+    assert_eq!(SELECTED_CONTAINER_BORDER_COLOR, Color::Rgb(148, 80, 190));
+    assert_eq!(TITLE_COLOR, Color::Rgb(201, 163, 86));
+    assert_eq!(DANGER_COLOR, Color::Rgb(188, 54, 54));
+    assert_eq!(ACTION_COLOR, Color::Rgb(93, 153, 112));
+    assert_eq!(WARNING_COLOR, Color::Rgb(214, 157, 73));
+    assert_eq!(ARCANE_COLOR, Color::Rgb(113, 151, 201));
+    assert_eq!(CURSED_COLOR, Color::Rgb(177, 93, 204));
+
+    assert_eq!(body_style(), Style::default().fg(TEXT_PRIMARY_COLOR));
+    assert_eq!(muted_style(), Style::default().fg(TEXT_MUTED_COLOR));
+    assert_eq!(
+        title_style(),
+        Style::default()
+            .fg(TITLE_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(
+        container_border_style(false),
+        Style::default().fg(CONTAINER_BORDER_COLOR)
+    );
+    assert_eq!(
+        container_border_style(true),
+        Style::default().fg(SELECTED_CONTAINER_BORDER_COLOR)
+    );
+}
+
+#[test]
 fn cursor_pulse_timeout_returns_tick() {
     assert_eq!(
         terminal_event_timeout_to_input(None, true, false).unwrap(),
@@ -1255,7 +1288,7 @@ fn cursor_style_uses_cursed_violet() {
 
 #[test]
 fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
-    use ratatui::style::{Color, Style};
+    use ratatui::style::Style;
 
     let mut rare_sword = rusted_sword();
     rare_sword.rarity = Rarity::Rare;
@@ -1265,16 +1298,28 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
 
     let rare_selected = inventory_cell_spans(&grid, 0, true);
     assert_eq!(rare_selected[0].content.as_ref(), "[");
-    assert_eq!(rare_selected[0].style, Style::default().fg(Color::Yellow));
+    assert_eq!(
+        rare_selected[0].style,
+        Style::default().fg(RARITY_RARE_COLOR)
+    );
     assert_eq!(rare_selected[1].content.as_ref(), "W");
     assert_eq!(rare_selected[1].style, selected_cursor_style());
     assert_eq!(rare_selected[2].content.as_ref(), "]");
-    assert_eq!(rare_selected[2].style, Style::default().fg(Color::Yellow));
+    assert_eq!(
+        rare_selected[2].style,
+        Style::default().fg(RARITY_RARE_COLOR)
+    );
 
     let magic_unselected = inventory_cell_spans(&grid, 1, false);
-    assert_eq!(magic_unselected[0].style, Style::default().fg(Color::Blue));
-    assert_eq!(magic_unselected[1].style, Style::default().fg(Color::White));
-    assert_eq!(magic_unselected[2].style, Style::default().fg(Color::Blue));
+    assert_eq!(
+        magic_unselected[0].style,
+        Style::default().fg(RARITY_MAGIC_COLOR)
+    );
+    assert_eq!(magic_unselected[1].style, body_style());
+    assert_eq!(
+        magic_unselected[2].style,
+        Style::default().fg(RARITY_MAGIC_COLOR)
+    );
 
     let empty_selected = inventory_cell_spans(&grid, 2, true);
     assert_eq!(
@@ -1288,6 +1333,34 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
         empty_selected
             .iter()
             .all(|span| { span.style == selected_cursor_style() })
+    );
+}
+
+#[test]
+fn command_and_stat_text_use_gothic_semantic_colors() {
+    use ratatui::style::{Modifier, Style};
+
+    let commands = command_line("Town", &[("m", "merchant"), ("q", "save+quit")]);
+    assert_eq!(commands.spans[0].style, title_style());
+    assert_eq!(
+        commands.spans[1].style,
+        Style::default()
+            .fg(ACTION_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+    assert_eq!(
+        commands.spans[4].style,
+        Style::default()
+            .fg(DANGER_COLOR)
+            .add_modifier(Modifier::BOLD)
+    );
+
+    let stat = stat_span("Gold 25", WARNING_COLOR);
+    assert_eq!(
+        stat.style,
+        Style::default()
+            .fg(WARNING_COLOR)
+            .add_modifier(Modifier::BOLD)
     );
 }
 
@@ -1800,6 +1873,90 @@ fn attributes_screen_uses_cursor_selection_and_attribute_colors() {
 }
 
 #[test]
+fn town_and_inventory_containers_use_gothic_borders_and_titles() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut town_terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+    town_terminal
+        .draw(|frame| render_town(frame, &c, ""))
+        .unwrap();
+    assert_eq!(cell_fg_at(&town_terminal, 0, 0), CONTAINER_BORDER_COLOR);
+    assert!(text_has_fg_at_any_occurrence(
+        &town_terminal,
+        "Town",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &town_terminal,
+        "Status",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &town_terminal,
+        "Commands",
+        TITLE_COLOR
+    ));
+
+    let mut inventory_terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+    inventory_terminal
+        .draw(|frame| render_inventory_screen(frame, &c, 0, ""))
+        .unwrap();
+    assert_eq!(
+        cell_fg_at(&inventory_terminal, 0, 0),
+        CONTAINER_BORDER_COLOR
+    );
+    assert!(text_has_fg_at_any_occurrence(
+        &inventory_terminal,
+        "Inventory",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &inventory_terminal,
+        "Bag",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &inventory_terminal,
+        "Details",
+        TITLE_COLOR
+    ));
+}
+
+#[test]
+fn dungeon_containers_use_gothic_borders_and_titles() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let mut terminal = Terminal::new(TestBackend::new(100, 32)).unwrap();
+    terminal.draw(|frame| render_dungeon(frame, &c)).unwrap();
+
+    assert_eq!(cell_fg_at(&terminal, 0, 0), CONTAINER_BORDER_COLOR);
+    assert!(text_has_fg_at_any_occurrence(
+        &terminal,
+        "Dungeon",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(&terminal, "Map", TITLE_COLOR));
+    assert!(text_has_fg_at_any_occurrence(
+        &terminal,
+        "Combat Log",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &terminal,
+        "Skills",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &terminal,
+        "Commands",
+        TITLE_COLOR
+    ));
+}
+
+#[test]
 fn character_creation_active_step_uses_muted_cursed_violet_border() {
     use ratatui::{Terminal, backend::TestBackend, style::Color};
 
@@ -1921,7 +2078,7 @@ fn active_stash_grid_uses_muted_cursed_violet_border() {
 
 #[test]
 fn stash_only_shows_cursor_on_active_grid() {
-    use ratatui::{Terminal, backend::TestBackend, style::Color};
+    use ratatui::{Terminal, backend::TestBackend};
 
     let mut c = test_character();
     c.inventory = ItemGrid::new(4, 4, vec![rusted_sword()]);
@@ -1936,7 +2093,7 @@ fn stash_only_shows_cursor_on_active_grid() {
         cell_fg_at(&terminal, 20, 4),
         SELECTED_CONTAINER_BORDER_COLOR
     );
-    assert_eq!(cell_fg_at(&terminal, 2, 4), Color::White);
+    assert_eq!(cell_fg_at(&terminal, 2, 4), TEXT_PRIMARY_COLOR);
 }
 
 #[test]
@@ -3980,6 +4137,25 @@ fn backend_lines(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) ->
         .chunks(width)
         .map(|row| row.iter().map(|cell| cell.symbol()).collect())
         .collect()
+}
+
+fn text_has_fg_at_any_occurrence(
+    terminal: &ratatui::Terminal<ratatui::backend::TestBackend>,
+    needle: &str,
+    color: ratatui::style::Color,
+) -> bool {
+    backend_lines(terminal).iter().enumerate().any(|(y, line)| {
+        let mut search_start = 0;
+        while let Some(relative_byte_index) = line[search_start..].find(needle) {
+            let byte_index = search_start + relative_byte_index;
+            let x = line[..byte_index].chars().count();
+            if cell_fg_at(terminal, x, y) == color {
+                return true;
+            }
+            search_start = byte_index + needle.len();
+        }
+        false
+    })
 }
 
 fn cell_fg_at_text(

@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{List, ListItem, ListState, Paragraph, Wrap},
 };
 
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
@@ -191,7 +191,7 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
             Color::Magenta,
         ),
     ]))
-    .block(Block::default().borders(Borders::ALL).title("Dungeon"));
+    .block(gothic_block("Dungeon"));
     frame.render_widget(header, layout[0]);
 
     if layout[1].width >= 88 {
@@ -207,7 +207,7 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
     }
 
     let help = Paragraph::new(skill_help_lines)
-        .block(Block::default().borders(Borders::ALL).title("Skills"))
+        .block(gothic_block("Skills"))
         .wrap(Wrap { trim: false });
     frame.render_widget(help, layout[2]);
 
@@ -231,19 +231,18 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
             Span::raw("=boss"),
         ]),
     ])
-    .block(Block::default().borders(Borders::ALL).title("Commands"));
+    .block(gothic_block("Commands"));
     frame.render_widget(footer, layout[3]);
 }
 
 fn render_dungeon_map(frame: &mut Frame, d: &Dungeon, area: Rect) {
-    let map = Paragraph::new(dungeon_map_lines(d))
-        .block(Block::default().borders(Borders::ALL).title("Map"));
+    let map = Paragraph::new(dungeon_map_lines(d)).block(gothic_block("Map"));
     frame.render_widget(map, area);
 }
 
 fn render_dungeon_log(frame: &mut Frame, d: &Dungeon, area: Rect) {
     let log = Paragraph::new(combat_log_lines(d))
-        .block(Block::default().borders(Borders::ALL).title("Combat Log"))
+        .block(gothic_block("Combat Log"))
         .wrap(Wrap { trim: false });
     frame.render_widget(log, area);
 }
@@ -2222,7 +2221,7 @@ pub(crate) fn render_ground_loot_picker(
         .unwrap_or_default()
         .len();
     let title = Paragraph::new(format!("Ground Loot - {item_count} item(s) here"))
-        .block(Block::default().borders(Borders::ALL).title("Ground Loot"));
+        .block(gothic_block("Ground Loot"));
     frame.render_widget(title, layout[0]);
 
     let (list_area, details_area) = if layout[1].width >= 72 {
@@ -2235,8 +2234,8 @@ pub(crate) fn render_ground_loot_picker(
         (body[0], body[1])
     };
     render_ground_loot_list(frame, c, selected, list_area);
-    let details = Paragraph::new(ground_item_detail_lines(c, selected))
-        .block(Block::default().borders(Borders::ALL).title("Details"));
+    let details =
+        Paragraph::new(ground_item_detail_lines(c, selected)).block(gothic_block("Details"));
     frame.render_widget(details, details_area);
 
     render_commands_footer(frame, layout[2], footer_text(message, GROUND_LOOT_COMMANDS));
@@ -2259,7 +2258,7 @@ fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, ar
         })
         .collect::<Vec<_>>();
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Items"))
+        .block(gothic_block("Items"))
         .highlight_style(selected_cursor_style())
         .highlight_symbol("> ");
     let mut state = ListState::default();

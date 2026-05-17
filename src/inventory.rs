@@ -1,8 +1,5 @@
 use crate::*;
-use ratatui::{
-    prelude::*,
-    widgets::{Block, Borders, Paragraph},
-};
+use ratatui::{prelude::*, widgets::Paragraph};
 
 pub(crate) fn inventory_screen(
     c: &mut Character,
@@ -79,7 +76,7 @@ pub(crate) fn render_inventory_screen(
         c.inventory.len(),
         c.inventory.capacity()
     ))
-    .block(Block::default().borders(Borders::ALL).title("Inventory"));
+    .block(gothic_block("Inventory"));
     frame.render_widget(title, layout[0]);
 
     let grid_width = item_grid_render_width(&c.inventory);
@@ -100,7 +97,7 @@ pub(crate) fn render_inventory_screen(
         "Bag",
         c.inventory.get(selected),
     ))
-    .block(Block::default().borders(Borders::ALL).title("Details"));
+    .block(gothic_block("Details"));
     frame.render_widget(details, details_area);
 
     render_commands_footer(frame, layout[2], footer_text(message, INVENTORY_COMMANDS));
@@ -125,12 +122,7 @@ pub(crate) fn render_item_grid(
         lines.push(Line::from(spans));
     }
     frame.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title)
-                .border_style(selected_container_border_style(selected_container)),
-        ),
+        Paragraph::new(lines).block(gothic_block_selected(title, selected_container)),
         area,
     );
 }
@@ -149,11 +141,7 @@ pub(crate) fn inventory_cell_spans(
     let focus_style = selected_cursor_style();
 
     let Some(item) = grid.get(index) else {
-        let style = if selected {
-            focus_style
-        } else {
-            Style::default().fg(Color::White)
-        };
+        let style = if selected { focus_style } else { body_style() };
         return vec![
             Span::styled("[", style),
             Span::styled(label, style),
@@ -162,11 +150,7 @@ pub(crate) fn inventory_cell_spans(
     };
 
     let outline_style = Style::default().fg(rarity_color(&item.rarity));
-    let label_style = if selected {
-        focus_style
-    } else {
-        Style::default().fg(Color::White)
-    };
+    let label_style = if selected { focus_style } else { body_style() };
     vec![
         Span::styled("[", outline_style),
         Span::styled(label, label_style),
@@ -342,7 +326,7 @@ pub(crate) fn selected_item_detail_lines(
 ) -> Vec<Line<'static>> {
     let Some(item) = item else {
         return vec![
-            Line::styled("Empty cell", Style::default().fg(Color::DarkGray)),
+            Line::styled("Empty cell", muted_style()),
             Line::from(format!(
                 "{}: {}/{}",
                 grid_label,

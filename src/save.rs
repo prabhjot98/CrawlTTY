@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
 };
 
 pub(crate) const SAVE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -189,11 +189,7 @@ pub(crate) fn render_character_creation_screen(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new("CrawlTTY").block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Character Creation"),
-        ),
+        Paragraph::new("CrawlTTY").block(gothic_block("Character Creation")),
         layout[0],
     );
 
@@ -248,14 +244,10 @@ pub(crate) fn render_character_creation_screen(
                 },
             ),
         ])
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Step 1: Class")
-                .border_style(selected_container_border_style(
-                    active_step == CharacterCreationStep::Class,
-                )),
-        )
+        .block(gothic_block_selected(
+            "Step 1: Class",
+            active_step == CharacterCreationStep::Class,
+        ))
         .wrap(Wrap { trim: false }),
         layout[1],
     );
@@ -265,14 +257,10 @@ pub(crate) fn render_character_creation_screen(
             "Name: {}",
             if name.is_empty() { "_" } else { name }
         ))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Step 2: Name")
-                .border_style(selected_container_border_style(
-                    active_step == CharacterCreationStep::Name,
-                )),
-        ),
+        .block(gothic_block_selected(
+            "Step 2: Name",
+            active_step == CharacterCreationStep::Name,
+        )),
         layout[2],
     );
 
@@ -299,14 +287,10 @@ pub(crate) fn render_character_creation_screen(
                 },
             ),
         ])
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Step 3: Death Mode")
-                .border_style(selected_container_border_style(
-                    active_step == CharacterCreationStep::DeathMode,
-                )),
-        )
+        .block(gothic_block_selected(
+            "Step 3: Death Mode",
+            active_step == CharacterCreationStep::DeathMode,
+        ))
         .wrap(Wrap { trim: false }),
         layout[3],
     );
@@ -322,7 +306,7 @@ pub(crate) fn render_character_creation_screen(
         format!("{message}\n{commands}")
     };
     frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        Paragraph::new(footer).block(gothic_block("Commands")),
         layout[5],
     );
 }

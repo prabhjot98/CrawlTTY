@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{List, ListItem, ListState, Paragraph, Wrap},
 };
 
 pub(crate) fn quest_giver(c: &mut Character) -> String {
@@ -77,13 +77,12 @@ fn render_lines_screen(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new(screen_title.to_string())
-            .block(Block::default().borders(Borders::ALL).title(screen_title)),
+        Paragraph::new(screen_title.to_string()).block(gothic_block(screen_title)),
         layout[0],
     );
     frame.render_widget(
         Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(body_title))
+            .block(gothic_block(body_title))
             .wrap(Wrap { trim: false }),
         layout[1],
     );
@@ -1459,15 +1458,13 @@ pub(crate) fn render_gem_picker_screen(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new("Select Gem")
-            .block(Block::default().borders(Borders::ALL).title("Select Gem")),
+        Paragraph::new("Select Gem").block(gothic_block("Select Gem")),
         layout[0],
     );
 
     if gems.is_empty() {
         frame.render_widget(
-            Paragraph::new("No gems in inventory.")
-                .block(Block::default().borders(Borders::ALL).title("Gems")),
+            Paragraph::new("No gems in inventory.").block(gothic_block("Gems")),
             layout[1],
         );
     } else {
@@ -1486,7 +1483,7 @@ pub(crate) fn render_gem_picker_screen(
             })
             .collect::<Vec<_>>();
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title("Gems"))
+            .block(gothic_block("Gems"))
             .highlight_style(selected_cursor_style())
             .highlight_symbol("> ");
         let mut state = ListState::default();
@@ -1671,7 +1668,7 @@ pub(crate) fn render_stash_screen(
         c.stash.len(),
         c.stash.capacity()
     ))
-    .block(Block::default().borders(Borders::ALL).title("Stash"));
+    .block(gothic_block("Stash"));
     frame.render_widget(title, layout[0]);
 
     let inventory_title = stash_grid_title("Inventory", side == StashSide::Inventory);
@@ -1768,7 +1765,7 @@ fn render_stash_details(
 ) {
     frame.render_widget(
         Paragraph::new(selected_item_detail_lines(c, grid, label, selected_item))
-            .block(Block::default().borders(Borders::ALL).title("Details")),
+            .block(gothic_block("Details")),
         area,
     );
 }

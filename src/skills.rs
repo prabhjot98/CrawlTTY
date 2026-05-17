@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
 };
 
 pub(crate) fn skill_tree_menu(
@@ -311,8 +311,7 @@ fn render_skill_tree_layout(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new(screen_title.to_string())
-            .block(Block::default().borders(Borders::ALL).title(screen_title)),
+        Paragraph::new(screen_title.to_string()).block(gothic_block(screen_title)),
         layout[0],
     );
 
@@ -324,13 +323,13 @@ fn render_skill_tree_layout(
     };
     frame.render_widget(
         Paragraph::new(skill_lines)
-            .block(Block::default().borders(Borders::ALL).title("Skills"))
+            .block(gothic_block("Skills"))
             .wrap(Wrap { trim: false }),
         body[0],
     );
     frame.render_widget(
         Paragraph::new(detail_lines)
-            .block(Block::default().borders(Borders::ALL).title("Details"))
+            .block(gothic_block("Details"))
             .wrap(Wrap { trim: false }),
         body[1],
     );
@@ -503,13 +502,12 @@ fn render_skill_lines_screen(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new(screen_title.to_string())
-            .block(Block::default().borders(Borders::ALL).title(screen_title)),
+        Paragraph::new(screen_title.to_string()).block(gothic_block(screen_title)),
         layout[0],
     );
     frame.render_widget(
         Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(body_title))
+            .block(gothic_block(body_title))
             .wrap(Wrap { trim: false }),
         layout[1],
     );
@@ -519,7 +517,7 @@ fn render_skill_lines_screen(
         format!("{message}\n{commands}")
     };
     frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        Paragraph::new(footer).block(gothic_block("Commands")),
         layout[2],
     );
 }
