@@ -261,8 +261,13 @@ fn append_passive_unlock_line(lines: &mut Vec<Line<'static>>, c: &Character, pas
         } else {
             ""
         };
+        let action = if skill_rank(c, passive) == 0 {
+            "unlocks"
+        } else {
+            "upgrades"
+        };
         lines.push(skill_line(format!(
-            "   └─{marker}{passive} upgrades at {} rank {} ({}/{})",
+            "   └─{marker}{passive} {action} at {} rank {} ({}/{})",
             prerequisite.starter,
             prerequisite.required_rank,
             prerequisite.current_rank.min(prerequisite.required_rank),
@@ -450,10 +455,14 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
             "30 Energy; builds 1 combo point.".to_string(),
         ],
         "Rupture" => vec![
-            format!(
-                "Venom Edge poison lasts {} turns.",
-                rupture_poison_duration_for_rank(rank)
-            ),
+            if rank == 0 {
+                "Locked passive; Venom Edge poison lasts 3 turns.".to_string()
+            } else {
+                format!(
+                    "Venom Edge poison lasts {} turns.",
+                    rupture_poison_duration_for_rank(rank)
+                )
+            },
             "Requires Venom Edge rank 2.".to_string(),
         ],
         "Smoke Step" => vec![
@@ -465,10 +474,14 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
             "Empowers your next Backstab.".to_string(),
         ],
         "Slip Away" => vec![
-            format!(
-                "+{} dodge while smoke protected.",
-                slip_away_dodge_bonus_for_rank(rank)
-            ),
+            if rank == 0 {
+                "Locked passive; no current smoke dodge bonus.".to_string()
+            } else {
+                format!(
+                    "+{} dodge while smoke protected.",
+                    slip_away_dodge_bonus_for_rank(rank)
+                )
+            },
             "Eviscerate grants brief smoke protection.".to_string(),
             "Smoke branch upgrade; requires Smoke Step rank 2.".to_string(),
         ],

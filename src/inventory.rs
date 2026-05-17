@@ -560,7 +560,8 @@ fn format_crit_delta(delta: i32) -> String {
 }
 
 pub(crate) fn can_equip_item(c: &Character, item: &Item) -> bool {
-    c.strength >= item.required_strength
+    can_equip_item_for_class(c, item)
+        && c.strength >= item.required_strength
         && c.dexterity >= item.required_dexterity
         && c.intelligence >= item.required_intelligence
 }
@@ -568,6 +569,9 @@ pub(crate) fn can_equip_item(c: &Character, item: &Item) -> bool {
 pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<String> {
     if can_equip_item(c, item) {
         return None;
+    }
+    if !can_equip_item_for_class(c, item) {
+        return Some("Rogue cannot equip shields.".to_string());
     }
     let mut missing = Vec::new();
     if c.strength < item.required_strength {
@@ -589,6 +593,12 @@ pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<S
         ));
     }
     Some(format!("Requires {}.", missing.join(", ")))
+}
+
+fn can_equip_item_for_class(c: &Character, item: &Item) -> bool {
+    c.class != CharacterClass::Rogue
+        || item.kind != ItemKind::Shield
+        || item.name == "Empty Offhand"
 }
 
 pub(crate) fn equip_or_use_inventory_item(
@@ -653,6 +663,12 @@ pub(crate) fn equip_or_use_inventory_item(
             ))
         }
         ItemKind::ManaPotion => {
+            if c.class == CharacterClass::Rogue {
+                c.inventory.insert(index, selected);
+                return InventoryActionResult::free(
+                    "Rogue uses Energy and cannot use mana potions.",
+                );
+            }
             if c.mana >= c.max_mana() {
                 c.inventory.insert(index, selected);
                 return InventoryActionResult::free("Mana is already full.");

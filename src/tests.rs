@@ -181,7 +181,7 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
     assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage +0%."));
     assert!(
         rendered.contains(
-            "4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles, +25 dodge. Ready in 2."
+            "4 Smoke Step r1: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +20 dodge. Ready in 2."
         )
     );
 }
@@ -242,9 +242,12 @@ fn rogue_builders_grant_combo_points_and_cap_at_five() {
     );
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
 
-    for _ in 0..7 {
+    for _ in 0..200 {
         c.rogue.energy = ROGUE_MAX_ENERGY;
         assert!(use_backstab(&mut c));
+        if c.rogue.combo_points == ROGUE_MAX_COMBO_POINTS {
+            break;
+        }
     }
 
     assert_eq!(c.rogue.combo_points, ROGUE_MAX_COMBO_POINTS);
@@ -306,6 +309,87 @@ fn rogue_movement_attack_does_not_enable_backstab() {
 }
 
 #[test]
+fn rogue_missed_attacks_do_not_apply_on_hit_effects() {
+    let mut found_backstab_miss = false;
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.dexterity = 0;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+        assert!(use_backstab(&mut c));
+        let d = c.active_dungeon.as_ref().unwrap();
+        if d.log.iter().any(|line| line.contains("miss")) {
+            assert_eq!(c.rogue.combo_points, 0);
+            found_backstab_miss = true;
+            break;
+        }
+    }
+    assert!(
+        found_backstab_miss,
+        "miss did not occur during Backstab attempts"
+    );
+
+    let mut found_venom_miss = false;
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.dexterity = 0;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+
+        assert!(use_venom_edge(&mut c));
+        let d = c.active_dungeon.as_ref().unwrap();
+        if d.log.iter().any(|line| line.contains("miss")) {
+            assert_eq!(c.rogue.combo_points, 0);
+            assert_eq!(d.enemies[0].poison_turns, 0);
+            found_venom_miss = true;
+            break;
+        }
+    }
+    assert!(
+        found_venom_miss,
+        "miss did not occur during Venom Edge attempts"
+    );
+
+    let mut found_eviscerate_miss = false;
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.dexterity = 0;
+        c.rogue.combo_points = 3;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+        {
+            let d = c.active_dungeon.as_mut().unwrap();
+            d.enemies[0].poison_turns = 2;
+            d.enemies[0].poison_damage = 4;
+        }
+
+        assert!(use_eviscerate(&mut c));
+        let d = c.active_dungeon.as_ref().unwrap();
+        if d.log.iter().any(|line| line.contains("miss")) {
+            assert_eq!(c.rogue.combo_points, 3);
+            assert_eq!(d.enemies[0].poison_turns, 2);
+            assert_eq!(d.enemies[0].hp, d.enemies[0].max_hp);
+            found_eviscerate_miss = true;
+            break;
+        }
+    }
+    assert!(
+        found_eviscerate_miss,
+        "miss did not occur during Eviscerate attempts"
+    );
+}
+
+#[test]
 fn backstab_boss_kill_leaves_combo_cleared() {
     for _ in 0..200 {
         let mut c = Character::new(
@@ -344,8 +428,12 @@ fn eviscerate_requires_and_spends_combo_points() {
     assert_eq!(c.rogue.combo_points, 0);
 
     c.rogue.combo_points = 3;
-    c.rogue.energy = ROGUE_MAX_ENERGY;
-    assert!(use_eviscerate(&mut c));
+    for _ in 0..200 {
+        c.rogue.energy = ROGUE_MAX_ENERGY;
+        if use_eviscerate(&mut c) && c.rogue.combo_points == 0 {
+            break;
+        }
+    }
     assert_eq!(c.rogue.combo_points, 0);
 }
 
@@ -425,7 +513,12 @@ fn venom_edge_applies_poison_and_grants_combo_point() {
     );
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
 
-    assert!(use_venom_edge(&mut c));
+    for _ in 0..200 {
+        c.rogue.energy = ROGUE_MAX_ENERGY;
+        if use_venom_edge(&mut c) && c.rogue.combo_points == 1 {
+            break;
+        }
+    }
 
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(c.rogue.combo_points, 1);
@@ -442,7 +535,14 @@ fn rupture_rank_extends_venom_edge_poison_duration() {
     );
     rank_one.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
 
-    assert!(use_venom_edge(&mut rank_one));
+    for _ in 0..200 {
+        rank_one.rogue.energy = ROGUE_MAX_ENERGY;
+        if use_venom_edge(&mut rank_one)
+            && rank_one.active_dungeon.as_ref().unwrap().enemies[0].poison_turns > 0
+        {
+            break;
+        }
+    }
 
     let rank_one_duration = rank_one.active_dungeon.as_ref().unwrap().enemies[0].poison_turns;
 
@@ -454,7 +554,14 @@ fn rupture_rank_extends_venom_edge_poison_duration() {
     rank_five.rogue.rupture_rank = 5;
     rank_five.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
 
-    assert!(use_venom_edge(&mut rank_five));
+    for _ in 0..200 {
+        rank_five.rogue.energy = ROGUE_MAX_ENERGY;
+        if use_venom_edge(&mut rank_five)
+            && rank_five.active_dungeon.as_ref().unwrap().enemies[0].poison_turns > 0
+        {
+            break;
+        }
+    }
 
     let rank_five_duration = rank_five.active_dungeon.as_ref().unwrap().enemies[0].poison_turns;
     assert_eq!(rank_one_duration, 3);
@@ -574,15 +681,36 @@ fn smoke_step_hotkey_moves_to_default_open_destination() {
     rogue.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
     assert!(is_known_dungeon_command_for(&rogue, '4'));
-    assert!(handle_class_skill_key(&mut rogue, '4'));
+    assert!(!handle_class_skill_key(&mut rogue, '4'));
 
     let d = rogue.active_dungeon.as_ref().unwrap();
-    assert_eq!((d.player_x, d.player_y), (4, 2));
+    assert_eq!((d.player_x, d.player_y), (2, 2));
+    assert!(rogue.rogue.smoke_step_pending);
     assert!(
         d.log
             .iter()
-            .any(|line| line.contains("You vanish through smoke."))
+            .any(|line| line.contains("Choose a Smoke Step direction."))
     );
+}
+
+#[test]
+fn smoke_step_direction_key_moves_and_interacts_with_landing_tile() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.stairs_x = 4;
+    d.stairs_y = 2;
+    rogue.active_dungeon = Some(d);
+
+    assert!(!handle_class_skill_key(&mut rogue, '4'));
+    assert!(handle_pending_smoke_step_key(&mut rogue, 'D'));
+
+    let d = rogue.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.floor, 3);
+    assert!(!rogue.rogue.smoke_step_pending);
 }
 
 #[test]
@@ -673,11 +801,11 @@ fn smoke_protection_adds_rogue_defensive_dodge_bonus() {
 
     rogue.rogue.smoke_protection_turns = 1;
 
-    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 25);
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 20);
 
     rogue.rogue.smoke_step_rank = 5;
 
-    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 37);
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 32);
 
     let mut warrior = test_character();
     warrior.rogue.smoke_protection_turns = 1;
@@ -1288,6 +1416,53 @@ fn merchant_purchase_failures_do_not_spend_gold() {
 }
 
 #[test]
+fn rogue_cannot_buy_or_use_mana_potions() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.gold = MANA_POTION_COST;
+    let starting_gold = c.gold;
+    let starting_inventory = c.inventory.len();
+
+    let message = buy_merchant_offer(&mut c, MerchantOffer::LesserManaPotion);
+
+    assert_eq!(message, "Rogue uses Energy and cannot use mana potions.");
+    assert_eq!(c.gold, starting_gold);
+    assert_eq!(c.inventory.len(), starting_inventory);
+
+    c.inventory.push(mana_potion());
+    let mana_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::ManaPotion))
+        .unwrap();
+    let result = equip_or_use_inventory_item(&mut c, mana_index);
+
+    assert_eq!(
+        result.message,
+        "Rogue uses Energy and cannot use mana potions."
+    );
+    assert!(!result.spent_turn);
+    assert!(
+        c.inventory
+            .iter()
+            .any(|item| matches!(item.kind, ItemKind::ManaPotion))
+    );
+}
+
+#[test]
+fn rogue_random_consumable_loot_does_not_drop_mana_potions() {
+    for _ in 0..200 {
+        let loot = random_loot_for_class(CharacterClass::Rogue, 2, false);
+        if matches!(loot.kind, ItemKind::HealthPotion | ItemKind::ManaPotion) {
+            assert_eq!(loot.kind, ItemKind::HealthPotion);
+        }
+    }
+}
+
+#[test]
 fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -1450,6 +1625,33 @@ fn rogue_skill_screen_renders_with_ratatui() {
 }
 
 #[test]
+fn rogue_passives_start_locked_and_have_no_effect_until_unlocked() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+
+    c.unspent_skills = 1;
+    assert_eq!(c.rogue.rupture_rank, 0);
+    assert_eq!(c.rogue.slip_away_rank, 0);
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Rupture"),
+        "Rupture upgrades require Venom Edge rank 2."
+    );
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Slip Away"),
+        "Slip Away upgrades require Smoke Step rank 2."
+    );
+
+    c.rogue.smoke_protection_turns = 1;
+    assert_eq!(
+        defensive_dodge_rating(&c),
+        c.dodge_rating() as i32 + smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank)
+    );
+}
+
+#[test]
 fn new_character_uses_starting_bag_and_stash_grids() {
     let c = test_character();
 
@@ -1517,6 +1719,8 @@ fn new_rogue_matches_starting_state() {
     assert_eq!(c.intelligence, 1);
     assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
     assert_eq!(c.rogue.combo_points, 0);
+    assert_eq!(c.rogue.rupture_rank, 0);
+    assert_eq!(c.rogue.slip_away_rank, 0);
     assert!(c.equipped_weapon.name.contains("Dagger"));
     assert_eq!(c.equipped_weapon.kind, ItemKind::Weapon);
     assert_eq!(c.equipped_weapon.required_strength, 0);
@@ -1534,6 +1738,34 @@ fn new_rogue_matches_starting_state() {
     assert_eq!(c.equipped_shield.required_dexterity, 0);
     assert_eq!(c.equipped_shield.required_intelligence, 0);
     assert!(can_equip_item(&c, &c.equipped_shield));
+}
+
+#[test]
+fn rogue_cannot_equip_non_empty_shields() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.strength = 99;
+    c.inventory.push(worn_shield());
+    let shield_index = c
+        .inventory
+        .iter()
+        .position(|item| item.name.contains("Worn Shield"))
+        .unwrap();
+
+    assert!(!can_equip_item(&c, c.inventory.get(shield_index).unwrap()));
+    let result = equip_or_use_inventory_item(&mut c, shield_index);
+
+    assert_eq!(result.message, "Rogue cannot equip shields.");
+    assert!(!result.spent_turn);
+    assert_eq!(c.equipped_shield.name, "Empty Offhand");
+    assert!(
+        c.inventory
+            .iter()
+            .any(|item| item.name.contains("Worn Shield"))
+    );
 }
 
 #[test]
@@ -2323,8 +2555,8 @@ fn passive_skill_upgrades_require_branch_starter_rank_two() {
     upgrade_skill(&mut rogue, "Slip Away");
 
     assert_eq!(rogue.rogue.eviscerate_rank, 2);
-    assert_eq!(rogue.rogue.rupture_rank, 2);
-    assert_eq!(rogue.rogue.slip_away_rank, 2);
+    assert_eq!(rogue.rogue.rupture_rank, 1);
+    assert_eq!(rogue.rogue.slip_away_rank, 1);
 }
 
 #[test]

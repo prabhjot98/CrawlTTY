@@ -119,7 +119,7 @@ fn selected_numbered_line(selected: bool, index: usize, text: impl Into<String>)
 pub(crate) fn merchant(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let mut selected = 0usize;
     let mut message = String::new();
-    let options = merchant_actions();
+    let options = merchant_actions(c);
     loop {
         clamp_selection(&mut selected, options.len());
         terminal
@@ -200,15 +200,19 @@ impl MerchantOffer {
     }
 }
 
-fn merchant_actions() -> [MerchantAction; 3] {
-    [
-        MerchantAction::Buy(MerchantOffer::LesserHealthPotion),
-        MerchantAction::Buy(MerchantOffer::LesserManaPotion),
-        MerchantAction::SellItems,
-    ]
+fn merchant_actions(c: &Character) -> Vec<MerchantAction> {
+    let mut actions = vec![MerchantAction::Buy(MerchantOffer::LesserHealthPotion)];
+    if c.class != CharacterClass::Rogue {
+        actions.push(MerchantAction::Buy(MerchantOffer::LesserManaPotion));
+    }
+    actions.push(MerchantAction::SellItems);
+    actions
 }
 
 pub(crate) fn buy_merchant_offer(c: &mut Character, offer: MerchantOffer) -> String {
+    if c.class == CharacterClass::Rogue && matches!(offer, MerchantOffer::LesserManaPotion) {
+        return "Rogue uses Energy and cannot use mana potions.".to_string();
+    }
     if c.gold < offer.cost() {
         return format!("Need {} gold to buy {}.", offer.cost(), offer.name());
     }
@@ -229,7 +233,7 @@ pub(crate) fn render_merchant_screen(
     selected: usize,
     message: &str,
 ) {
-    let options = merchant_actions();
+    let options = merchant_actions(c);
     let mut lines = vec![
         plain_line(format!(
             "Merchant - {}",

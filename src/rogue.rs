@@ -168,11 +168,16 @@ pub(crate) fn use_backstab(c: &mut Character) -> bool {
     };
     let multiplier = backstab_multiplier_for_target(c, index);
     let outcome = damage_enemy(c, index, multiplier, "backstab");
-    if outcome == DamageEnemyOutcome::BossDefeated {
-        return true;
+    match outcome {
+        DamageEnemyOutcome::Hit | DamageEnemyOutcome::Killed => {
+            add_rogue_combo_point(c);
+            c.rogue.empowered_backstab_turns = 0;
+        }
+        DamageEnemyOutcome::BossDefeated => return true,
+        DamageEnemyOutcome::Missed | DamageEnemyOutcome::NoTarget => {
+            c.rogue.empowered_backstab_turns = 0;
+        }
     }
-    add_rogue_combo_point(c);
-    c.rogue.empowered_backstab_turns = 0;
     true
 }
 
@@ -186,22 +191,26 @@ pub(crate) fn use_venom_edge(c: &mut Character) -> bool {
         return false;
     };
     let outcome = damage_enemy(c, index, venom_edge_multiplier(c), "venom edge");
-    if outcome == DamageEnemyOutcome::BossDefeated {
-        return true;
-    }
-    let poison_damage = poison_damage_for_rank(c.rogue.venom_edge_rank);
-    let poison_turns = rupture_poison_duration_for_rank(c.rogue.rupture_rank);
-    if let Some(enemy) = c
-        .active_dungeon
-        .as_mut()
-        .and_then(|d| d.enemies.get_mut(index))
-    {
-        if enemy.hp > 0 {
-            enemy.poison_turns = enemy.poison_turns.max(poison_turns);
-            enemy.poison_damage = enemy.poison_damage.max(poison_damage);
+    match outcome {
+        DamageEnemyOutcome::Hit => {
+            let poison_damage = poison_damage_for_rank(c.rogue.venom_edge_rank);
+            let poison_turns = rupture_poison_duration_for_rank(c.rogue.rupture_rank);
+            if let Some(enemy) = c
+                .active_dungeon
+                .as_mut()
+                .and_then(|d| d.enemies.get_mut(index))
+            {
+                if enemy.hp > 0 {
+                    enemy.poison_turns = enemy.poison_turns.max(poison_turns);
+                    enemy.poison_damage = enemy.poison_damage.max(poison_damage);
+                }
+            }
+            add_rogue_combo_point(c);
         }
+        DamageEnemyOutcome::Killed => add_rogue_combo_point(c),
+        DamageEnemyOutcome::BossDefeated => return true,
+        DamageEnemyOutcome::Missed | DamageEnemyOutcome::NoTarget => {}
     }
-    add_rogue_combo_point(c);
     true
 }
 
@@ -222,8 +231,14 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
     let multiplier = eviscerate_multiplier_for_points(points)
         + (eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank) as f32 / 100.0);
     let outcome = damage_enemy(c, index, multiplier, "eviscerate");
-    if outcome == DamageEnemyOutcome::BossDefeated {
-        return true;
+    match outcome {
+        DamageEnemyOutcome::Hit => {}
+        DamageEnemyOutcome::Killed => {
+            c.rogue.combo_points = 0;
+            return true;
+        }
+        DamageEnemyOutcome::BossDefeated => return true,
+        DamageEnemyOutcome::Missed | DamageEnemyOutcome::NoTarget => return true,
     }
     c.rogue.combo_points = 0;
     let poison_bonus = {
@@ -254,6 +269,7 @@ pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
 }
 
 pub(crate) fn try_smoke_step(c: &mut Character, dx: i32, dy: i32) -> bool {
+    c.rogue.smoke_step_pending = false;
     if c.rogue.smoke_step_cooldown > 0 {
         log_rogue_warning(c, "Smoke Step is on cooldown.");
         return false;
@@ -287,19 +303,23 @@ pub(crate) fn try_smoke_step(c: &mut Character, dx: i32, dy: i32) -> bool {
         }
         return false;
     }
-    let Some(d) = c.active_dungeon.as_mut() else {
-        c.restore_rogue_energy(SMOKE_STEP_COST);
-        return false;
-    };
-    d.player_x = nx;
-    d.player_y = ny;
+    {
+        let Some(d) = c.active_dungeon.as_mut() else {
+            c.restore_rogue_energy(SMOKE_STEP_COST);
+            return false;
+        };
+        d.player_x = nx;
+        d.player_y = ny;
+        log_event(&mut d.log, LogKind::Status, "You vanish through smoke.");
+    }
     c.rogue.smoke_step_cooldown = SMOKE_STEP_COOLDOWN;
     c.rogue.smoke_protection_turns = 1;
     c.rogue.empowered_backstab_turns = c.rogue.empowered_backstab_turns.max(2);
-    log_event(&mut d.log, LogKind::Status, "You vanish through smoke.");
+    auto_interact_tile(c);
     true
 }
 
+#[allow(dead_code)]
 pub(crate) fn smoke_step_direction(c: &Character) -> Option<(i32, i32)> {
     let d = c.active_dungeon.as_ref()?;
     let directions = [
@@ -318,11 +338,23 @@ pub(crate) fn smoke_step_direction(c: &Character) -> Option<(i32, i32)> {
 }
 
 pub(crate) fn use_smoke_step(c: &mut Character) -> bool {
-    let Some((dx, dy)) = smoke_step_direction(c) else {
-        log_rogue_warning(c, "No open tile for Smoke Step.");
+    if c.rogue.smoke_step_cooldown > 0 {
+        log_rogue_warning(c, "Smoke Step is on cooldown.");
         return false;
-    };
-    try_smoke_step(c, dx, dy)
+    }
+    if c.rogue.energy < SMOKE_STEP_COST {
+        log_rogue_warning(c, "Not enough Energy for Smoke Step.");
+        return false;
+    }
+    c.rogue.smoke_step_pending = true;
+    if let Some(d) = c.active_dungeon.as_mut() {
+        log_event(
+            &mut d.log,
+            LogKind::Status,
+            "Choose a Smoke Step direction.",
+        );
+    }
+    false
 }
 
 fn smoke_step_path_is_clear(d: &Dungeon, dx: i32, dy: i32) -> bool {

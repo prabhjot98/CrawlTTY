@@ -118,9 +118,9 @@ pub(crate) struct RogueState {
     pub(crate) eviscerate_rank: u32,
     #[serde(default = "default_skill_rank")]
     pub(crate) smoke_step_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default)]
     pub(crate) rupture_rank: u32,
-    #[serde(default = "default_skill_rank")]
+    #[serde(default)]
     pub(crate) slip_away_rank: u32,
     #[serde(default)]
     pub(crate) smoke_step_cooldown: u32,
@@ -128,6 +128,8 @@ pub(crate) struct RogueState {
     pub(crate) smoke_protection_turns: u32,
     #[serde(default)]
     pub(crate) empowered_backstab_turns: u32,
+    #[serde(default)]
+    pub(crate) smoke_step_pending: bool,
 }
 
 impl Default for RogueState {
@@ -139,11 +141,12 @@ impl Default for RogueState {
             venom_edge_rank: 1,
             eviscerate_rank: 1,
             smoke_step_rank: 1,
-            rupture_rank: 1,
-            slip_away_rank: 1,
+            rupture_rank: 0,
+            slip_away_rank: 0,
             smoke_step_cooldown: 0,
             smoke_protection_turns: 0,
             empowered_backstab_turns: 0,
+            smoke_step_pending: false,
         }
     }
 }

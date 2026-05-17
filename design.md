@@ -225,7 +225,7 @@ Example skills:
 
 ### 4. Rogue
 
-A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture upgrades require Venom Edge rank 2, and Slip Away upgrades require Smoke Step rank 2. Rupture extends Venom Edge poison duration by rank. Smoke Step spends Energy to dash 1-2 cardinal tiles along a clear path to an open destination, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus Slip Away, and enables an empowered Backstab on the next player action.
+A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. Rogue on-hit skill effects only apply when the attack hits. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture unlocks at Venom Edge rank 2, and Slip Away unlocks at Smoke Step rank 2. Rupture starts inactive and extends Venom Edge poison duration by rank once unlocked. Slip Away starts inactive and adds smoke-protection dodge once unlocked. Smoke Step spends Energy after the player chooses an explicit direction, dashes 1-2 cardinal tiles along a clear path to an open destination, resolves normal landing-tile interactions, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus unlocked Slip Away, and enables an empowered Backstab on the next player action. Rogues cannot equip shields in the first pass and use Energy instead of mana potions.
 
 Possible builds:
 
@@ -863,7 +863,7 @@ Even without graphics, the game can feel responsive with:
 - Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow, boss red, elite magenta, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find.
-- The current implementation renders interactive screens with ratatui. Character creation starts inside the ratatui terminal session, and town submenus such as merchant, blacksmith, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health and mana potions and buys unwanted inventory items. The skills screen uses cursor selection with a two-pane body: the skills container uses one half of the available body width, and the details pane uses the other half to show the selected skill's current effect and next-rank improvement. The attributes screen uses cursor selection, remains viewable when no attribute points are available, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Terminal resize events trigger an immediate redraw of the active ratatui screen.
+- The current implementation renders interactive screens with ratatui. Character creation starts inside the ratatui terminal session, and town submenus such as merchant, blacksmith, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health potions to all classes, sells lesser mana potions to Warriors, and buys unwanted inventory items. The skills screen uses cursor selection with a two-pane body: the skills container uses one half of the available body width, and the details pane uses the other half to show the selected skill's current effect and next-rank improvement. The attributes screen uses cursor selection, remains viewable when no attribute points are available, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Terminal resize events trigger an immediate redraw of the active ratatui screen.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.
 - Important UI text should use color: green for safe/positive options, yellow for gold/items/messages, red for danger/quit/back, blue for mana, and cyan/magenta for headings or special screens.
 - Animated projectile movement using short delays
@@ -931,6 +931,8 @@ The Warrior starts with:
 - Cloth tunic or battered mail
 - 2 lesser health potions
 - 1 lesser mana potion
+
+Rogues start with a dagger, light armor, an empty offhand, and 2 lesser health potions.
 
 Mana does not regenerate during dungeon exploration. Mana is restored by drinking mana potions, such as lesser mana potions, or by returning to town.
 
@@ -1002,12 +1004,12 @@ Example starter/early items:
 Other MVP items:
 
 - Lesser health potions: restore 15% of maximum health.
-- Lesser mana potions: restore 15% of maximum mana.
+- Lesser mana potions: restore 15% of maximum mana for mana-using classes. Rogues use Energy, cannot use mana potions, and class-aware consumable drops avoid mana potions for Rogues.
 - Gold
 
 ### MVP Equipment Interaction
 
-The inventory screen should show currently equipped weapon, armor, and shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory. Full-bag replacement gear equips are allowed because removing the selected carried item frees the cell reused for the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed. Dropping an item in a dungeon places it on the ground instead of deleting it.
+The inventory screen should show currently equipped weapon, armor, and offhand/shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory. Full-bag replacement gear equips are allowed because removing the selected carried item frees the cell reused for the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed for classes that can equip shields. Rogues keep an empty offhand and cannot equip shields in the first Rogue pass. Dropping an item in a dungeon places it on the ground instead of deleting it.
 
 Loot should feel rewarding:
 

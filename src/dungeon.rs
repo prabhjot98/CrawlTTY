@@ -17,6 +17,7 @@ pub(crate) fn clear_combat_state(c: &mut Character) {
     c.rogue.smoke_step_cooldown = 0;
     c.rogue.smoke_protection_turns = 0;
     c.rogue.empowered_backstab_turns = 0;
+    c.rogue.smoke_step_pending = false;
 }
 
 pub(crate) fn leave_dungeon(c: &mut Character) {
@@ -88,30 +89,34 @@ pub(crate) fn dungeon_loop(
         let before_log_len = current_dungeon_log_len(c);
         let action_label = dungeon_action_label_for(c, key);
         let mut took_turn = false;
-        match key {
-            'w' | 'W' => took_turn = try_move(c, 0, -1),
-            's' | 'S' => took_turn = try_move(c, 0, 1),
-            'a' | 'A' => took_turn = try_move(c, -1, 0),
-            'd' | 'D' => took_turn = try_move(c, 1, 0),
-            '1' | '2' | '3' | '4' => took_turn = handle_class_skill_key(c, key),
-            'p' | 'P' => took_turn = use_potion(c),
-            'g' | 'G' => {
-                took_turn = pickup_ground_items_on_player(c);
-                if !took_turn && !ground_item_indices_at_player(c).is_empty() {
-                    took_turn = ground_loot_picker(c, terminal)?;
+        if c.class == CharacterClass::Rogue && c.rogue.smoke_step_pending {
+            took_turn = handle_pending_smoke_step_key(c, key);
+        } else {
+            match key {
+                'w' | 'W' => took_turn = try_move(c, 0, -1),
+                's' | 'S' => took_turn = try_move(c, 0, 1),
+                'a' | 'A' => took_turn = try_move(c, -1, 0),
+                'd' | 'D' => took_turn = try_move(c, 1, 0),
+                '1' | '2' | '3' | '4' => took_turn = handle_class_skill_key(c, key),
+                'p' | 'P' => took_turn = use_potion(c),
+                'g' | 'G' => {
+                    took_turn = pickup_ground_items_on_player(c);
+                    if !took_turn && !ground_item_indices_at_player(c).is_empty() {
+                        took_turn = ground_loot_picker(c, terminal)?;
+                    }
                 }
-            }
-            'i' | 'I' => took_turn = inventory_screen(c, terminal)?,
-            '\u{1b}' => {
-                if try_leave_dungeon_for_town(c) {
-                    full_heal_on_town_return(c);
-                    save_character(c)?;
-                    break;
+                'i' | 'I' => took_turn = inventory_screen(c, terminal)?,
+                '\u{1b}' => {
+                    if try_leave_dungeon_for_town(c) {
+                        full_heal_on_town_return(c);
+                        save_character(c)?;
+                        break;
+                    }
                 }
-            }
-            _ => {
-                if let Some(d) = c.active_dungeon.as_mut() {
-                    log_event(&mut d.log, LogKind::Warn, UNKNOWN_DUNGEON_COMMAND_MESSAGE);
+                _ => {
+                    if let Some(d) = c.active_dungeon.as_mut() {
+                        log_event(&mut d.log, LogKind::Warn, UNKNOWN_DUNGEON_COMMAND_MESSAGE);
+                    }
                 }
             }
         }
@@ -442,7 +447,7 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
             eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank)
         )),
         Line::from(format!(
-            "4 Smoke Step r{}: cost 35 Energy, cd 4. Dash 2 tiles, +{} dodge. Ready in {}.",
+            "4 Smoke Step r{}: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +{} dodge. Ready in {}.",
             c.rogue.smoke_step_rank,
             smoke_protection_dodge_bonus(c),
             c.rogue.smoke_step_cooldown
@@ -581,6 +586,12 @@ fn log_unknown_class_skill(c: &mut Character) {
 }
 
 pub(crate) fn is_known_dungeon_command_for(c: &Character, key: char) -> bool {
+    if c.class == CharacterClass::Rogue
+        && c.rogue.smoke_step_pending
+        && smoke_step_delta_for_key(key).is_some()
+    {
+        return true;
+    }
     matches!(
         key,
         'w' | 'W'
@@ -601,6 +612,41 @@ pub(crate) fn is_known_dungeon_command_for(c: &Character, key: char) -> bool {
             | 'I'
             | '\u{1b}'
     ) || (c.class == CharacterClass::Rogue && key == '4')
+}
+
+pub(crate) fn handle_pending_smoke_step_key(c: &mut Character, key: char) -> bool {
+    if let Some((dx, dy)) = smoke_step_delta_for_key(key) {
+        return try_smoke_step(c, dx, dy);
+    }
+    if key == '\u{1b}' || key == '4' {
+        c.rogue.smoke_step_pending = false;
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Status,
+            "Smoke Step canceled.",
+        );
+    } else {
+        log_event(
+            &mut c.active_dungeon.as_mut().unwrap().log,
+            LogKind::Warn,
+            "Choose W/A/S/D for Smoke Step direction.",
+        );
+    }
+    false
+}
+
+fn smoke_step_delta_for_key(key: char) -> Option<(i32, i32)> {
+    match key {
+        'w' => Some((0, -1)),
+        's' => Some((0, 1)),
+        'a' => Some((-1, 0)),
+        'd' => Some((1, 0)),
+        'W' => Some((0, -2)),
+        'S' => Some((0, 2)),
+        'A' => Some((-2, 0)),
+        'D' => Some((2, 0)),
+        _ => None,
+    }
 }
 
 #[allow(dead_code)]
@@ -1892,7 +1938,7 @@ pub(crate) fn maybe_drop_loot_in_dungeon(
         let loot = if guaranteed_magic {
             random_equipment_loot(d.floor, true)
         } else {
-            random_loot(d.floor, rng.gen_bool(0.30))
+            random_loot_for_class(c.class, d.floor, rng.gen_bool(0.30))
         };
         add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Dropped");
     }
@@ -2281,9 +2327,17 @@ fn retain_boss_overflow_dungeon(c: &mut Character, mut d: Dungeon) {
     c.active_dungeon = Some(d);
 }
 
+#[allow(dead_code)]
 pub(crate) fn random_loot(floor: u32, better: bool) -> Item {
+    random_loot_for_class(CharacterClass::Warrior, floor, better)
+}
+
+pub(crate) fn random_loot_for_class(class: CharacterClass, floor: u32, better: bool) -> Item {
     let mut rng = rand::thread_rng();
     if rng.gen_range(0..5) == 4 {
+        if class == CharacterClass::Rogue {
+            return health_potion();
+        }
         if rng.gen_bool(0.5) {
             return health_potion();
         }
@@ -2505,9 +2559,10 @@ pub(crate) fn open_chest_on_player(c: &mut Character) {
         let mut rng = rand::thread_rng();
         let gold = apply_gold_find_bonus(c, rng.gen_range(10..=25));
         c.gold += gold;
+        let class = c.class;
         let d = c.active_dungeon.as_mut().unwrap();
         d.chests[chest_index].opened = true;
-        let loot = random_loot(d.floor, rng.gen_bool(0.35));
+        let loot = random_loot_for_class(class, d.floor, rng.gen_bool(0.35));
         log_event(
             &mut d.log,
             LogKind::Loot,
