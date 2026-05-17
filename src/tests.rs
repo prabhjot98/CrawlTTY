@@ -3425,6 +3425,35 @@ fn town_project_board_uses_list_and_details_panels() {
 }
 
 #[test]
+fn wide_town_project_board_gives_details_half_width_without_wrapping_project_names() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(120, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_town_projects_screen(frame, &c, 0, ""))
+        .unwrap();
+    let lines = backend_lines(&terminal);
+    let header = lines
+        .iter()
+        .find(|line| line.contains("Projects") && line.contains("Details"))
+        .unwrap();
+
+    assert_eq!(char_index(header, "Details"), 61);
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("Quartermaster Ledger"))
+    );
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.trim_start().starts_with("Ledger"))
+    );
+}
+
+#[test]
 fn completing_town_project_spends_gold_and_records_completion() {
     let mut c = test_character();
     c.gold = 150;
