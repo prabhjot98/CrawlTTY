@@ -110,42 +110,34 @@ fn run_game(
         match key {
             'm' | 'M' => {
                 merchant(character, terminal)?;
-                terminal.clear()?;
                 town_message.clear();
             }
             'b' | 'B' => {
                 blacksmith(character, terminal)?;
-                terminal.clear()?;
                 town_message.clear();
             }
             'l' | 'L' => {
                 distillery(character, terminal)?;
-                terminal.clear()?;
                 town_message.clear();
             }
             's' | 'S' => {
                 stash_menu(character, terminal)?;
-                terminal.clear()?;
                 town_message.clear();
             }
             'p' | 'P' => {
                 town_projects_menu(character, terminal)?;
-                terminal.clear()?;
                 town_message.clear();
             }
             't' | 'T' => *town_message = quest_giver(character),
             'd' | 'D' => *town_message = enter_dungeon(character),
             'i' | 'I' => {
                 inventory_screen(character, terminal)?;
-                terminal.clear()?;
             }
             'a' | 'A' => {
                 spend_attributes(character, terminal)?;
-                terminal.clear()?;
             }
             'k' | 'K' => {
                 skill_tree_menu(character, terminal)?;
-                terminal.clear()?;
             }
             'q' | 'Q' => {
                 save_character(character)?;
