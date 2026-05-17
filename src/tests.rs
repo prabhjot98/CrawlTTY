@@ -3201,6 +3201,38 @@ fn town_project_row_text_includes_group_cost_status_and_benefit() {
 }
 
 #[test]
+fn town_project_board_uses_list_and_details_panels() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.gold = 100;
+    let selected = TOWN_PROJECTS
+        .iter()
+        .position(|definition| definition.project == TownProject::HireAppraiser)
+        .unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_town_projects_screen(frame, &c, selected, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+    let lines = backend_lines(&terminal);
+
+    assert!(rendered.contains("Projects"));
+    assert!(rendered.contains("Details"));
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("> [Appraiser] Hire Appraiser - Available"))
+    );
+    assert!(rendered.contains("Group: Appraiser"));
+    assert!(rendered.contains("Cost: 250 gold"));
+    assert!(rendered.contains("Status: Available"));
+    assert!(rendered.contains("You need 150 more gold."));
+    assert!(rendered.contains("Benefit: Improve sell prices from 25% to 30%."));
+}
+
+#[test]
 fn completing_town_project_spends_gold_and_records_completion() {
     let mut c = test_character();
     c.gold = 150;
