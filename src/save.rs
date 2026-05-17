@@ -41,75 +41,138 @@ pub(crate) fn load_or_create_character(
     create_character(terminal, "")
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CharacterCreationStep {
+    Class,
+    Name,
+    DeathMode,
+}
+
+pub(crate) struct CharacterCreationState {
+    pub(crate) step: CharacterCreationStep,
+    pub(crate) name: String,
+    pub(crate) selected_class: CharacterClass,
+    pub(crate) death_mode: DeathMode,
+    pub(crate) message: String,
+}
+
+impl CharacterCreationState {
+    pub(crate) fn new(startup_message: &str) -> Self {
+        Self {
+            step: CharacterCreationStep::Class,
+            name: String::new(),
+            selected_class: CharacterClass::Warrior,
+            death_mode: DeathMode::Softcore,
+            message: startup_message.to_string(),
+        }
+    }
+
+    pub(crate) fn handle_key(&mut self, key: char) -> Option<Character> {
+        match (self.step, key) {
+            (CharacterCreationStep::Class, '\n') => {
+                self.step = CharacterCreationStep::Name;
+                self.message.clear();
+            }
+            (CharacterCreationStep::Name, '\n') => {
+                if self.name.trim().is_empty() {
+                    self.message = "Enter a character name.".to_string();
+                } else {
+                    self.step = CharacterCreationStep::DeathMode;
+                    self.message.clear();
+                }
+            }
+            (CharacterCreationStep::DeathMode, '\n') => {
+                return Some(Character::new(
+                    self.name.trim().to_string(),
+                    self.selected_class,
+                    self.death_mode,
+                ));
+            }
+            (CharacterCreationStep::Class, '1') => {
+                self.selected_class = CharacterClass::Warrior;
+                self.message.clear();
+            }
+            (CharacterCreationStep::Class, '2') => {
+                self.selected_class = CharacterClass::Rogue;
+                self.message.clear();
+            }
+            (CharacterCreationStep::DeathMode, '\t') => {
+                self.death_mode = match self.death_mode {
+                    DeathMode::Softcore => DeathMode::Hardcore,
+                    DeathMode::Hardcore => DeathMode::Softcore,
+                };
+                self.message.clear();
+            }
+            (CharacterCreationStep::Name, '\u{8}' | '\u{7f}') => {
+                self.name.pop();
+                self.message.clear();
+            }
+            (CharacterCreationStep::Name, key)
+                if !key.is_control() && self.name.chars().count() < 32 =>
+            {
+                self.name.push(key);
+                self.message.clear();
+            }
+            (CharacterCreationStep::Name, '\u{1b}') => {
+                self.step = CharacterCreationStep::Class;
+                self.message.clear();
+            }
+            (CharacterCreationStep::DeathMode, '\u{1b}') => {
+                self.step = CharacterCreationStep::Name;
+                self.message.clear();
+            }
+            (CharacterCreationStep::Class, '\u{1b}') => {
+                self.message = "Create a character to begin.".to_string();
+            }
+            _ => {}
+        }
+        None
+    }
+}
+
+fn step_title(
+    active_step: CharacterCreationStep,
+    step: CharacterCreationStep,
+    base: &'static str,
+) -> String {
+    if active_step == step {
+        format!("{base} (active)")
+    } else {
+        base.to_string()
+    }
+}
+
 fn create_character(
     terminal: &mut ratatui::DefaultTerminal,
     startup_message: &str,
 ) -> Result<Character> {
-    let mut name = String::new();
-    let mut selected_class = CharacterClass::Warrior;
-    let mut death_mode = DeathMode::Softcore;
-    let mut message = startup_message.to_string();
+    let mut state = CharacterCreationState::new(startup_message);
     loop {
         terminal
             .draw(|frame| {
-                render_character_creation_screen(frame, &name, selected_class, death_mode, &message)
+                render_character_creation_screen(
+                    frame,
+                    state.step,
+                    &state.name,
+                    state.selected_class,
+                    state.death_mode,
+                    &state.message,
+                )
             })
             .context("failed to draw character creation")?;
         let key = match read_ui_input()? {
             UiInput::Key(key) => key,
             UiInput::Redraw => continue,
         };
-        match key {
-            '\n' => {
-                if name.trim().is_empty() {
-                    message = "Enter a character name.".to_string();
-                } else {
-                    return Ok(Character::new(
-                        name.trim().to_string(),
-                        selected_class,
-                        death_mode,
-                    ));
-                }
-            }
-            '1' => {
-                selected_class = CharacterClass::Warrior;
-                message.clear();
-            }
-            '2' => {
-                selected_class = CharacterClass::Rogue;
-                message.clear();
-            }
-            's' | 'S' => {
-                death_mode = DeathMode::Softcore;
-                message.clear();
-            }
-            'h' | 'H' => {
-                death_mode = DeathMode::Hardcore;
-                message.clear();
-            }
-            '\t' => {
-                death_mode = match death_mode {
-                    DeathMode::Softcore => DeathMode::Hardcore,
-                    DeathMode::Hardcore => DeathMode::Softcore,
-                };
-                message.clear();
-            }
-            '\u{8}' | '\u{7f}' => {
-                name.pop();
-                message.clear();
-            }
-            '\u{1b}' => message = "Create a character to begin.".to_string(),
-            key if !key.is_control() && name.chars().count() < 32 => {
-                name.push(key);
-                message.clear();
-            }
-            _ => {}
+        if let Some(character) = state.handle_key(key) {
+            return Ok(character);
         }
     }
 }
 
 pub(crate) fn render_character_creation_screen(
     frame: &mut Frame,
+    active_step: CharacterCreationStep,
     name: &str,
     selected_class: CharacterClass,
     selected_death_mode: DeathMode,
@@ -118,7 +181,10 @@ pub(crate) fn render_character_creation_screen(
     let footer_height = if message.is_empty() { 3 } else { 4 };
     let layout = Layout::vertical([
         Constraint::Length(3),
-        Constraint::Min(8),
+        Constraint::Length(4),
+        Constraint::Length(3),
+        Constraint::Length(4),
+        Constraint::Min(0),
         Constraint::Length(footer_height),
     ])
     .split(frame.area());
@@ -151,44 +217,65 @@ pub(crate) fn render_character_creation_screen(
     } else {
         " "
     };
-    let lines = vec![
-        Line::from("ASCII terminal action RPG prototype"),
-        Line::from(""),
-        Line::from(format!(
-            "Name: {}",
-            if name.is_empty() { "_" } else { name }
-        )),
-        Line::from(""),
-        Line::styled(
-            format!("{warrior_marker} Warrior - armored melee skills and mana."),
-            Style::default().fg(Color::Cyan),
-        ),
-        Line::styled(
-            format!("{rogue_marker} Rogue - dagger burst, Energy, and combo points."),
-            Style::default().fg(Color::Green),
-        ),
-        Line::from(""),
-        Line::styled(
-            format!("{softcore_marker} Softcore - death returns you to town."),
-            Style::default().fg(Color::Green),
-        ),
-        Line::styled(
-            format!("{hardcore_marker} Hardcore - death permanently ends the character."),
-            Style::default().fg(Color::Red),
-        ),
-    ];
+
     frame.render_widget(
-        Paragraph::new(lines)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("New Character"),
-            )
-            .wrap(Wrap { trim: false }),
+        Paragraph::new(vec![
+            Line::styled(
+                format!("{warrior_marker} Warrior - armored melee skills and mana."),
+                Style::default().fg(Color::Cyan),
+            ),
+            Line::styled(
+                format!("{rogue_marker} Rogue - dagger burst, Energy, and combo points."),
+                Style::default().fg(Color::Green),
+            ),
+        ])
+        .block(Block::default().borders(Borders::ALL).title(step_title(
+            active_step,
+            CharacterCreationStep::Class,
+            "Step 1: Class",
+        )))
+        .wrap(Wrap { trim: false }),
         layout[1],
     );
 
-    let commands = "Type=name  Backspace=delete  1/2=class  S/H or Tab=death mode  Enter=confirm";
+    frame.render_widget(
+        Paragraph::new(format!(
+            "Name: {}",
+            if name.is_empty() { "_" } else { name }
+        ))
+        .block(Block::default().borders(Borders::ALL).title(step_title(
+            active_step,
+            CharacterCreationStep::Name,
+            "Step 2: Name",
+        ))),
+        layout[2],
+    );
+
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::styled(
+                format!("{softcore_marker} Softcore - death returns you to town."),
+                Style::default().fg(Color::Green),
+            ),
+            Line::styled(
+                format!("{hardcore_marker} Hardcore - death permanently ends the character."),
+                Style::default().fg(Color::Red),
+            ),
+        ])
+        .block(Block::default().borders(Borders::ALL).title(step_title(
+            active_step,
+            CharacterCreationStep::DeathMode,
+            "Step 3: Death Mode",
+        )))
+        .wrap(Wrap { trim: false }),
+        layout[3],
+    );
+
+    let commands = match active_step {
+        CharacterCreationStep::Class => "1/2=class  Enter=next  Esc=back",
+        CharacterCreationStep::Name => "Type=name  Backspace=delete  Enter=next  Esc=back",
+        CharacterCreationStep::DeathMode => "Tab=toggle mode  Enter=confirm  Esc=back",
+    };
     let footer = if message.is_empty() {
         commands.to_string()
     } else {
@@ -196,7 +283,7 @@ pub(crate) fn render_character_creation_screen(
     };
     frame.render_widget(
         Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
-        layout[2],
+        layout[5],
     );
 }
 

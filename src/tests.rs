@@ -1336,14 +1336,15 @@ fn wide_inventory_render_keeps_bag_grid_content_sized() {
 }
 
 #[test]
-fn character_creation_renders_as_ratatui_screen() {
+fn character_creation_renders_as_stepped_ratatui_screen() {
     use ratatui::{Terminal, backend::TestBackend};
 
-    let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
     terminal
         .draw(|frame| {
             render_character_creation_screen(
                 frame,
+                CharacterCreationStep::DeathMode,
                 "Mara",
                 CharacterClass::Warrior,
                 DeathMode::Hardcore,
@@ -1354,9 +1355,14 @@ fn character_creation_renders_as_ratatui_screen() {
 
     let rendered = backend_text(&terminal);
     assert!(rendered.contains("Character Creation"));
+    assert!(rendered.contains("Step 1: Class"));
+    assert!(rendered.contains("Step 2: Name"));
+    assert!(rendered.contains("Step 3: Death Mode"));
     assert!(rendered.contains("Name: Mara"));
     assert!(rendered.contains("> Hardcore"));
+    assert!(rendered.contains("Tab=toggle mode"));
     assert!(rendered.contains("Enter=confirm"));
+    assert!(!rendered.contains("S/H"));
 }
 
 #[test]
@@ -2167,6 +2173,7 @@ fn character_creation_renders_class_choices() {
         .draw(|frame| {
             render_character_creation_screen(
                 frame,
+                CharacterCreationStep::Class,
                 "Mara",
                 CharacterClass::Rogue,
                 DeathMode::Hardcore,
@@ -2180,6 +2187,46 @@ fn character_creation_renders_class_choices() {
     assert!(text.contains("Rogue"));
     assert!(text.contains("> Rogue"));
     assert!(text.contains("> Hardcore"));
+}
+
+#[test]
+fn character_creation_key_flow_uses_steps_and_tab_only_death_toggle() {
+    let mut state = CharacterCreationState::new("");
+
+    assert_eq!(state.step, CharacterCreationStep::Class);
+    assert!(state.handle_key('\n').is_none());
+    assert_eq!(state.step, CharacterCreationStep::Name);
+    assert!(state.handle_key('\u{1b}').is_none());
+    assert_eq!(state.step, CharacterCreationStep::Class);
+
+    assert!(state.handle_key('2').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Rogue);
+    assert!(state.handle_key('\n').is_none());
+    for key in "Shade".chars() {
+        assert!(state.handle_key(key).is_none());
+    }
+    assert!(state.handle_key('\n').is_none());
+    assert_eq!(state.step, CharacterCreationStep::DeathMode);
+    assert_eq!(state.death_mode, DeathMode::Softcore);
+
+    assert!(state.handle_key('h').is_none());
+    assert!(state.handle_key('H').is_none());
+    assert!(state.handle_key('s').is_none());
+    assert!(state.handle_key('S').is_none());
+    assert!(state.handle_key('1').is_none());
+    assert!(state.handle_key('2').is_none());
+    assert_eq!(state.death_mode, DeathMode::Softcore);
+
+    assert!(state.handle_key('\t').is_none());
+    assert_eq!(state.death_mode, DeathMode::Hardcore);
+    assert!(state.handle_key('\u{1b}').is_none());
+    assert_eq!(state.step, CharacterCreationStep::Name);
+    assert!(state.handle_key('\n').is_none());
+
+    let character = state.handle_key('\n').unwrap();
+    assert_eq!(character.name, "Shade");
+    assert_eq!(character.class, CharacterClass::Rogue);
+    assert_eq!(character.death_mode, DeathMode::Hardcore);
 }
 
 #[test]
