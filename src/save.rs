@@ -56,6 +56,30 @@ pub(crate) struct CharacterCreationState {
     pub(crate) message: String,
 }
 
+const CHARACTER_CREATION_CLASSES: [CharacterClass; 3] = [
+    CharacterClass::Warrior,
+    CharacterClass::Rogue,
+    CharacterClass::Sorceress,
+];
+
+fn selected_class_index(selected_class: CharacterClass) -> usize {
+    CHARACTER_CREATION_CLASSES
+        .iter()
+        .position(|class| *class == selected_class)
+        .unwrap_or(0)
+}
+
+fn class_after(selected_class: CharacterClass) -> CharacterClass {
+    let index = selected_class_index(selected_class);
+    CHARACTER_CREATION_CLASSES[(index + 1) % CHARACTER_CREATION_CLASSES.len()]
+}
+
+fn class_before(selected_class: CharacterClass) -> CharacterClass {
+    let index = selected_class_index(selected_class);
+    CHARACTER_CREATION_CLASSES
+        [(index + CHARACTER_CREATION_CLASSES.len() - 1) % CHARACTER_CREATION_CLASSES.len()]
+}
+
 impl CharacterCreationState {
     pub(crate) fn new(startup_message: &str) -> Self {
         Self {
@@ -88,12 +112,24 @@ impl CharacterCreationState {
                     self.death_mode,
                 ));
             }
-            (CharacterCreationStep::Class, key) if key == '1' || key == KEY_ARROW_UP => {
+            (CharacterCreationStep::Class, '1') => {
                 self.selected_class = CharacterClass::Warrior;
                 self.message.clear();
             }
-            (CharacterCreationStep::Class, key) if key == '2' || key == KEY_ARROW_DOWN => {
+            (CharacterCreationStep::Class, '2') => {
                 self.selected_class = CharacterClass::Rogue;
+                self.message.clear();
+            }
+            (CharacterCreationStep::Class, '3') => {
+                self.selected_class = CharacterClass::Sorceress;
+                self.message.clear();
+            }
+            (CharacterCreationStep::Class, KEY_ARROW_UP) => {
+                self.selected_class = class_before(self.selected_class);
+                self.message.clear();
+            }
+            (CharacterCreationStep::Class, KEY_ARROW_DOWN) => {
+                self.selected_class = class_after(self.selected_class);
                 self.message.clear();
             }
             (CharacterCreationStep::DeathMode, KEY_ARROW_UP) => {
@@ -181,7 +217,7 @@ pub(crate) fn render_character_creation_screen(
     let footer_height = if message.is_empty() { 3 } else { 4 };
     let layout = Layout::vertical([
         Constraint::Length(3),
-        Constraint::Length(4),
+        Constraint::Length(5),
         Constraint::Length(3),
         Constraint::Length(4),
         Constraint::Min(0),
@@ -220,6 +256,13 @@ pub(crate) fn render_character_creation_screen(
         } else {
             " "
         };
+    let sorceress_marker = if active_step == CharacterCreationStep::Class
+        && selected_class == CharacterClass::Sorceress
+    {
+        ">"
+    } else {
+        " "
+    };
 
     frame.render_widget(
         Paragraph::new(vec![
@@ -241,6 +284,16 @@ pub(crate) fn render_character_creation_screen(
                     selected_cursor_style()
                 } else {
                     Style::default().fg(Color::Green)
+                },
+            ),
+            Line::styled(
+                format!("{sorceress_marker} Sorceress - elemental spells, Mana, and a focus."),
+                if active_step == CharacterCreationStep::Class
+                    && selected_class == CharacterClass::Sorceress
+                {
+                    selected_cursor_style()
+                } else {
+                    Style::default().fg(Color::Blue)
                 },
             ),
         ])
@@ -296,7 +349,7 @@ pub(crate) fn render_character_creation_screen(
     );
 
     let commands = match active_step {
-        CharacterCreationStep::Class => "Up/Down or 1/2=class  Enter=next  Esc=back",
+        CharacterCreationStep::Class => "Up/Down or 1/2/3=class  Enter=next  Esc=back",
         CharacterCreationStep::Name => "Type=name  Backspace=delete  Enter=next  Esc=back",
         CharacterCreationStep::DeathMode => "Up/Down or Tab=mode  Enter=confirm  Esc=back",
     };

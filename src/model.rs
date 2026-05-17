@@ -397,6 +397,14 @@ pub(crate) struct Enemy {
     #[serde(default)]
     pub(crate) poison_damage: i32,
     #[serde(default)]
+    pub(crate) burning_turns: u32,
+    #[serde(default)]
+    pub(crate) burning_damage: i32,
+    #[serde(default)]
+    pub(crate) frozen_turns: u32,
+    #[serde(default)]
+    pub(crate) shocked_bonus_percent: u32,
+    #[serde(default)]
     pub(crate) armor_shred_turns: u32,
     #[serde(default)]
     pub(crate) vulnerable_turns: u32,
@@ -466,6 +474,8 @@ pub(crate) struct Character {
     pub(crate) warrior: WarriorState,
     #[serde(default)]
     pub(crate) rogue: RogueState,
+    #[serde(default)]
+    pub(crate) sorceress: SorceressState,
     pub(crate) hp: u32,
     pub(crate) mana: u32,
     pub(crate) inventory: ItemGrid,
@@ -535,6 +545,7 @@ impl Character {
         match class {
             CharacterClass::Warrior => Self::new_warrior(name, death_mode),
             CharacterClass::Rogue => Self::new_rogue(name, death_mode),
+            CharacterClass::Sorceress => Self::new_sorceress(name, death_mode),
         }
     }
 
@@ -558,6 +569,7 @@ impl Character {
             unspent_skills: 0,
             warrior: WarriorState::default(),
             rogue: RogueState::default(),
+            sorceress: SorceressState::default(),
             hp: max_hp,
             mana: max_mana,
             inventory: ItemGrid::player_starting(vec![
@@ -634,6 +646,61 @@ impl Character {
             completed_town_projects: Vec::new(),
             warrior: WarriorState::default(),
             rogue: RogueState::default(),
+            sorceress: SorceressState::default(),
+            pending_town_message: String::new(),
+        }
+    }
+
+    fn new_sorceress(name: String, death_mode: DeathMode) -> Self {
+        let strength = 1;
+        let dexterity = 3;
+        let intelligence = 6;
+        let max_hp = 10 + strength * 5;
+        let max_mana = 10 + intelligence * 5;
+        Self {
+            name,
+            class: CharacterClass::Sorceress,
+            death_mode,
+            level: 1,
+            xp: 0,
+            gold: 50,
+            strength,
+            dexterity,
+            intelligence,
+            unspent_attributes: 0,
+            unspent_skills: 0,
+            warrior: WarriorState::default(),
+            rogue: RogueState::default(),
+            sorceress: SorceressState::default(),
+            hp: max_hp,
+            mana: max_mana,
+            inventory: ItemGrid::player_starting(vec![
+                health_potion(),
+                health_potion(),
+                mana_potion(),
+                mana_potion(),
+            ]),
+            stash: ItemGrid::stash_starting(),
+            equipped_weapon: cracked_wand(),
+            equipped_armor: frayed_robe(),
+            equipped_shield: cracked_focus(),
+            equipped_helm: empty_helm(),
+            equipped_gloves: empty_gloves(),
+            equipped_boots: empty_boots(),
+            equipped_belt: empty_belt(),
+            equipped_amulet: empty_amulet(),
+            equipped_ring1: empty_ring(),
+            equipped_ring2: empty_ring(),
+            bellkeeper_defeated: false,
+            glass_tyrant_defeated: false,
+            act1_completed: false,
+            act2_completed: false,
+            active_dungeon: None,
+            weapon_shards: 0,
+            armor_shards: 0,
+            shield_shards: 0,
+            herbs: 0,
+            completed_town_projects: Vec::new(),
             pending_town_message: String::new(),
         }
     }

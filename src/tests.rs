@@ -163,6 +163,21 @@ fn rogue_dungeon_action_labels_include_four_active_skills() {
 }
 
 #[test]
+fn sorceress_dungeon_action_labels_include_spell_hotkeys() {
+    let sorceress = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+
+    assert_eq!(dungeon_action_label_for(&sorceress, '1'), "Firebolt");
+    assert_eq!(dungeon_action_label_for(&sorceress, '2'), "Frost Ring");
+    assert_eq!(dungeon_action_label_for(&sorceress, '3'), "Chain Spark");
+    assert_eq!(dungeon_action_label_for(&sorceress, '4'), "Mana Shield");
+    assert!(is_known_dungeon_command_for(&sorceress, '4'));
+}
+
+#[test]
 fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
     let mut rogue = Character::new(
         "Sneak".to_string(),
@@ -191,6 +206,483 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
             "4 Smoke Step r1: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +20 dodge. Ready in 2."
         )
     );
+}
+
+#[test]
+fn sorceress_skill_help_lines_show_mana_cooldowns_and_locked_mana_shield() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.mana = 27;
+    c.sorceress.frost_ring_cooldown = 2;
+    c.sorceress.chain_spark_cooldown = 1;
+
+    let rendered = dungeon_skill_help_lines(&c)
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("Sorceress: Mana 27/40  Mana Shield off"));
+    assert!(rendered.contains("1 Firebolt r1: cost 4 mana. 100% spell damage; 25% Burning."));
+    assert!(rendered.contains(
+        "2 Frost Ring r1: cost 8 mana, cd 3. 8 tiles; 70% damage; 20% Freeze. Ready in 2."
+    ));
+    assert!(
+        rendered
+            .contains("3 Chain Spark r1: cost 7 mana, cd 2. 80% damage; up to 2 hits. Ready in 1.")
+    );
+    assert!(rendered.contains("4 Mana Shield: locked; requires Frost Ring rank 2."));
+}
+
+#[test]
+fn sorceress_unlocked_mana_shield_help_shows_absorption_and_state() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.mana_shield_rank = 3;
+    c.sorceress.mana_shield_active = true;
+
+    let rendered = dungeon_skill_help_lines(&c)
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("Sorceress: Mana 40/40  Mana Shield on"));
+    assert!(rendered.contains("4 Mana Shield r3: free toggle. Absorbs 45% at 1 mana per damage."));
+}
+
+#[test]
+fn sorceress_cooldowns_tick_and_clear_with_combat_state() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.frost_ring_cooldown = 2;
+    c.sorceress.chain_spark_cooldown = 1;
+    c.sorceress.mana_shield_rank = 1;
+    c.sorceress.mana_shield_active = true;
+
+    tick_player_effects(&mut c);
+
+    assert_eq!(c.sorceress.frost_ring_cooldown, 1);
+    assert_eq!(c.sorceress.chain_spark_cooldown, 0);
+    assert!(c.sorceress.mana_shield_active);
+
+    clear_combat_state(&mut c);
+
+    assert_eq!(c.sorceress.frost_ring_cooldown, 0);
+    assert_eq!(c.sorceress.chain_spark_cooldown, 0);
+    assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn mana_shield_absorbs_rank_scaled_damage_using_mana() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.mana_shield_rank = 1;
+    c.sorceress.mana_shield_active = true;
+    c.hp = 15;
+    c.mana = 40;
+
+    apply_player_damage(&mut c, 10);
+
+    assert_eq!(c.mana, 37);
+    assert_eq!(c.hp, 8);
+    assert!(c.sorceress.mana_shield_active);
+
+    c.sorceress.mana_shield_rank = 5;
+    c.sorceress.mana_shield_active = true;
+    c.hp = 15;
+    c.mana = 2;
+
+    apply_player_damage(&mut c, 10);
+
+    assert_eq!(c.mana, 0);
+    assert_eq!(c.hp, 7);
+    assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn burning_and_frozen_enemy_effects_tick_during_enemy_turns() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    let mut burning = skeleton(5, 5);
+    burning.name = "Burning Dummy".to_string();
+    burning.hp = 10;
+    burning.max_hp = 10;
+    burning.burning_turns = 1;
+    burning.burning_damage = 2;
+    let mut frozen = skeleton(3, 2);
+    frozen.name = "Frozen Dummy".to_string();
+    frozen.frozen_turns = 1;
+    frozen.energy = 999;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![burning, frozen]));
+    let before_hp = c.hp;
+
+    enemy_turns(&mut c);
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    let burning = d
+        .enemies
+        .iter()
+        .find(|enemy| enemy.name == "Burning Dummy")
+        .unwrap();
+    let frozen = d
+        .enemies
+        .iter()
+        .find(|enemy| enemy.name == "Frozen Dummy")
+        .unwrap();
+    assert_eq!(burning.hp, 8);
+    assert_eq!(burning.burning_turns, 0);
+    assert_eq!(frozen.frozen_turns, 0);
+    assert_eq!(c.hp, before_hp);
+    assert!(
+        d.log
+            .iter()
+            .any(|line| line.contains("Burning Dummy burns for"))
+    );
+    assert!(
+        d.log
+            .iter()
+            .any(|line| line.contains("Frozen Dummy is frozen and skips its turn."))
+    );
+}
+
+#[test]
+fn firebolt_requires_line_of_sight_and_spends_no_mana_without_target() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    let enemy = skeleton(5, 2);
+    let mut d = open_test_dungeon(2, 2, vec![enemy]);
+    d.tiles[tile_index(3, 2)] = '#';
+    c.active_dungeon = Some(d);
+    let before_mana = c.mana;
+
+    assert!(!use_firebolt_with_rolls(&mut c, 0.0, 0.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.mana, before_mana);
+    assert_eq!(d.enemies[0].hp, d.enemies[0].max_hp);
+    assert!(d.log.iter().any(|line| line.contains("No enemy in sight.")));
+}
+
+#[test]
+fn firebolt_miss_spends_mana_and_turn_without_burning() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![skeleton(5, 2)]));
+    let before_mana = c.mana;
+
+    assert!(use_firebolt_with_rolls(&mut c, 1.0, 0.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.mana, before_mana - FIREBOLT_MANA_COST);
+    assert_eq!(d.enemies[0].hp, d.enemies[0].max_hp);
+    assert_eq!(d.enemies[0].burning_turns, 0);
+    assert!(d.log.iter().any(|line| line.contains("Firebolt misses")));
+}
+
+#[test]
+fn firebolt_hit_uses_int_spell_damage_and_can_apply_burning() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.strength = 0;
+    c.intelligence = 6;
+    let mut enemy = skeleton(5, 2);
+    enemy.armor = 0;
+    enemy.hp = 30;
+    enemy.max_hp = 30;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(use_firebolt_with_rolls(&mut c, 0.0, 0.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(d.enemies[0].hp < 30);
+    assert_eq!(d.enemies[0].burning_turns, BURNING_TURNS);
+    assert!(d.enemies[0].burning_damage > 0);
+    assert!(d.log.iter().any(|line| line.contains("Firebolt burns")));
+}
+
+#[test]
+fn frost_ring_hits_all_eight_surrounding_tiles_and_freezes_on_chance() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    let adjacent = [
+        (1, 1),
+        (2, 1),
+        (3, 1),
+        (1, 2),
+        (3, 2),
+        (1, 3),
+        (2, 3),
+        (3, 3),
+    ];
+    let mut enemies = adjacent
+        .iter()
+        .enumerate()
+        .map(|(index, (x, y))| {
+            let mut enemy = skeleton(*x, *y);
+            enemy.name = format!("Frost Dummy {index}");
+            enemy.armor = 0;
+            enemy.hp = 20;
+            enemy.max_hp = 20;
+            enemy
+        })
+        .collect::<Vec<_>>();
+    let mut far = skeleton(5, 5);
+    far.name = "Far Dummy".to_string();
+    far.hp = 20;
+    far.max_hp = 20;
+    enemies.push(far);
+    c.active_dungeon = Some(open_test_dungeon(2, 2, enemies));
+
+    assert!(use_frost_ring_with_rolls(&mut c, 0.0, 0.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.mana, c.max_mana() - FROST_RING_MANA_COST);
+    assert_eq!(c.sorceress.frost_ring_cooldown, FROST_RING_COOLDOWN);
+    for enemy in d
+        .enemies
+        .iter()
+        .filter(|enemy| enemy.name.starts_with("Frost Dummy"))
+    {
+        assert!(enemy.hp < 20, "{} was not damaged", enemy.name);
+        assert_eq!(
+            enemy.frozen_turns, FROZEN_TURNS,
+            "{} was not frozen",
+            enemy.name
+        );
+    }
+    let far = d
+        .enemies
+        .iter()
+        .find(|enemy| enemy.name == "Far Dummy")
+        .unwrap();
+    assert_eq!(far.hp, 20);
+    assert_eq!(far.frozen_turns, 0);
+}
+
+#[test]
+fn mana_shield_hotkey_toggles_freely_after_unlock() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(!handle_class_skill_key(&mut c, '4'));
+    assert!(!c.sorceress.mana_shield_active);
+    assert!(
+        c.active_dungeon
+            .as_ref()
+            .unwrap()
+            .log
+            .iter()
+            .any(|line| line.contains("Mana Shield requires Frost Ring rank 2."))
+    );
+
+    c.sorceress.mana_shield_rank = 1;
+    assert!(!handle_class_skill_key(&mut c, '4'));
+    assert!(c.sorceress.mana_shield_active);
+    assert!(!handle_class_skill_key(&mut c, '4'));
+    assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn chain_spark_requires_initial_line_of_sight_and_miss_ends_chain() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.active_dungeon = Some(open_test_dungeon(
+        2,
+        2,
+        vec![skeleton(5, 2), skeleton(6, 2)],
+    ));
+    let before_mana = c.mana;
+
+    assert!(use_chain_spark_with_rolls(&mut c, 1.0, 0.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(c.mana, before_mana - CHAIN_SPARK_MANA_COST);
+    assert_eq!(c.sorceress.chain_spark_cooldown, CHAIN_SPARK_COOLDOWN);
+    assert!(d.enemies.iter().all(|enemy| enemy.hp == enemy.max_hp));
+    assert!(d.log.iter().any(|line| line.contains("Chain Spark misses")));
+}
+
+#[test]
+fn chain_spark_jumps_within_radius_two_including_diagonals() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.chain_spark_rank = 3;
+    let mut first = skeleton(5, 2);
+    first.name = "First".to_string();
+    first.armor = 0;
+    first.hp = 20;
+    first.max_hp = 20;
+    let mut diagonal = skeleton(7, 4);
+    diagonal.name = "Diagonal".to_string();
+    diagonal.armor = 0;
+    diagonal.hp = 20;
+    diagonal.max_hp = 20;
+    let mut second_jump = skeleton(8, 5);
+    second_jump.name = "Second Jump".to_string();
+    second_jump.armor = 0;
+    second_jump.hp = 20;
+    second_jump.max_hp = 20;
+    let mut too_far = skeleton(12, 8);
+    too_far.name = "Too Far".to_string();
+    too_far.hp = 20;
+    too_far.max_hp = 20;
+    c.active_dungeon = Some(open_test_dungeon(
+        2,
+        2,
+        vec![first, diagonal, second_jump, too_far],
+    ));
+
+    assert!(use_chain_spark_with_rolls(&mut c, 0.0, 1.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "First")
+            .unwrap()
+            .hp
+            < 20
+    );
+    assert!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "Diagonal")
+            .unwrap()
+            .hp
+            < 20
+    );
+    assert!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "Second Jump")
+            .unwrap()
+            .hp
+            < 20
+    );
+    assert_eq!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "Too Far")
+            .unwrap()
+            .hp,
+        20
+    );
+}
+
+#[test]
+fn chain_spark_jumps_around_corners_but_not_through_walls() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.chain_spark_rank = 5;
+    let mut first = skeleton(5, 2);
+    first.name = "First".to_string();
+    first.armor = 0;
+    first.hp = 20;
+    first.max_hp = 20;
+    let mut around_corner = skeleton(6, 3);
+    around_corner.name = "Around Corner".to_string();
+    around_corner.armor = 0;
+    around_corner.hp = 20;
+    around_corner.max_hp = 20;
+    let mut blocked = skeleton(7, 2);
+    blocked.name = "Blocked".to_string();
+    blocked.armor = 0;
+    blocked.hp = 20;
+    blocked.max_hp = 20;
+    let mut d = open_test_dungeon(2, 2, vec![first, around_corner, blocked]);
+    d.tiles[tile_index(6, 2)] = '#';
+    d.tiles[tile_index(7, 1)] = '#';
+    d.tiles[tile_index(7, 3)] = '#';
+    c.active_dungeon = Some(d);
+
+    assert!(use_chain_spark_with_rolls(&mut c, 0.0, 1.0, 0.0));
+
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "Around Corner")
+            .unwrap()
+            .hp
+            < 20
+    );
+    assert_eq!(
+        d.enemies
+            .iter()
+            .find(|enemy| enemy.name == "Blocked")
+            .unwrap()
+            .hp,
+        20
+    );
+}
+
+#[test]
+fn static_charge_applies_shocked_and_replaces_only_with_equal_or_stronger_bonus() {
+    let mut enemy = skeleton(5, 2);
+
+    apply_shocked_if_stronger(&mut enemy, 25);
+    assert_eq!(enemy.shocked_bonus_percent, 25);
+    apply_shocked_if_stronger(&mut enemy, 15);
+    assert_eq!(enemy.shocked_bonus_percent, 25);
+    apply_shocked_if_stronger(&mut enemy, 25);
+    assert_eq!(enemy.shocked_bonus_percent, 25);
+    apply_shocked_if_stronger(&mut enemy, 35);
+    assert_eq!(enemy.shocked_bonus_percent, 35);
+}
+
+#[test]
+fn shocked_bonus_is_consumed_by_next_damaging_hit() {
+    let mut enemy = skeleton(5, 2);
+    enemy.shocked_bonus_percent = 25;
+
+    let damage = apply_shock_bonus_to_damage(&mut enemy, 20);
+
+    assert_eq!(damage, 25);
+    assert_eq!(enemy.shocked_bonus_percent, 0);
+
+    let damage_without_shock = apply_shock_bonus_to_damage(&mut enemy, 20);
+    assert_eq!(damage_without_shock, 20);
 }
 
 #[test]
@@ -1961,6 +2453,61 @@ fn warrior_random_equipment_loot_uses_warrior_item_families() {
 }
 
 #[test]
+fn sorceress_random_equipment_uses_wand_focus_pool_without_staves() {
+    let mut seen_names = std::collections::HashSet::new();
+    for _ in 0..300 {
+        let loot = random_equipment_loot_for_class(CharacterClass::Sorceress, 3, false);
+        seen_names.insert(loot.name);
+    }
+
+    assert!(seen_names.iter().any(|name| name.contains("Wand")));
+    assert!(seen_names.iter().any(|name| name.contains("Focus")));
+    assert!(seen_names.iter().any(|name| name.contains("Robe")));
+    assert!(seen_names.iter().any(|name| name.contains("Circlet")));
+    assert!(seen_names.iter().any(|name| name.contains("Spell Gloves")));
+    assert!(seen_names.iter().any(|name| name.contains("Soft Slippers")));
+    assert!(seen_names.iter().any(|name| name.contains("Sash")));
+    assert!(seen_names.iter().any(|name| name.contains("Arcane Amulet")));
+    assert!(seen_names.iter().any(|name| name.contains("Rune Ring")));
+    assert!(!seen_names.iter().any(|name| name.contains("Staff")));
+    assert!(!seen_names.iter().any(|name| name.contains("Dagger")));
+    assert!(!seen_names.iter().any(|name| name.contains("Sword")));
+    assert!(!seen_names.iter().any(|name| name.contains("Axe")));
+}
+
+#[test]
+fn sorceress_can_equip_wands_and_focuses_but_not_other_weapons_or_shields() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.strength = 99;
+    c.dexterity = 99;
+    c.intelligence = 99;
+
+    assert!(can_equip_item(&c, &cracked_wand()));
+    assert!(can_equip_item(&c, &cracked_focus()));
+    assert!(!can_equip_item(&c, &training_dagger()));
+    assert!(!can_equip_item(&c, &worn_shield()));
+
+    c.inventory.push(training_dagger());
+    let dagger_index = c
+        .inventory
+        .iter()
+        .position(|item| item.name.contains("Dagger"))
+        .unwrap();
+    let result = equip_or_use_inventory_item(&mut c, dagger_index);
+
+    assert_eq!(
+        result.message,
+        "Sorceress can equip wands and focuses only in weapon/offhand slots."
+    );
+    assert!(!result.spent_turn);
+    assert!(c.equipped_weapon.name.contains("Wand"));
+}
+
+#[test]
 fn random_equipment_loot_can_drop_new_equipment_slots() {
     let mut seen = std::collections::HashSet::new();
     for _ in 0..1000 {
@@ -2177,7 +2724,7 @@ fn character_creation_active_step_uses_muted_cursed_violet_border() {
         .unwrap();
 
     let cursed_violet = Color::Rgb(148, 80, 190);
-    assert_eq!(cell_fg_at(&terminal, 0, 7), cursed_violet);
+    assert_eq!(cell_fg_at(&terminal, 0, 8), cursed_violet);
     assert_ne!(cell_fg_at(&terminal, 0, 3), cursed_violet);
 }
 
@@ -2673,6 +3220,131 @@ fn locked_skills_show_only_locked_rows_until_unlocked() {
 }
 
 #[test]
+fn sorceress_scaling_helpers_match_mvp_numbers() {
+    assert_eq!(
+        (1..=5).map(firebolt_percent_for_rank).collect::<Vec<_>>(),
+        vec![100, 110, 120, 130, 140]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(firebolt_burn_chance_for_rank)
+            .collect::<Vec<_>>(),
+        vec![25, 30, 35, 40, 45]
+    );
+    assert_eq!(
+        (1..=5).map(frost_ring_percent_for_rank).collect::<Vec<_>>(),
+        vec![70, 80, 90, 100, 110]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(frost_ring_freeze_chance_for_rank)
+            .collect::<Vec<_>>(),
+        vec![20, 25, 30, 35, 40]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(chain_spark_percent_for_rank)
+            .collect::<Vec<_>>(),
+        vec![80, 90, 95, 105, 110]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(chain_spark_hit_count_for_rank)
+            .collect::<Vec<_>>(),
+        vec![2, 2, 3, 3, 4]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(mana_shield_absorb_percent_for_rank)
+            .collect::<Vec<_>>(),
+        vec![35, 40, 45, 50, 55]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(kindle_fire_bonus_percent_for_rank)
+            .collect::<Vec<_>>(),
+        vec![10, 15, 20, 25, 30]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(static_charge_chance_for_rank)
+            .collect::<Vec<_>>(),
+        vec![15, 20, 25, 30, 35]
+    );
+    assert_eq!(
+        (1..=5)
+            .map(static_charge_damage_bonus_for_rank)
+            .collect::<Vec<_>>(),
+        vec![15, 20, 25, 30, 35]
+    );
+}
+
+#[test]
+fn sorceress_skill_tree_shows_branches_and_locked_unlocks() {
+    let c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+
+    let text = skill_tree_lines(&c, 0, "")
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(text.contains("Sorceress Skill Tree"));
+    assert!(text.contains("Flame Branch"));
+    assert!(text.contains("> Firebolt rank 1/5"));
+    assert!(text.contains("└─🔒︎ Kindle unlocks at Firebolt rank 2 (1/2)"));
+    assert!(text.contains("Frost Branch"));
+    assert!(text.contains("Frost Ring rank 1/5"));
+    assert!(text.contains("└─🔒︎ Mana Shield unlocks at Frost Ring rank 2 (1/2)"));
+    assert!(text.contains("Storm Branch"));
+    assert!(text.contains("Chain Spark rank 1/5"));
+    assert!(text.contains("└─🔒︎ Static Charge unlocks at Chain Spark rank 2 (1/2)"));
+    assert!(!text.contains("Kindle rank 0/5"));
+    assert!(!text.contains("Mana Shield rank 0/5"));
+    assert!(!text.contains("Static Charge rank 0/5"));
+}
+
+#[test]
+fn sorceress_skill_tree_upgrades_unlockable_skills_with_prerequisites() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.unspent_skills = 4;
+
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Mana Shield"),
+        "Mana Shield upgrades require Frost Ring rank 2."
+    );
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Frost Ring"),
+        "Upgraded Frost Ring to rank 2."
+    );
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Mana Shield"),
+        "Upgraded Mana Shield to rank 1."
+    );
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Firebolt"),
+        "Upgraded Firebolt to rank 2."
+    );
+    assert_eq!(
+        choose_skill_or_mastery(&mut c, "Kindle"),
+        "Upgraded Kindle to rank 1."
+    );
+
+    assert_eq!(c.sorceress.frost_ring_rank, 2);
+    assert_eq!(c.sorceress.mana_shield_rank, 1);
+    assert_eq!(c.sorceress.firebolt_rank, 2);
+    assert_eq!(c.sorceress.kindle_rank, 1);
+}
+
+#[test]
 fn rogue_skill_screen_renders_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -2846,6 +3518,68 @@ fn new_rogue_matches_starting_state() {
 }
 
 #[test]
+fn sorceress_state_defaults_match_mvp_skill_baseline() {
+    let state = SorceressState::default();
+
+    assert_eq!(state.firebolt_rank, 1);
+    assert_eq!(state.frost_ring_rank, 1);
+    assert_eq!(state.chain_spark_rank, 1);
+    assert_eq!(state.kindle_rank, 0);
+    assert_eq!(state.mana_shield_rank, 0);
+    assert_eq!(state.static_charge_rank, 0);
+    assert_eq!(state.frost_ring_cooldown, 0);
+    assert_eq!(state.chain_spark_cooldown, 0);
+    assert!(!state.mana_shield_active);
+}
+
+#[test]
+fn new_sorceress_matches_starting_state() {
+    let c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+
+    assert_eq!(c.class, CharacterClass::Sorceress);
+    assert_eq!(c.class_name(), "Sorceress");
+    assert_eq!((c.strength, c.dexterity, c.intelligence), (1, 3, 6));
+    assert_eq!(c.max_hp(), 15);
+    assert_eq!(c.max_mana(), 40);
+    assert_eq!(c.hp, c.max_hp());
+    assert_eq!(c.mana, c.max_mana());
+    assert_eq!(c.inventory.len(), 4);
+    assert_eq!(
+        c.inventory
+            .iter()
+            .filter(|item| item.kind == ItemKind::HealthPotion)
+            .count(),
+        2
+    );
+    assert_eq!(
+        c.inventory
+            .iter()
+            .filter(|item| item.kind == ItemKind::ManaPotion)
+            .count(),
+        2
+    );
+    assert!(c.equipped_weapon.name.contains("Wand"));
+    assert_eq!(c.equipped_weapon.kind, ItemKind::Weapon);
+    assert_eq!(c.equipped_weapon.required_strength, 0);
+    assert_eq!(c.equipped_weapon.required_dexterity, 0);
+    assert_eq!(c.equipped_weapon.required_intelligence, 2);
+    assert!(c.equipped_shield.name.contains("Focus"));
+    assert_eq!(c.equipped_shield.kind, ItemKind::Shield);
+    assert_eq!(c.equipped_shield.required_strength, 0);
+    assert_eq!(c.equipped_shield.required_dexterity, 0);
+    assert_eq!(c.equipped_shield.required_intelligence, 2);
+    assert!(c.equipped_armor.name.contains("Robe"));
+    assert_eq!(c.equipped_armor.kind, ItemKind::Armor);
+    assert!(can_equip_item(&c, &c.equipped_weapon));
+    assert!(can_equip_item(&c, &c.equipped_shield));
+    assert!(can_equip_item(&c, &c.equipped_armor));
+}
+
+#[test]
 fn rogue_cannot_equip_warrior_shields() {
     let mut c = Character::new(
         "Sneak".to_string(),
@@ -2897,6 +3631,65 @@ fn character_creation_renders_class_choices() {
     assert!(text.contains("> Rogue"));
     assert!(text.contains("Hardcore"));
     assert!(!text.contains("> Hardcore"));
+}
+
+#[test]
+fn character_creation_can_select_sorceress() {
+    let mut state = CharacterCreationState::new("");
+
+    assert_eq!(state.selected_class, CharacterClass::Warrior);
+    assert!(state.handle_key(KEY_ARROW_DOWN).is_none());
+    assert_eq!(state.selected_class, CharacterClass::Rogue);
+    assert!(state.handle_key(KEY_ARROW_DOWN).is_none());
+    assert_eq!(state.selected_class, CharacterClass::Sorceress);
+    assert!(state.handle_key(KEY_ARROW_DOWN).is_none());
+    assert_eq!(state.selected_class, CharacterClass::Warrior);
+    assert!(state.handle_key(KEY_ARROW_UP).is_none());
+    assert_eq!(state.selected_class, CharacterClass::Sorceress);
+    assert!(state.handle_key('1').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Warrior);
+    assert!(state.handle_key('2').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Rogue);
+    assert!(state.handle_key('3').is_none());
+    assert_eq!(state.selected_class, CharacterClass::Sorceress);
+
+    assert!(state.handle_key('\n').is_none());
+    for key in "Lyra".chars() {
+        assert!(state.handle_key(key).is_none());
+    }
+    assert!(state.handle_key('\n').is_none());
+    let character = state.handle_key('\n').unwrap();
+
+    assert_eq!(character.name, "Lyra");
+    assert_eq!(character.class, CharacterClass::Sorceress);
+    assert_eq!(character.death_mode, DeathMode::Softcore);
+}
+
+#[test]
+fn character_creation_renders_sorceress_choice() {
+    let backend = ratatui::backend::TestBackend::new(80, 24);
+    let mut terminal = ratatui::Terminal::new(backend).unwrap();
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Class,
+                "Lyra",
+                CharacterClass::Sorceress,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+
+    let text = backend_text(&terminal);
+    assert!(text.contains("Warrior"));
+    assert!(text.contains("Rogue"));
+    assert!(text.contains("Sorceress"));
+    assert!(text.contains("> Sorceress"));
+    assert!(!text.contains("> Warrior"));
+    assert!(!text.contains("> Rogue"));
 }
 
 #[test]
@@ -2976,8 +3769,13 @@ fn class_names_parse_current_and_legacy_values() {
         CharacterClass::from_save_name("Rogue"),
         CharacterClass::Rogue
     );
+    assert_eq!(
+        CharacterClass::from_save_name("Sorceress"),
+        CharacterClass::Sorceress
+    );
     assert_eq!(CharacterClass::Warrior.name(), "Warrior");
     assert_eq!(CharacterClass::Rogue.name(), "Rogue");
+    assert_eq!(CharacterClass::Sorceress.name(), "Sorceress");
 }
 
 #[test]
