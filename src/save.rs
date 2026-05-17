@@ -237,11 +237,18 @@ pub(crate) fn render_character_creation_screen(
                 Style::default().fg(Color::Green),
             ),
         ])
-        .block(Block::default().borders(Borders::ALL).title(step_title(
-            active_step,
-            CharacterCreationStep::Class,
-            "Step 1: Class",
-        )))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(step_title(
+                    active_step,
+                    CharacterCreationStep::Class,
+                    "Step 1: Class",
+                ))
+                .border_style(selected_container_border_style(
+                    active_step == CharacterCreationStep::Class,
+                )),
+        )
         .wrap(Wrap { trim: false }),
         layout[1],
     );
@@ -251,11 +258,18 @@ pub(crate) fn render_character_creation_screen(
             "Name: {}",
             if name.is_empty() { "_" } else { name }
         ))
-        .block(Block::default().borders(Borders::ALL).title(step_title(
-            active_step,
-            CharacterCreationStep::Name,
-            "Step 2: Name",
-        ))),
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(step_title(
+                    active_step,
+                    CharacterCreationStep::Name,
+                    "Step 2: Name",
+                ))
+                .border_style(selected_container_border_style(
+                    active_step == CharacterCreationStep::Name,
+                )),
+        ),
         layout[2],
     );
 
@@ -270,11 +284,18 @@ pub(crate) fn render_character_creation_screen(
                 Style::default().fg(Color::Red),
             ),
         ])
-        .block(Block::default().borders(Borders::ALL).title(step_title(
-            active_step,
-            CharacterCreationStep::DeathMode,
-            "Step 3: Death Mode",
-        )))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(step_title(
+                    active_step,
+                    CharacterCreationStep::DeathMode,
+                    "Step 3: Death Mode",
+                ))
+                .border_style(selected_container_border_style(
+                    active_step == CharacterCreationStep::DeathMode,
+                )),
+        )
         .wrap(Wrap { trim: false }),
         layout[3],
     );
