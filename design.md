@@ -468,7 +468,7 @@ The inventory should be **grid-based** while avoiding a manual packing puzzle.
 Current direction:
 
 - Current data model: `Character.inventory` and `Character.stash` use `ItemGrid` containers. The starter bag is `4 x 4`, the stash is `8 x 8`, and each grid stores compacted `items` in row-major order for gradual migration from older Vec-based inventory code.
-- Current implementation status: the player bag and stash both render as ratatui grids with cursor movement and selected-item detail panels. Occupied bag and stash grid cells color their bracket outline by item rarity while keeping the focused item label bold green. The inventory screen keeps the bag grid content-sized and lets details expand into spare width. Stash shows the bag grid, content-sized stash grid, and active-side details in one screen, letting details expand into spare width and using a stacked details pane on narrower terminals so the `4 x 4` bag and `8 x 8` stash remain visible.
+- Current implementation status: the player bag and stash both render as ratatui grids with cursor movement and selected-item detail panels. Occupied bag and stash grid cells color their bracket outline by item rarity while keeping the focused item label bold green. The inventory screen keeps the bag grid content-sized and lets details expand into spare width. When selected inventory gear is a weapon, armor, or shield, the details panel names the currently equipped item for that slot, shows direct stat deltas, and shows cannot-equip requirements when the selected gear is locked. Stash shows the bag grid, content-sized stash grid, and active-side details in one screen, letting details expand into spare width and using a stacked details pane on narrower terminals so the `4 x 4` bag and `8 x 8` stash remain visible.
 - Current dungeon state includes a `ground_items` list of positioned `GroundItem` records. New dungeon floors start with no ground items; monster, chest, and boss loot that cannot fit in the bag is preserved on the source tile as visible `!` ground loot. A single item on the player tile can be picked up with `g=pickup` or by walking over it when inventory space exists. When multiple items are on the player tile, or the bag is full, `g` opens a ratatui ground-loot picker that lists the items, shows selected item details, allows picking up one item when space exists, and allows discarding selected ground loot. Picking up or discarding from the picker spends a dungeon turn. Walking over loot only auto-picks a single item when inventory space exists; multi-item and full-bag cases leave the loot on the ground and log the picker prompt. If boss reward loot falls to ground, the completed dungeon is retained instead of immediately returning to town so the reward stays accessible; remaining enemies are cleared so the player can leave after resolving loot. Dropping an inventory item inside a dungeon places it on the player tile; dropping in town is disallowed and leaves the inventory unchanged.
 - The player bag is a ratatui grid screen with a cursor-selectable cell grid on the left and selected item details on the right.
 - Every item occupies exactly one cell.
@@ -485,7 +485,6 @@ Recommended features:
 
 - Cursor movement through cells with WASD and arrow keys.
 - Equipment slots: weapon, off-hand, helm, armor, gloves, boots, belt, amulet, rings.
-- Compare selected gear to currently equipped gear in the side panel.
 - Sort by type, rarity, level, or value.
 - Mark items as favorite to avoid selling them by mistake.
 
@@ -1034,7 +1033,7 @@ Loot should feel rewarding:
 - Items can be Common, Magic, or Rare.
 - Magic and Rare loot has better stats and value.
 - Randomly generated dropped weapons, armor, and shields can roll empty sockets; gems can drop from floor 3 onward, the Socket Bench manages free gem insertion, removal, and replacement, and Opal socket bonuses increase variable monster and chest gold.
-- Inventory should show simple comparisons versus currently equipped gear, using green for upgrades and red for downgrades.
+- Inventory shows simple comparisons versus currently equipped gear, using green for upgrades and red for downgrades. The comparison is part of the selected-item details panel and includes direct weapon damage/crit or armor/dodge/speed deltas plus cannot-equip requirement text when relevant.
 - Item names should be colored by rarity: Common white, Magic blue, Rare yellow.
 - Magic and Rare items should use more exciting generated names with prefixes/suffixes.
 - Loot drop messages should stand out in the combat log.

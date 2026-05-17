@@ -347,9 +347,7 @@ pub(crate) fn selected_item_detail_lines(
         ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
         ItemKind::Gem => lines.push(Line::from(strip_ansi_codes(&gem_summary(item)))),
     }
-    if let Some(compare) = item_comparison(c, item) {
-        lines.push(Line::from(strip_ansi_codes(&compare)));
-    }
+    lines.extend(gear_comparison_detail_lines(c, item));
     lines
 }
 
@@ -536,6 +534,66 @@ pub(crate) fn item_comparison(c: &Character, item: &Item) -> Option<String> {
     } else {
         Some(comparison)
     }
+}
+
+fn gear_comparison_detail_lines(c: &Character, item: &Item) -> Vec<Line<'static>> {
+    let (slot_label, equipped, delta) = match item.kind {
+        ItemKind::Weapon => {
+            let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
+            let new_avg = item.damage_min + item.damage_max;
+            (
+                "Weapon",
+                &c.equipped_weapon,
+                format!(
+                    "{}  {}",
+                    format_delta("damage", new_avg - cur_avg),
+                    format_crit_delta(
+                        item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32
+                    )
+                ),
+            )
+        }
+        ItemKind::Armor => (
+            "Armor",
+            &c.equipped_armor,
+            format!(
+                "{}  {}  {}",
+                format_delta("armor", item.armor - c.equipped_armor.armor),
+                format_delta("dodge", item.dodge - c.equipped_armor.dodge),
+                format_delta("speed", item.speed - c.equipped_armor.speed)
+            ),
+        ),
+        ItemKind::Shield => (
+            "Shield",
+            &c.equipped_shield,
+            format!(
+                "{}  {}  {}",
+                format_delta("armor", item.armor - c.equipped_shield.armor),
+                format_delta("dodge", item.dodge - c.equipped_shield.dodge),
+                format_delta("speed", item.speed - c.equipped_shield.speed)
+            ),
+        ),
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => return Vec::new(),
+    };
+
+    let mut lines = vec![
+        Line::from(format!(
+            "Equipped {slot_label}: {}",
+            item_base_name(&equipped.name)
+        )),
+        Line::from(format!("Delta: {}", strip_ansi_codes(&delta))),
+    ];
+    if let Some(requirements) = unmet_requirements_message(c, item) {
+        lines.push(Line::styled(
+            format!("Cannot equip: {}", strip_ansi_codes(&requirements)),
+            Style::default().fg(Color::Red),
+        ));
+    }
+    lines
+}
+
+fn item_base_name(name: &str) -> &str {
+    name.split_once(" (").map(|(base, _)| base).unwrap_or(name)
 }
 
 pub(crate) fn format_delta(label: &str, delta: i32) -> String {

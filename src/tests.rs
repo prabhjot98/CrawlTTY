@@ -3571,6 +3571,113 @@ fn weapon_summary_and_comparison_show_crit_chance() {
 }
 
 #[test]
+fn inventory_weapon_details_compare_against_equipped_weapon() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(crude_axe());
+
+    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>();
+
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Equipped Weapon: Rusted Sword")
+    );
+    assert!(lines.iter().any(|line| line == "Delta: +2 damage  crit -3"));
+}
+
+#[test]
+fn inventory_armor_details_compare_against_equipped_armor() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Test Hauberk",
+        ItemKind::Armor,
+        20,
+        item_stats(0, 0, 3, 2, -1),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>();
+
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Equipped Armor: Cloth Tunic")
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Delta: +2 armor  +2 dodge  -1 speed")
+    );
+}
+
+#[test]
+fn inventory_shield_details_compare_against_equipped_shield() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Test Guard",
+        ItemKind::Shield,
+        20,
+        item_stats(0, 0, 3, 1, 1),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>();
+
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Equipped Shield: Worn Shield")
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Delta: +2 armor  -1 dodge  +1 speed")
+    );
+}
+
+#[test]
+fn inventory_locked_gear_comparison_shows_cannot_equip_reason() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Heavy Test Axe",
+        ItemKind::Weapon,
+        100,
+        item_stats(8, 10, 0, 0, -1),
+        Rarity::Rare,
+        5,
+        requirements(10, 0, 0),
+    ));
+
+    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>();
+
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Cannot equip: Requires STR 6/10.")
+    );
+}
+
+#[test]
 fn item_requirements_gate_equipping() {
     let c = test_character();
     let high_level_axe = item_with_rarity(
