@@ -1,16 +1,29 @@
 use crate::*;
 use ratatui::{prelude::*, widgets::Paragraph};
 
+const INVENTORY_COMMANDS: &str = "Tab=switch  WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
+
 pub(crate) fn inventory_screen(
     c: &mut Character,
     terminal: &mut ratatui::DefaultTerminal,
 ) -> Result<InventoryScreenExit> {
-    let mut selected = 0usize;
+    let mut bag_selected = 0usize;
+    let mut character_selected = CharacterEquipmentSlot::Weapon;
+    let mut focus = InventoryFocus::Bag;
     let mut message = String::new();
     loop {
-        clamp_grid_cursor(&mut selected, &c.inventory);
+        clamp_grid_cursor(&mut bag_selected, &c.inventory);
         terminal
-            .draw(|frame| render_inventory_screen(frame, c, selected, &message))
+            .draw(|frame| {
+                render_inventory_screen_with_focus(
+                    frame,
+                    c,
+                    bag_selected,
+                    character_selected,
+                    focus,
+                    &message,
+                )
+            })
             .context("failed to draw inventory")?;
         let key = match read_ui_input_nav_timed(CURSOR_PULSE_INTERVAL)? {
             UiInput::Key(key) => key,
@@ -23,46 +36,95 @@ pub(crate) fn inventory_screen(
         message.clear();
         match key {
             '\u{1b}' => return Ok(InventoryScreenExit::NoTurn),
-            'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => {
-                selected = move_grid_cursor(selected, c.inventory.columns, c.inventory.rows, key);
-            }
-            'x' | 'X' => {
-                let result = drop_selected_inventory_item(c, selected);
-                message = result.message;
-                if result.spent_turn {
-                    append_autosave_status(c, &mut message);
+            '\t' => focus = focus.toggle(),
+            'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => match focus {
+                InventoryFocus::Bag => {
+                    bag_selected =
+                        move_grid_cursor(bag_selected, c.inventory.columns, c.inventory.rows, key);
                 }
-                if c.active_dungeon.is_some() && result.spent_turn {
-                    log_inventory_action(c, &message);
-                    return Ok(InventoryScreenExit::TurnSpent);
+                InventoryFocus::Character => {
+                    character_selected = move_equipment_cursor(character_selected, key);
                 }
-            }
-            '\n' => {
-                let result = finish_inventory_enter_action(c, selected)?;
-                message = result.message;
-                match result.flow {
-                    InventoryMenuFlow::StayOpen => {}
-                    InventoryMenuFlow::ReturnedToTown => {
-                        return Ok(InventoryScreenExit::ReturnedToTown);
+            },
+            'x' | 'X' => match focus {
+                InventoryFocus::Bag => {
+                    let result = drop_selected_inventory_item(c, bag_selected);
+                    message = result.message;
+                    if result.spent_turn {
+                        append_autosave_status(c, &mut message);
                     }
-                    InventoryMenuFlow::HardcoreDeath => {
-                        return Ok(InventoryScreenExit::HardcoreDeath);
+                    if c.active_dungeon.is_some() && result.spent_turn {
+                        log_inventory_action(c, &message);
+                        return Ok(InventoryScreenExit::TurnSpent);
                     }
                 }
-            }
+                InventoryFocus::Character => {
+                    message = "Switch to Bag to drop carried items.".to_string();
+                }
+            },
+            '\n' => match focus {
+                InventoryFocus::Bag => {
+                    let result = finish_inventory_enter_action(c, bag_selected)?;
+                    message = result.message;
+                    match result.flow {
+                        InventoryMenuFlow::StayOpen => {}
+                        InventoryMenuFlow::ReturnedToTown => {
+                            return Ok(InventoryScreenExit::ReturnedToTown);
+                        }
+                        InventoryMenuFlow::HardcoreDeath => {
+                            return Ok(InventoryScreenExit::HardcoreDeath);
+                        }
+                    }
+                }
+                InventoryFocus::Character => {
+                    message = "Switch to Bag to equip or use items.".to_string();
+                }
+            },
             _ => message = "Unknown inventory command.".to_string(),
         }
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InventoryFocus {
+    Bag,
+    Character,
+}
+
+impl InventoryFocus {
+    fn toggle(self) -> Self {
+        match self {
+            InventoryFocus::Bag => InventoryFocus::Character,
+            InventoryFocus::Character => InventoryFocus::Bag,
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub(crate) fn render_inventory_screen(
     frame: &mut Frame,
     c: &Character,
     selected: usize,
     message: &str,
 ) {
-    const INVENTORY_COMMANDS: &str = "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
+    render_inventory_screen_with_focus(
+        frame,
+        c,
+        selected,
+        CharacterEquipmentSlot::Weapon,
+        InventoryFocus::Bag,
+        message,
+    );
+}
 
+pub(crate) fn render_inventory_screen_with_focus(
+    frame: &mut Frame,
+    c: &Character,
+    bag_selected: usize,
+    character_selected: CharacterEquipmentSlot,
+    focus: InventoryFocus,
+    message: &str,
+) {
     let area = frame.area();
     let footer_height = if message.is_empty() { 3 } else { 4 };
     let layout = Layout::vertical([
@@ -81,10 +143,9 @@ pub(crate) fn render_inventory_screen(
     .block(gothic_block("Inventory"));
     frame.render_widget(title, layout[0]);
 
-    let selected_item = c.inventory.get(selected);
     let grid_width = item_grid_render_width(&c.inventory);
     let grid_height = c.inventory.rows.saturating_add(2);
-    let (grid_area, details_area, equipped_area) =
+    let (grid_area, details_area, character_area) =
         if layout[1].width >= grid_width.saturating_add(64) {
             let body = Layout::horizontal([
                 Constraint::Length(grid_width),
@@ -102,18 +163,32 @@ pub(crate) fn render_inventory_screen(
             .split(layout[1]);
             (body[0], body[1], body[2])
         };
-    render_item_grid(frame, &c.inventory, selected, grid_area, "Bag", false);
-    let details = Paragraph::new(selected_item_detail_lines(
-        c,
+    render_item_grid(
+        frame,
         &c.inventory,
+        active_bag_cursor(focus, bag_selected),
+        grid_area,
         "Bag",
-        selected_item,
+        focus == InventoryFocus::Bag,
+    );
+    let details = Paragraph::new(inventory_details_lines(
+        c,
+        bag_selected,
+        character_selected,
+        focus,
     ))
     .block(gothic_block("Details"));
     frame.render_widget(details, details_area);
-    let equipped = Paragraph::new(selected_item_equipped_comparison_lines(c, selected_item))
-        .block(gothic_block("Equipped"));
-    frame.render_widget(equipped, equipped_area);
+    let character = Paragraph::new(character_equipment_panel_lines(
+        c,
+        character_selected,
+        focus == InventoryFocus::Character,
+    ))
+    .block(gothic_block_selected(
+        "Character",
+        focus == InventoryFocus::Character,
+    ));
+    frame.render_widget(character, character_area);
 
     render_commands_footer(frame, layout[2], footer_text(message, INVENTORY_COMMANDS));
 }
@@ -146,6 +221,14 @@ pub(crate) fn item_grid_render_width(grid: &ItemGrid) -> u16 {
     grid.columns.saturating_mul(4).saturating_add(2)
 }
 
+fn active_bag_cursor(focus: InventoryFocus, selected: usize) -> usize {
+    if focus == InventoryFocus::Bag {
+        selected
+    } else {
+        usize::MAX
+    }
+}
+
 #[allow(dead_code)]
 pub(crate) fn inventory_cell_spans(
     grid: &ItemGrid,
@@ -173,14 +256,133 @@ pub(crate) fn inventory_cell_spans(
     ]
 }
 
+fn inventory_details_lines(
+    c: &Character,
+    bag_selected: usize,
+    character_selected: CharacterEquipmentSlot,
+    focus: InventoryFocus,
+) -> Vec<Line<'static>> {
+    match focus {
+        InventoryFocus::Bag => {
+            let selected_item = c.inventory.get(bag_selected);
+            let mut lines = selected_item_detail_lines(c, &c.inventory, "Bag", selected_item);
+            lines.push(Line::from(""));
+            lines.extend(selected_item_equipped_comparison_lines(c, selected_item));
+            lines
+        }
+        InventoryFocus::Character => selected_equipped_item_detail_lines(c, character_selected),
+    }
+}
+
+fn selected_equipped_item_detail_lines(
+    c: &Character,
+    slot: CharacterEquipmentSlot,
+) -> Vec<Line<'static>> {
+    let item = character_equipment_item(c, slot);
+    let slot_label = equipment_slot_label(slot);
+    let mut lines = vec![Line::styled(
+        format!("Selected {slot_label}"),
+        title_style(),
+    )];
+    if is_empty_equipment_slot(item) {
+        lines.push(Line::styled(NOTHING_EQUIPPED_TEXT, muted_style()));
+    } else {
+        lines.extend(item_detail_lines(item));
+    }
+    lines
+}
+
+fn character_equipment_panel_lines(
+    c: &Character,
+    selected: CharacterEquipmentSlot,
+    active: bool,
+) -> Vec<Line<'static>> {
+    CHARACTER_EQUIPMENT_SLOTS
+        .iter()
+        .map(|slot| character_equipment_slot_line(c, *slot, selected, active))
+        .collect()
+}
+
+fn character_equipment_slot_line(
+    c: &Character,
+    slot: CharacterEquipmentSlot,
+    selected: CharacterEquipmentSlot,
+    active: bool,
+) -> Line<'static> {
+    let item = character_equipment_item(c, slot);
+    let selected = active && slot == selected;
+    let label_style = if selected {
+        selected_cursor_style()
+    } else {
+        title_style()
+    };
+    let item_style = if selected {
+        selected_cursor_style()
+    } else if is_empty_equipment_slot(item) {
+        muted_style()
+    } else {
+        Style::default().fg(rarity_color(&item.rarity))
+    };
+
+    Line::from(vec![
+        Span::raw(" ".repeat(equipment_slot_indent(slot))),
+        Span::styled(format!("{}: ", equipment_slot_label(slot)), label_style),
+        Span::styled(equipped_display_name(item), item_style),
+    ])
+}
+
+fn equipment_slot_indent(slot: CharacterEquipmentSlot) -> usize {
+    match slot {
+        CharacterEquipmentSlot::Weapon | CharacterEquipmentSlot::Gloves => 0,
+        CharacterEquipmentSlot::Helm
+        | CharacterEquipmentSlot::Amulet
+        | CharacterEquipmentSlot::Armor
+        | CharacterEquipmentSlot::Belt
+        | CharacterEquipmentSlot::Boots => 8,
+        CharacterEquipmentSlot::Shield
+        | CharacterEquipmentSlot::Ring1
+        | CharacterEquipmentSlot::Ring2 => 16,
+    }
+}
+
+fn equipment_slot_label(slot: CharacterEquipmentSlot) -> &'static str {
+    match slot {
+        CharacterEquipmentSlot::Helm => "Helm",
+        CharacterEquipmentSlot::Amulet => "Amulet",
+        CharacterEquipmentSlot::Weapon => "Weapon",
+        CharacterEquipmentSlot::Armor => "Armor",
+        CharacterEquipmentSlot::Shield => "Shield",
+        CharacterEquipmentSlot::Gloves => "Gloves",
+        CharacterEquipmentSlot::Belt => "Belt",
+        CharacterEquipmentSlot::Ring1 => "Ring 1",
+        CharacterEquipmentSlot::Ring2 => "Ring 2",
+        CharacterEquipmentSlot::Boots => "Boots",
+    }
+}
+
+fn character_equipment_item(c: &Character, slot: CharacterEquipmentSlot) -> &Item {
+    match slot {
+        CharacterEquipmentSlot::Helm => &c.equipped_helm,
+        CharacterEquipmentSlot::Amulet => &c.equipped_amulet,
+        CharacterEquipmentSlot::Weapon => &c.equipped_weapon,
+        CharacterEquipmentSlot::Armor => &c.equipped_armor,
+        CharacterEquipmentSlot::Shield => &c.equipped_shield,
+        CharacterEquipmentSlot::Gloves => &c.equipped_gloves,
+        CharacterEquipmentSlot::Belt => &c.equipped_belt,
+        CharacterEquipmentSlot::Ring1 => &c.equipped_ring1,
+        CharacterEquipmentSlot::Ring2 => &c.equipped_ring2,
+        CharacterEquipmentSlot::Boots => &c.equipped_boots,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn inventory_screen_text_for_test(
     c: &Character,
-    selected: usize,
+    bag_selected: usize,
+    character_selected: CharacterEquipmentSlot,
+    focus: InventoryFocus,
     message: &str,
 ) -> Vec<String> {
-    const INVENTORY_COMMANDS: &str = "WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back";
-
     let mut lines = vec![format!(
         "Inventory - Bag {} x {} - {} / {}",
         c.inventory.columns,
@@ -188,6 +390,11 @@ pub(crate) fn inventory_screen_text_for_test(
         c.inventory.len(),
         c.inventory.capacity()
     )];
+    lines.push(if focus == InventoryFocus::Bag {
+        "Bag *".to_string()
+    } else {
+        "Bag".to_string()
+    });
     for row in 0..c.inventory.rows {
         let mut line = String::new();
         for col in 0..c.inventory.columns {
@@ -196,32 +403,35 @@ pub(crate) fn inventory_screen_text_for_test(
         }
         lines.push(line);
     }
-    let selected_item = c.inventory.get(selected);
+    lines.push("Details".to_string());
     lines.extend(
-        selected_item_detail_lines(c, &c.inventory, "Bag", selected_item)
+        inventory_details_lines(c, bag_selected, character_selected, focus)
             .into_iter()
-            .map(|line| {
-                line.spans
-                    .into_iter()
-                    .map(|span| span.content.to_string())
-                    .collect()
-            }),
+            .map(line_to_plain_text),
     );
+    lines.push(if focus == InventoryFocus::Character {
+        "Character *".to_string()
+    } else {
+        "Character".to_string()
+    });
     lines.extend(
-        selected_item_equipped_comparison_lines(c, selected_item)
+        character_equipment_panel_lines(c, character_selected, focus == InventoryFocus::Character)
             .into_iter()
-            .map(|line| {
-                line.spans
-                    .into_iter()
-                    .map(|span| span.content.to_string())
-                    .collect()
-            }),
+            .map(line_to_plain_text),
     );
     if !message.is_empty() {
         lines.push(message.to_string());
     }
     lines.push(INVENTORY_COMMANDS.to_string());
     lines
+}
+
+#[cfg(test)]
+fn line_to_plain_text(line: Line<'static>) -> String {
+    line.spans
+        .into_iter()
+        .map(|span| span.content.to_string())
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -373,6 +583,73 @@ pub(crate) fn clamp_selection(selected: &mut usize, total: usize) {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CharacterEquipmentSlot {
+    Helm,
+    Amulet,
+    Weapon,
+    Armor,
+    Shield,
+    Gloves,
+    Belt,
+    Ring1,
+    Ring2,
+    Boots,
+}
+
+const CHARACTER_EQUIPMENT_SLOTS: [CharacterEquipmentSlot; 10] = [
+    CharacterEquipmentSlot::Helm,
+    CharacterEquipmentSlot::Amulet,
+    CharacterEquipmentSlot::Weapon,
+    CharacterEquipmentSlot::Armor,
+    CharacterEquipmentSlot::Shield,
+    CharacterEquipmentSlot::Gloves,
+    CharacterEquipmentSlot::Belt,
+    CharacterEquipmentSlot::Ring1,
+    CharacterEquipmentSlot::Ring2,
+    CharacterEquipmentSlot::Boots,
+];
+
+fn equipment_slot_position(slot: CharacterEquipmentSlot) -> (i16, i16) {
+    match slot {
+        CharacterEquipmentSlot::Helm => (1, 0),
+        CharacterEquipmentSlot::Amulet => (1, 1),
+        CharacterEquipmentSlot::Weapon => (0, 2),
+        CharacterEquipmentSlot::Armor => (1, 2),
+        CharacterEquipmentSlot::Shield => (2, 2),
+        CharacterEquipmentSlot::Gloves => (0, 3),
+        CharacterEquipmentSlot::Belt => (1, 3),
+        CharacterEquipmentSlot::Ring1 => (2, 3),
+        CharacterEquipmentSlot::Ring2 => (2, 4),
+        CharacterEquipmentSlot::Boots => (1, 5),
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn move_equipment_cursor(
+    selected: CharacterEquipmentSlot,
+    key: char,
+) -> CharacterEquipmentSlot {
+    let (selected_x, selected_y) = equipment_slot_position(selected);
+    let candidate_score = |slot: &CharacterEquipmentSlot| {
+        let (x, y) = equipment_slot_position(*slot);
+        match key {
+            'w' | 'W' if y < selected_y => Some((selected_y - y, (selected_x - x).abs())),
+            's' | 'S' if y > selected_y => Some((y - selected_y, (selected_x - x).abs())),
+            'a' | 'A' if x < selected_x => Some((selected_x - x, (selected_y - y).abs())),
+            'd' | 'D' if x > selected_x => Some((x - selected_x, (selected_y - y).abs())),
+            _ => None,
+        }
+    };
+
+    CHARACTER_EQUIPMENT_SLOTS
+        .iter()
+        .filter_map(|slot| candidate_score(slot).map(|score| (score, *slot)))
+        .min_by_key(|(score, _)| *score)
+        .map(|(_, slot)| slot)
+        .unwrap_or(selected)
+}
+
 #[allow(dead_code)]
 pub(crate) fn move_grid_cursor(selected: usize, columns: u16, rows: u16, key: char) -> usize {
     let columns = usize::from(columns);
@@ -442,6 +719,10 @@ pub(crate) fn selected_item_detail_lines(
             )),
         ];
     };
+    item_detail_lines(item)
+}
+
+fn item_detail_lines(item: &Item) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::styled(
             item.name.clone(),

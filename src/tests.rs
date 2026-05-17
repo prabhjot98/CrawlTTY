@@ -1754,6 +1754,30 @@ fn grid_cursor_handles_empty_and_stale_selections() {
 }
 
 #[test]
+fn equipment_cursor_moves_through_humanoid_body_slots() {
+    assert_eq!(
+        move_equipment_cursor(CharacterEquipmentSlot::Armor, 'w'),
+        CharacterEquipmentSlot::Amulet
+    );
+    assert_eq!(
+        move_equipment_cursor(CharacterEquipmentSlot::Armor, 'a'),
+        CharacterEquipmentSlot::Weapon
+    );
+    assert_eq!(
+        move_equipment_cursor(CharacterEquipmentSlot::Armor, 'd'),
+        CharacterEquipmentSlot::Shield
+    );
+    assert_eq!(
+        move_equipment_cursor(CharacterEquipmentSlot::Armor, 's'),
+        CharacterEquipmentSlot::Belt
+    );
+    assert_eq!(
+        move_equipment_cursor(CharacterEquipmentSlot::Boots, 's'),
+        CharacterEquipmentSlot::Boots
+    );
+}
+
+#[test]
 fn clamp_grid_cursor_clamps_to_grid_capacity() {
     let grid = ItemGrid::new(2, 2, vec![health_potion()]);
     let mut selected = 99;
@@ -2008,7 +2032,13 @@ fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_co
     let mut c = test_character();
     c.inventory.clear();
     c.inventory.push(crude_axe());
-    let lines = inventory_screen_text_for_test(&c, 0, "");
+    let lines = inventory_screen_text_for_test(
+        &c,
+        0,
+        CharacterEquipmentSlot::Weapon,
+        InventoryFocus::Bag,
+        "",
+    );
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Inventory - Bag 4 x 4 - 1 / 16"));
@@ -2022,11 +2052,55 @@ fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_co
 #[test]
 fn inventory_render_lines_include_message_and_full_commands() {
     let c = test_character();
-    let lines = inventory_screen_text_for_test(&c, 0, "Dropped Lesser Health Potion.");
+    let lines = inventory_screen_text_for_test(
+        &c,
+        0,
+        CharacterEquipmentSlot::Weapon,
+        InventoryFocus::Bag,
+        "Dropped Lesser Health Potion.",
+    );
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Dropped Lesser Health Potion."));
     assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
+}
+
+#[test]
+fn inventory_text_includes_character_equipment_panel_and_tab_command() {
+    let c = test_character();
+    let lines = inventory_screen_text_for_test(
+        &c,
+        0,
+        CharacterEquipmentSlot::Armor,
+        InventoryFocus::Bag,
+        "",
+    );
+    let rendered = lines.join("\n");
+
+    assert!(rendered.contains("Character"));
+    assert!(rendered.contains("Helm"));
+    assert!(rendered.contains("Weapon"));
+    assert!(rendered.contains("Armor"));
+    assert!(rendered.contains("Rusted Sword"));
+    assert!(rendered.contains("Cloth Tunic"));
+    assert!(rendered.contains("Tab=switch"));
+}
+
+#[test]
+fn character_focused_inventory_details_show_selected_equipped_item() {
+    let c = test_character();
+    let lines = inventory_screen_text_for_test(
+        &c,
+        0,
+        CharacterEquipmentSlot::Shield,
+        InventoryFocus::Character,
+        "",
+    );
+    let rendered = lines.join("\n");
+
+    assert!(rendered.contains("Selected Shield"));
+    assert!(rendered.contains("Worn Shield"));
+    assert!(rendered.contains("Armor 1 | dodge 2 | speed 0"));
 }
 
 #[test]
@@ -2100,7 +2174,7 @@ fn inventory_render_footer_shows_message_and_commands() {
 }
 
 #[test]
-fn wide_inventory_render_keeps_bag_grid_content_sized_with_equipped_panel_to_the_right() {
+fn wide_inventory_render_keeps_bag_grid_content_sized_with_character_panel_to_the_right() {
     use ratatui::{Terminal, backend::TestBackend};
 
     let c = test_character();
@@ -2114,14 +2188,14 @@ fn wide_inventory_render_keeps_bag_grid_content_sized_with_equipped_panel_to_the
 
     let bag_title_x = char_index(body_top, "Bag");
     let details_title_x = char_index(body_top, "Details");
-    let equipped_title_x = char_index(body_top, "Equipped");
+    let character_title_x = char_index(body_top, "Character");
 
     assert_eq!(
         details_title_x - bag_title_x,
         usize::from(item_grid_render_width(&c.inventory))
     );
     assert!(details_title_x <= 24);
-    assert!(equipped_title_x > details_title_x);
+    assert!(character_title_x > details_title_x);
 }
 
 #[test]
@@ -2666,7 +2740,7 @@ fn town_and_inventory_containers_use_gothic_borders_and_titles() {
     ));
     assert!(text_has_fg_at_any_occurrence(
         &inventory_terminal,
-        "Equipped",
+        "Character",
         TITLE_COLOR
     ));
 }
