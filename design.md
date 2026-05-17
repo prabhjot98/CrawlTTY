@@ -963,7 +963,7 @@ Suggested starting enemy stats:
 | Skeleton    |                   12 |              2-4 |        1 |        9 |  25 |    10 |         18 |
 | Cultist     |                   10 | 2-3 ranged/magic |        0 |       10 |  28 |    12 |         22 |
 | Boneguard   |                   18 |              3-5 |        2 |        8 |  24 |     8 |         35 |
-| Elite enemy | Base enemy x2 health |      +50% damage | +1 armor | +1 speed | +5 |    +2 | Base XP x3 |
+| Elite enemy | Base enemy x2 health |      +50% damage | +1 armor | +1 speed |  +5 |    +2 | Base XP x3 |
 | Bellkeeper  |                   60 |              5-8 |        3 |        8 |  32 |     8 |        250 |
 
 When enemies are scaled for later floors, health and damage use the floor difficulty multiplier, armor increases every few floors, hit rating increases by `(floor - 1) / 2`, and dodge rating increases by `(floor - 1) / 4`. This keeps accuracy and evasion meaningful without making late-floor enemies hit every turn.
