@@ -1611,6 +1611,7 @@ fn character_creation_renders_as_stepped_ratatui_screen() {
 
     let rendered = backend_text(&terminal);
     assert!(rendered.contains("Character Creation"));
+    assert!(!rendered.contains("CrawlTTY"));
     assert!(rendered.contains("Step 1: Class"));
     assert!(rendered.contains("Step 2: Name"));
     assert!(rendered.contains("Step 3: Death Mode"));
@@ -1984,6 +1985,7 @@ fn town_and_inventory_containers_use_gothic_borders_and_titles() {
         "Commands",
         TITLE_COLOR
     ));
+    assert!(!backend_text(&town_terminal).contains("CrawlTTY"));
 
     let mut inventory_terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
     inventory_terminal

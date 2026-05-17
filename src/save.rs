@@ -189,7 +189,7 @@ pub(crate) fn render_character_creation_screen(
     ])
     .split(frame.area());
     frame.render_widget(
-        Paragraph::new("CrawlTTY").block(gothic_block("Character Creation")),
+        Paragraph::new("").block(gothic_block("Character Creation")),
         layout[0],
     );
 

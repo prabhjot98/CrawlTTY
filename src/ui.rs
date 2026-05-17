@@ -167,11 +167,8 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
     ])
     .split(frame.area());
 
-    let title = Paragraph::new(Line::from(vec![
-        Span::styled("CrawlTTY", title_style()),
-        Span::raw("  Hollow's Rest"),
-    ]))
-    .block(gothic_block("Town"));
+    let title =
+        Paragraph::new(Line::from(vec![Span::raw("Hollow's Rest")])).block(gothic_block("Town"));
     frame.render_widget(title, layout[0]);
 
     let mut lines = vec![
