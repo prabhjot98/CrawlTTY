@@ -333,17 +333,7 @@ fn render_skill_tree_layout(
         body[1],
     );
 
-    let footer = if message.is_empty() {
-        commands.to_string()
-    } else {
-        format!("{message}\n{commands}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer)
-            .block(Block::default().borders(Borders::ALL).title("Commands"))
-            .wrap(Wrap { trim: false }),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, commands));
 }
 
 fn selected_skill_detail_lines(c: &Character, skill: &str) -> Vec<Line<'static>> {

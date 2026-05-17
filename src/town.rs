@@ -87,15 +87,7 @@ fn render_lines_screen(
             .wrap(Wrap { trim: false }),
         layout[1],
     );
-    let footer = if message.is_empty() {
-        commands.to_string()
-    } else {
-        format!("{message}\n{commands}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, commands));
 }
 
 fn plain_line(text: impl Into<String>) -> Line<'static> {
@@ -1477,15 +1469,7 @@ pub(crate) fn render_gem_picker_screen(
     }
 
     let commands = "Gems: W/S or arrows=select  Enter=choose  Esc=back";
-    let footer = if message.is_empty() {
-        commands.to_string()
-    } else {
-        format!("{message}\n{commands}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, commands));
 }
 
 pub(crate) fn sell_value(c: &Character, item: &Item) -> u32 {
@@ -1707,15 +1691,7 @@ pub(crate) fn render_stash_screen(
     }
 
     let commands = "Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back";
-    let footer = if message.is_empty() {
-        commands.to_string()
-    } else {
-        format!("{message}\n{commands}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, commands));
 }
 
 fn render_stash_details(

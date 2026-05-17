@@ -2235,17 +2235,7 @@ pub(crate) fn render_ground_loot_picker(
         .block(Block::default().borders(Borders::ALL).title("Details"));
     frame.render_widget(details, details_area);
 
-    let footer_text = if message.is_empty() {
-        GROUND_LOOT_COMMANDS.to_string()
-    } else {
-        format!("{message}\n{GROUND_LOOT_COMMANDS}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer_text)
-            .block(Block::default().borders(Borders::ALL).title("Commands"))
-            .wrap(Wrap { trim: false }),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, GROUND_LOOT_COMMANDS));
 }
 
 fn render_ground_loot_list(frame: &mut Frame, c: &Character, selected: usize, area: Rect) {

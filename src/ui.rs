@@ -4,6 +4,23 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
+pub(crate) fn footer_text(message: &str, commands: &str) -> String {
+    if message.is_empty() {
+        commands.to_string()
+    } else {
+        format!("{message}\n{commands}")
+    }
+}
+
+pub(crate) fn render_commands_footer(frame: &mut Frame, area: Rect, footer: impl Into<String>) {
+    frame.render_widget(
+        Paragraph::new(footer.into())
+            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
 pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) {
     let layout = Layout::vertical([
         Constraint::Length(3),

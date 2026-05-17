@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph},
 };
 
 pub(crate) fn inventory_screen(
@@ -99,17 +99,7 @@ pub(crate) fn render_inventory_screen(
     .block(Block::default().borders(Borders::ALL).title("Details"));
     frame.render_widget(details, details_area);
 
-    let footer_text = if message.is_empty() {
-        INVENTORY_COMMANDS.to_string()
-    } else {
-        format!("{message}\n{INVENTORY_COMMANDS}")
-    };
-    frame.render_widget(
-        Paragraph::new(footer_text)
-            .block(Block::default().borders(Borders::ALL).title("Commands"))
-            .wrap(Wrap { trim: false }),
-        layout[2],
-    );
+    render_commands_footer(frame, layout[2], footer_text(message, INVENTORY_COMMANDS));
 }
 
 pub(crate) fn render_item_grid(
