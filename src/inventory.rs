@@ -548,6 +548,9 @@ pub(crate) fn item_level_and_requirements(item: &Item) -> String {
 }
 
 pub(crate) fn item_summary(item: &Item) -> String {
+    if is_empty_equipment_slot(item) {
+        return NOTHING_EQUIPPED_TEXT.to_string();
+    }
     let rarity = rarity_name(&item.rarity);
     let name = colored_item_name(item);
     let upgrade = if item.upgrade_level > 0 {
@@ -666,6 +669,21 @@ fn is_empty_ring(item: &Item) -> bool {
     item.kind == ItemKind::Ring && item.name == "Empty Ring"
 }
 
+fn return_replaced_equipment_to_inventory(
+    inventory: &mut ItemGrid,
+    index: usize,
+    old: Item,
+    slot: &str,
+) {
+    if is_empty_equipment_slot(&old) {
+        return;
+    }
+    assert!(
+        inventory.insert(index, old),
+        "ItemGrid invariant broken: equipping {slot} should free inventory capacity for old gear"
+    );
+}
+
 fn equipped_comparison_target(c: &Character, kind: ItemKind) -> Option<(&'static str, &Item)> {
     match kind {
         ItemKind::Weapon => Some(("Weapon", &c.equipped_weapon)),
@@ -741,7 +759,7 @@ pub(crate) fn selected_item_equipped_comparison_lines(
     let mut lines = vec![
         Line::from(format!(
             "Equipped {slot_label}: {}",
-            item_base_name(&equipped.name)
+            equipped_comparison_name(equipped)
         )),
         gear_stat_line(equipped),
         Line::from(""),
@@ -818,6 +836,14 @@ fn delta_style(delta: i32) -> Style {
 
 fn item_base_name(name: &str) -> &str {
     name.split_once(" (").map(|(base, _)| base).unwrap_or(name)
+}
+
+fn equipped_comparison_name(item: &Item) -> String {
+    if is_empty_equipment_slot(item) {
+        NOTHING_EQUIPPED_TEXT.to_string()
+    } else {
+        item_base_name(&item.name).to_string()
+    }
 }
 
 pub(crate) fn format_delta(label: &str, delta: i32) -> String {
@@ -901,80 +927,56 @@ pub(crate) fn equip_or_use_inventory_item(
         ItemKind::Weapon => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_weapon, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping weapon should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "weapon");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Armor => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_armor, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping armor should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "armor");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Shield => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_shield, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping shield should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "shield");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Helm => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_helm, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping helm should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "helm");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Gloves => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_gloves, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping gloves should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "gloves");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Boots => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_boots, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping boots should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "boots");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Belt => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_belt, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping belt should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "belt");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
         ItemKind::Amulet => {
             let name = selected.name.clone();
             let old = std::mem::replace(&mut c.equipped_amulet, selected);
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping amulet should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "amulet");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }
@@ -985,10 +987,7 @@ pub(crate) fn equip_or_use_inventory_item(
             } else {
                 std::mem::replace(&mut c.equipped_ring2, selected)
             };
-            assert!(
-                c.inventory.insert(index, old),
-                "ItemGrid invariant broken: equipping ring should free inventory capacity for old gear"
-            );
+            return_replaced_equipment_to_inventory(&mut c.inventory, index, old, "ring");
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))
         }

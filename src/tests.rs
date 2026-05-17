@@ -109,6 +109,13 @@ fn dungeon_action_label_names_inventory_commands() {
 }
 
 #[test]
+fn readme_lists_distillery_town_control() {
+    let readme = include_str!("../README.md");
+
+    assert!(readme.contains("- `l` distillery"));
+}
+
+#[test]
 fn class_resource_labels_match_active_class() {
     let warrior = Character::new(
         "War".to_string(),
@@ -2021,6 +2028,22 @@ fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
     assert!(attributes.contains("Spend Attributes (0 left)"));
     assert!(attributes.contains("No unspent attribute points."));
     assert!(attributes.contains("Esc=back"));
+}
+
+#[test]
+fn town_equipment_lines_show_empty_slots_as_nothing_equipped() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+
+    terminal.draw(|frame| render_town(frame, &c, "")).unwrap();
+    let town = backend_text(&terminal);
+
+    assert!(town.contains("Helm  : Nothing equipped"));
+    assert!(town.contains("Ring 1: Nothing equipped"));
+    assert!(!town.contains("Empty Helm"));
+    assert!(!town.contains("Empty Ring"));
 }
 
 #[test]
@@ -4108,7 +4131,7 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
 }
 
 #[test]
-fn equipping_accessory_swaps_old_item_back_to_inventory() {
+fn equipping_into_empty_accessory_slot_does_not_add_placeholder_to_inventory() {
     let mut c = test_character();
     c.inventory.clear();
     c.inventory.push(item_with_rarity(
@@ -4126,7 +4149,7 @@ fn equipping_accessory_swaps_old_item_back_to_inventory() {
     assert!(result.spent_turn);
     assert_eq!(result.message, "Equipped Iron Helm.");
     assert_eq!(c.equipped_helm.name, "Iron Helm");
-    assert_eq!(c.inventory[0].name, "Empty Helm");
+    assert!(c.inventory.is_empty());
 }
 
 #[test]
@@ -4156,7 +4179,7 @@ fn rings_fill_empty_second_slot_before_replacing_first_ring() {
 
     assert_eq!(c.equipped_ring1.name, "Copper Ring");
     assert_eq!(c.equipped_ring2.name, "Silver Ring");
-    assert_eq!(c.inventory[0].name, "Empty Ring");
+    assert!(c.inventory.is_empty());
 }
 
 #[test]
@@ -4555,6 +4578,58 @@ fn full_inventory_boss_reward_retains_dungeon_after_gameplay_kill() {
 }
 
 #[test]
+fn retained_boss_dungeon_leave_does_not_grow_herbs_twice() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::HerbGarden);
+    fill_inventory_to_capacity(&mut c);
+    let mut boss = skeleton(7, 6);
+    boss.name = "Test Boss".to_string();
+    boss.hp = 1;
+    boss.is_boss = true;
+    boss.bleed_turns = 1;
+    boss.bleed_damage = 1;
+    let mut d = open_test_dungeon(2, 2, vec![boss]);
+    d.floor = ACT1_FLOORS;
+    c.active_dungeon = Some(d);
+
+    enemy_turns(&mut c);
+    let herbs_after_boss = c.herbs;
+    assert!(herbs_after_boss > 0);
+    assert!(c.active_dungeon.is_some());
+
+    assert!(try_leave_dungeon_for_town(&mut c));
+
+    assert_eq!(c.herbs, herbs_after_boss);
+    assert!(c.active_dungeon.is_none());
+}
+
+#[test]
+fn retained_boss_floor_stairs_return_to_town_after_boss_defeat() {
+    let mut c = test_character();
+    fill_inventory_to_capacity(&mut c);
+    let mut boss = skeleton(7, 6);
+    boss.name = "Test Boss".to_string();
+    boss.hp = 1;
+    boss.is_boss = true;
+    boss.bleed_turns = 1;
+    boss.bleed_damage = 1;
+    let mut d = open_test_dungeon(2, 2, vec![boss]);
+    d.floor = ACT1_FLOORS;
+    c.active_dungeon = Some(d);
+
+    enemy_turns(&mut c);
+    {
+        let d = c.active_dungeon.as_mut().unwrap();
+        d.player_x = d.stairs_x;
+        d.player_y = d.stairs_y;
+    }
+
+    use_stairs(&mut c);
+
+    assert!(c.active_dungeon.is_none());
+}
+
+#[test]
 fn capped_full_inventory_boss_reward_stays_grounded_without_expanding_bag() {
     let mut c = test_character();
     c.inventory = ItemGrid::new(MAX_BAG_COLUMNS, MAX_BAG_ROWS, Vec::new());
@@ -4922,7 +4997,7 @@ fn inventory_accessory_equipped_panel_compares_against_matching_slot() {
     assert!(
         lines
             .iter()
-            .any(|line| line == "Equipped Boots: Empty Boots")
+            .any(|line| line == "Equipped Boots: Nothing equipped")
     );
     assert!(
         lines

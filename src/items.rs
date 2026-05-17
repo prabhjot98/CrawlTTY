@@ -293,6 +293,29 @@ pub(crate) fn worn_shield() -> Item {
         item_stats(0, 0, 1, 2, 0),
     )
 }
+pub(crate) const NOTHING_EQUIPPED_TEXT: &str = "Nothing equipped";
+
+pub(crate) fn is_empty_equipment_slot(item: &Item) -> bool {
+    matches!(
+        (item.kind, item.name.as_str()),
+        (ItemKind::Shield, "Empty Offhand")
+            | (ItemKind::Helm, "Empty Helm")
+            | (ItemKind::Gloves, "Empty Gloves")
+            | (ItemKind::Boots, "Empty Boots")
+            | (ItemKind::Belt, "Empty Belt")
+            | (ItemKind::Amulet, "Empty Amulet")
+            | (ItemKind::Ring, "Empty Ring")
+    )
+}
+
+pub(crate) fn equipped_display_name(item: &Item) -> String {
+    if is_empty_equipment_slot(item) {
+        NOTHING_EQUIPPED_TEXT.to_string()
+    } else {
+        item.name.clone()
+    }
+}
+
 pub(crate) fn empty_offhand() -> Item {
     empty_slot("Empty Offhand", ItemKind::Shield)
 }

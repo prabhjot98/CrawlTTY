@@ -21,6 +21,7 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 
 - `m` merchant
 - `b` blacksmith
+- `l` distillery
 - `s` stash
 - `p` town projects
 - `t` quest giver

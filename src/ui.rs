@@ -347,15 +347,17 @@ pub(crate) fn command_line(title: &str, commands: &[(&str, &str)]) -> Line<'stat
 }
 
 fn equipment_line(label: &str, item: &Item) -> Line<'static> {
+    let item_style = if is_empty_equipment_slot(item) {
+        muted_style()
+    } else {
+        Style::default().fg(rarity_color(&item.rarity))
+    };
     Line::from(vec![
         Span::styled(
             format!("{label}: "),
             Style::default().add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            item.name.clone(),
-            Style::default().fg(rarity_color(&item.rarity)),
-        ),
+        Span::styled(equipped_display_name(item), item_style),
     ])
 }
 

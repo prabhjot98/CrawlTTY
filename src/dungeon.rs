@@ -56,16 +56,17 @@ pub(crate) fn can_leave_dungeon_floor(d: &mut Dungeon) -> bool {
 }
 
 pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
-    {
+    let floor = {
         let Some(d) = c.active_dungeon.as_mut() else {
             return false;
         };
         if !can_leave_dungeon_floor(d) {
             return false;
         }
-    }
+        d.floor
+    };
 
-    if let Some(herbs) = grow_herbs_for_completed_floor(c) {
+    if let Some(herbs) = grow_herbs_for_newly_completed_floor(c, floor) {
         append_pending_town_message(c, &herb_garden_reward_message(herbs));
     }
     leave_dungeon(c);
@@ -1230,6 +1231,19 @@ pub(crate) fn grow_herbs_for_completed_floor(c: &mut Character) -> Option<u32> {
         rand::thread_rng().gen_range(MIN_HERBS_PER_COMPLETED_FLOOR..=MAX_HERBS_PER_COMPLETED_FLOOR);
     c.herbs += herbs;
     Some(herbs)
+}
+
+pub(crate) fn grow_herbs_for_newly_completed_floor(c: &mut Character, floor: u32) -> Option<u32> {
+    if boss_floor_already_completed(c, floor) {
+        None
+    } else {
+        grow_herbs_for_completed_floor(c)
+    }
+}
+
+pub(crate) fn boss_floor_already_completed(c: &Character, floor: u32) -> bool {
+    (floor == ACT1_FLOORS && c.bellkeeper_defeated)
+        || (floor >= FINAL_FLOOR && c.glass_tyrant_defeated)
 }
 
 fn herb_garden_reward_message(herbs: u32) -> String {
@@ -2871,6 +2885,10 @@ pub(crate) fn use_stairs(c: &mut Character) {
         floor = d.floor;
     }
     if floor == ACT1_FLOORS || floor >= FINAL_FLOOR {
+        if boss_floor_already_completed(c, floor) {
+            leave_dungeon(c);
+            return;
+        }
         let d = c.active_dungeon.as_mut().unwrap();
         let blocker = if floor >= FINAL_FLOOR {
             "The Glass Tyrant"
@@ -2883,7 +2901,7 @@ pub(crate) fn use_stairs(c: &mut Character) {
             format!("{blocker} blocks your escape. Defeat it!"),
         );
     } else {
-        let herb_reward = grow_herbs_for_completed_floor(c);
+        let herb_reward = grow_herbs_for_newly_completed_floor(c, floor);
         let mut next_dungeon = generate_dungeon(floor + 1);
         if let Some(herbs) = herb_reward {
             log_event(
