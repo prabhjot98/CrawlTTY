@@ -443,7 +443,7 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
         Line::from(format!(
             "4 Smoke Step r{}: cost 35 Energy, cd 4. Dash 2 tiles, +{} dodge. Ready in {}.",
             c.rogue.smoke_step_rank,
-            smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank),
+            smoke_protection_dodge_bonus(c),
             c.rogue.smoke_step_cooldown
         )),
     ]
@@ -1846,7 +1846,7 @@ pub(crate) fn enemy_damage_after_mitigation(raw: i32, c: &Character) -> u32 {
 pub(crate) fn defensive_dodge_rating(c: &Character) -> i32 {
     let smoke_dodge_bonus =
         if c.class == CharacterClass::Rogue && c.rogue.smoke_protection_turns > 0 {
-            smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank)
+            smoke_protection_dodge_bonus(c)
         } else {
             0
         };

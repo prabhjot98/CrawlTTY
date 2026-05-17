@@ -461,6 +461,10 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
             "Empowers your next Backstab.".to_string(),
         ],
         "Slip Away" => vec![
+            format!(
+                "+{} dodge while smoke protected.",
+                slip_away_dodge_bonus_for_rank(rank)
+            ),
             "Eviscerate grants brief smoke protection.".to_string(),
             "Smoke branch upgrade; requires Smoke Step rank 2.".to_string(),
         ],

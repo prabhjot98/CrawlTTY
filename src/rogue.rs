@@ -31,9 +31,17 @@ pub(crate) fn smoke_step_dodge_bonus_for_rank(rank: u32) -> i32 {
     20 + rank.saturating_sub(1).min(4) as i32 * 3
 }
 
-#[allow(dead_code)]
 pub(crate) fn slip_away_dodge_bonus_for_rank(rank: u32) -> i32 {
     5 + rank.saturating_sub(1).min(4) as i32 * 2
+}
+
+pub(crate) fn smoke_protection_dodge_bonus(c: &Character) -> i32 {
+    smoke_step_dodge_bonus_for_rank(c.rogue.smoke_step_rank)
+        + if c.rogue.slip_away_rank > 0 {
+            slip_away_dodge_bonus_for_rank(c.rogue.slip_away_rank)
+        } else {
+            0
+        }
 }
 
 pub(crate) fn backstab_multiplier(c: &Character) -> f32 {

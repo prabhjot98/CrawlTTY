@@ -181,7 +181,7 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
     assert!(rendered.contains("3 Eviscerate r1: cost 35 Energy. Spend CP for burst damage +0%."));
     assert!(
         rendered.contains(
-            "4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles, +20 dodge. Ready in 2."
+            "4 Smoke Step r1: cost 35 Energy, cd 4. Dash 2 tiles, +25 dodge. Ready in 2."
         )
     );
 }
@@ -645,11 +645,11 @@ fn smoke_protection_adds_rogue_defensive_dodge_bonus() {
 
     rogue.rogue.smoke_protection_turns = 1;
 
-    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 20);
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 25);
 
     rogue.rogue.smoke_step_rank = 5;
 
-    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 32);
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 37);
 
     let mut warrior = test_character();
     warrior.rogue.smoke_protection_turns = 1;
@@ -658,6 +658,25 @@ fn smoke_protection_adds_rogue_defensive_dodge_bonus() {
         defensive_dodge_rating(&warrior),
         warrior.dodge_rating() as i32
     );
+}
+
+#[test]
+fn slip_away_rank_increases_smoke_protection_dodge_bonus() {
+    let mut rogue = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let base_dodge = rogue.dodge_rating() as i32;
+    rogue.rogue.smoke_protection_turns = 1;
+    rogue.rogue.smoke_step_rank = 1;
+    rogue.rogue.slip_away_rank = 1;
+
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 25);
+
+    rogue.rogue.slip_away_rank = 5;
+
+    assert_eq!(defensive_dodge_rating(&rogue), base_dodge + 33);
 }
 
 #[test]
