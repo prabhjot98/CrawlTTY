@@ -6,6 +6,7 @@ use ratatui::{
 
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_LOG_LINE: &str = "[WARN] Unknown dungeon command.";
+const RANGED_ATTACK_HIT_BONUS: i32 = 5;
 
 pub(crate) fn clear_combat_state(c: &mut Character) {
     c.warrior.cleave_cooldown = 0;
@@ -1072,11 +1073,11 @@ pub(crate) fn damage_enemy(
     } else {
         1.0
     };
-    let hit = hit_roll(c.hit_rating() as i32, 10);
     if enemy_index >= d.enemies.len() || d.enemies[enemy_index].hp <= 0 {
         c.active_dungeon = Some(d);
         return DamageEnemyOutcome::NoTarget;
     }
+    let hit = hit_roll_chance(player_attack_hit_chance(c, &d.enemies[enemy_index]));
     if !hit {
         let name = d.enemies[enemy_index].name.clone();
         log_event(&mut d.log, LogKind::Miss, format!("You miss {name}."));
@@ -1712,7 +1713,7 @@ pub(crate) fn should_boneguard_guard(d: &Dungeon, enemy_index: usize) -> bool {
 pub(crate) fn enemy_melee_attack(c: &mut Character, d: &mut Dungeon, enemy_index: usize) -> bool {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
-    if hit_roll(25, defensive_dodge_rating(c)) {
+    if hit_roll_chance(enemy_attack_hit_chance(enemy, c)) {
         let raw = rng.gen_range(enemy.damage_min..=enemy.damage_max)
             + elite_damage_bonus(enemy)
             + bellkeeper_enrage_damage_bonus(enemy);
@@ -1805,7 +1806,7 @@ pub(crate) fn clear_cardinal_line(
 pub(crate) fn cultist_shadow_bolt(c: &mut Character, d: &mut Dungeon, enemy_index: usize) {
     let mut rng = rand::thread_rng();
     let enemy = &d.enemies[enemy_index];
-    if hit_roll(30, defensive_dodge_rating(c)) {
+    if hit_roll_chance(enemy_ranged_attack_hit_chance(enemy, c)) {
         let raw =
             rng.gen_range(enemy.damage_min..=enemy.damage_max + 1) + elite_damage_bonus(enemy);
         let damage = enemy_damage_after_mitigation(raw, c);
@@ -1907,9 +1908,31 @@ pub(crate) fn defensive_dodge_rating(c: &Character) -> i32 {
     c.dodge_rating() as i32 + smoke_dodge_bonus
 }
 
-pub(crate) fn hit_roll(hit: i32, dodge: i32) -> bool {
-    let chance = (hit as f32 / (hit + dodge).max(1) as f32).clamp(0.20, 0.95);
-    rand::thread_rng().gen_bool(chance as f64)
+pub(crate) fn effective_enemy_dodge_rating(enemy: &Enemy) -> i32 {
+    enemy.dodge_rating.max(0)
+}
+
+pub(crate) fn player_attack_hit_chance(c: &Character, enemy: &Enemy) -> f64 {
+    hit_chance(c.hit_rating() as i32, effective_enemy_dodge_rating(enemy))
+}
+
+pub(crate) fn enemy_attack_hit_chance(enemy: &Enemy, c: &Character) -> f64 {
+    hit_chance(enemy.hit_rating, defensive_dodge_rating(c))
+}
+
+pub(crate) fn enemy_ranged_attack_hit_chance(enemy: &Enemy, c: &Character) -> f64 {
+    hit_chance(
+        enemy.hit_rating + RANGED_ATTACK_HIT_BONUS,
+        defensive_dodge_rating(c),
+    )
+}
+
+pub(crate) fn hit_chance(hit: i32, dodge: i32) -> f64 {
+    (hit as f64 / (hit + dodge).max(1) as f64).clamp(0.20, 0.95)
+}
+
+fn hit_roll_chance(chance: f64) -> bool {
+    rand::thread_rng().gen_bool(chance)
 }
 
 pub(crate) fn crit_roll(crit_chance: u32) -> bool {

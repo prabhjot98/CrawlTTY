@@ -608,34 +608,40 @@ fn poison_tick_damages_decrements_and_awards_rewards() {
 
 #[test]
 fn eviscerate_poison_payoff_can_kill_and_award_rewards() {
-    let enemy = enemy(
-        "Poison Dummy",
-        'p',
-        3,
-        2,
-        enemy_stats(3, 0, 0, 0, 10),
-        enemy_rewards(10, 1, 1),
-        false,
-    );
-    let mut c = Character::new(
-        "Sneak".to_string(),
-        CharacterClass::Rogue,
-        DeathMode::Softcore,
-    );
-    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
-    c.rogue.combo_points = 5;
-    c.rogue.energy = ROGUE_MAX_ENERGY;
-    {
-        let d = c.active_dungeon.as_mut().unwrap();
-        d.enemies[0].poison_turns = 3;
-        d.enemies[0].poison_damage = 3;
+    for _ in 0..200 {
+        let enemy = enemy(
+            "Poison Dummy",
+            'p',
+            3,
+            2,
+            enemy_stats(3, 0, 0, 0, 10),
+            enemy_rewards(10, 1, 1),
+            false,
+        );
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+        c.rogue.combo_points = 5;
+        c.rogue.energy = ROGUE_MAX_ENERGY;
+        {
+            let d = c.active_dungeon.as_mut().unwrap();
+            d.enemies[0].poison_turns = 3;
+            d.enemies[0].poison_damage = 3;
+        }
+
+        assert!(use_eviscerate(&mut c));
+
+        let d = c.active_dungeon.as_ref().unwrap();
+        if d.enemies.is_empty() || d.enemies[0].hp <= 0 {
+            assert!(c.xp >= 10);
+            return;
+        }
     }
 
-    assert!(use_eviscerate(&mut c));
-
-    let d = c.active_dungeon.as_ref().unwrap();
-    assert!(d.enemies[0].hp <= 0 || d.enemies.is_empty());
-    assert!(c.xp >= 10);
+    panic!("eviscerate poison payoff test missed every attack");
 }
 
 #[test]
@@ -3499,6 +3505,39 @@ fn boss_reward_loot_is_always_magic_or_rare_equipment() {
 }
 
 #[test]
+fn hit_chance_compares_attacker_hit_against_target_dodge() {
+    assert_eq!(hit_chance(25, 25), 0.5);
+    assert_eq!(hit_chance(25, 10), 25.0 / 35.0);
+    assert_eq!(hit_chance(1, 1000), 0.20);
+    assert_eq!(hit_chance(1000, 1), 0.95);
+}
+
+#[test]
+fn player_attack_hit_chance_uses_enemy_dodge_rating() {
+    let c = test_character();
+    let mut enemy = skeleton(3, 2);
+
+    enemy.dodge_rating = 10;
+    assert_eq!(player_attack_hit_chance(&c, &enemy), 25.0 / 35.0);
+
+    enemy.dodge_rating = 25;
+    assert_eq!(player_attack_hit_chance(&c, &enemy), 0.5);
+}
+
+#[test]
+fn enemy_attack_hit_chance_uses_enemy_hit_rating() {
+    let c = test_character();
+    let mut enemy = skeleton(3, 2);
+    let dodge = defensive_dodge_rating(&c) as f64;
+
+    enemy.hit_rating = 25;
+    assert_eq!(enemy_attack_hit_chance(&enemy, &c), 25.0 / (25.0 + dodge));
+
+    enemy.hit_rating = 50;
+    assert_eq!(enemy_attack_hit_chance(&enemy, &c), 50.0 / (50.0 + dodge));
+}
+
+#[test]
 fn floor_difficulty_is_doubled_across_act_one() {
     assert_eq!(floor_difficulty_multiplier(1), 2.0);
     assert_eq!(floor_difficulty_multiplier(ACT1_FLOORS), 4.0);
@@ -3514,7 +3553,34 @@ fn floor_difficulty_is_doubled_across_act_one() {
     assert_eq!(late.max_hp, baseline.max_hp * 4);
     assert_eq!(late.damage_min, baseline.damage_min * 4);
     assert!(late.armor > early.armor);
+    assert!(late.hit_rating > early.hit_rating);
+    assert!(late.dodge_rating > early.dodge_rating);
     assert_eq!(late.xp, baseline.xp * 2);
+}
+
+#[test]
+fn saved_enemy_without_hit_or_dodge_defaults_to_baseline_ratings() {
+    let json = r#"{
+        "name": "Legacy Skeleton",
+        "glyph": "s",
+        "x": 4,
+        "y": 5,
+        "hp": 12,
+        "max_hp": 12,
+        "damage_min": 2,
+        "damage_max": 4,
+        "armor": 1,
+        "speed": 9,
+        "xp": 18,
+        "gold_min": 2,
+        "gold_max": 8,
+        "is_boss": false
+    }"#;
+
+    let enemy: Enemy = serde_json::from_str(json).unwrap();
+
+    assert_eq!(enemy.hit_rating, DEFAULT_ENEMY_HIT_RATING);
+    assert_eq!(enemy.dodge_rating, DEFAULT_ENEMY_DODGE_RATING);
 }
 
 #[test]

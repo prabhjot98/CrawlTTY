@@ -290,10 +290,20 @@ pub(crate) fn scale_enemy_for_floor(mut enemy: Enemy, floor: u32) -> Enemy {
     enemy.damage_min = scale_i32(enemy.damage_min, difficulty_multiplier);
     enemy.damage_max = scale_i32(enemy.damage_max, difficulty_multiplier).max(enemy.damage_min);
     enemy.armor += 1 + (floor.saturating_sub(1) / 3) as i32;
+    enemy.hit_rating += enemy_hit_rating_floor_bonus(floor);
+    enemy.dodge_rating += enemy_dodge_rating_floor_bonus(floor);
     enemy.xp = scale_u32(enemy.xp, reward_multiplier);
     enemy.gold_min = scale_u32(enemy.gold_min, reward_multiplier);
     enemy.gold_max = scale_u32(enemy.gold_max, reward_multiplier).max(enemy.gold_min);
     enemy
+}
+
+pub(crate) fn enemy_hit_rating_floor_bonus(floor: u32) -> i32 {
+    (floor.saturating_sub(1) / 2) as i32
+}
+
+pub(crate) fn enemy_dodge_rating_floor_bonus(floor: u32) -> i32 {
+    (floor.saturating_sub(1) / 4) as i32
 }
 
 pub(crate) fn scale_i32(value: i32, multiplier: f32) -> i32 {
@@ -387,6 +397,8 @@ pub(crate) struct EnemyStats {
     pub(crate) damage_max: i32,
     pub(crate) armor: i32,
     pub(crate) speed: i32,
+    pub(crate) hit_rating: i32,
+    pub(crate) dodge_rating: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -396,6 +408,7 @@ pub(crate) struct EnemyRewards {
     pub(crate) gold_max: u32,
 }
 
+#[cfg(test)]
 pub(crate) fn enemy_stats(
     hp: i32,
     damage_min: i32,
@@ -403,12 +416,34 @@ pub(crate) fn enemy_stats(
     armor: i32,
     speed: i32,
 ) -> EnemyStats {
+    enemy_stats_with_ratings(
+        hp,
+        damage_min,
+        damage_max,
+        armor,
+        speed,
+        DEFAULT_ENEMY_HIT_RATING,
+        DEFAULT_ENEMY_DODGE_RATING,
+    )
+}
+
+pub(crate) fn enemy_stats_with_ratings(
+    hp: i32,
+    damage_min: i32,
+    damage_max: i32,
+    armor: i32,
+    speed: i32,
+    hit_rating: i32,
+    dodge_rating: i32,
+) -> EnemyStats {
     EnemyStats {
         hp,
         damage_min,
         damage_max,
         armor,
         speed,
+        hit_rating,
+        dodge_rating,
     }
 }
 
@@ -440,6 +475,8 @@ pub(crate) fn enemy(
         damage_max: stats.damage_max,
         armor: stats.armor,
         speed: stats.speed,
+        hit_rating: stats.hit_rating,
+        dodge_rating: stats.dodge_rating,
         energy: 10,
         xp: rewards.xp,
         gold_min: rewards.gold_min,
@@ -463,7 +500,7 @@ pub(crate) fn rat(x: i32, y: i32) -> Enemy {
         'r',
         x,
         y,
-        enemy_stats(6, 1, 2, 0, 11),
+        enemy_stats_with_ratings(6, 1, 2, 0, 11, 18, 14),
         enemy_rewards(8, 0, 3),
         false,
     )
@@ -474,7 +511,7 @@ pub(crate) fn skeleton(x: i32, y: i32) -> Enemy {
         's',
         x,
         y,
-        enemy_stats(12, 2, 4, 1, 9),
+        enemy_stats_with_ratings(12, 2, 4, 1, 9, 25, 10),
         enemy_rewards(18, 2, 8),
         false,
     )
@@ -485,7 +522,7 @@ pub(crate) fn cultist(x: i32, y: i32) -> Enemy {
         'c',
         x,
         y,
-        enemy_stats(10, 2, 3, 0, 10),
+        enemy_stats_with_ratings(10, 2, 3, 0, 10, 28, 12),
         enemy_rewards(22, 5, 12),
         false,
     )
@@ -496,7 +533,7 @@ pub(crate) fn boneguard(x: i32, y: i32) -> Enemy {
         'b',
         x,
         y,
-        enemy_stats(18, 3, 5, 2, 8),
+        enemy_stats_with_ratings(18, 3, 5, 2, 8, 24, 8),
         enemy_rewards(35, 8, 18),
         false,
     )
@@ -512,7 +549,7 @@ pub(crate) fn elite_skeleton_with_modifier(x: i32, y: i32, modifier: EliteModifi
         'E',
         x,
         y,
-        enemy_stats(24, 3, 6, 2, 10),
+        enemy_stats_with_ratings(24, 3, 6, 2, 10, 30, 12),
         enemy_rewards(54, 20, 40),
         false,
     );
@@ -533,6 +570,8 @@ pub(crate) fn apply_elite_modifier(enemy: &mut Enemy, modifier: EliteModifier) {
     enemy.name = format!("{} {}", elite_modifier_name(&modifier), enemy.name);
     if matches!(modifier, EliteModifier::Swift) {
         enemy.speed += 2;
+        enemy.hit_rating += 2;
+        enemy.dodge_rating += 3;
     }
     enemy.elite_modifier = Some(modifier);
 }
@@ -551,7 +590,7 @@ pub(crate) fn bellkeeper(x: i32, y: i32) -> Enemy {
         'B',
         x,
         y,
-        enemy_stats(60, 5, 8, 3, 8),
+        enemy_stats_with_ratings(60, 5, 8, 3, 8, 32, 8),
         enemy_rewards(250, 100, 150),
         true,
     )
@@ -562,7 +601,7 @@ pub(crate) fn dune_stalker(x: i32, y: i32) -> Enemy {
         'g',
         x,
         y,
-        enemy_stats(16, 4, 7, 1, 13),
+        enemy_stats_with_ratings(16, 4, 7, 1, 13, 34, 16),
         enemy_rewards(42, 12, 24),
         false,
     )
@@ -573,7 +612,7 @@ pub(crate) fn glass_wraith(x: i32, y: i32) -> Enemy {
         'w',
         x,
         y,
-        enemy_stats(14, 5, 8, 0, 12),
+        enemy_stats_with_ratings(14, 5, 8, 0, 12, 36, 18),
         enemy_rewards(48, 14, 28),
         false,
     )
@@ -584,7 +623,7 @@ pub(crate) fn ember_magus(x: i32, y: i32) -> Enemy {
         'm',
         x,
         y,
-        enemy_stats(18, 4, 9, 1, 10),
+        enemy_stats_with_ratings(18, 4, 9, 1, 10, 38, 12),
         enemy_rewards(58, 18, 34),
         false,
     )
@@ -595,7 +634,7 @@ pub(crate) fn obsidian_guard(x: i32, y: i32) -> Enemy {
         'o',
         x,
         y,
-        enemy_stats(28, 5, 9, 4, 8),
+        enemy_stats_with_ratings(28, 5, 9, 4, 8, 34, 8),
         enemy_rewards(72, 22, 44),
         false,
     )
@@ -618,7 +657,7 @@ pub(crate) fn glass_tyrant(x: i32, y: i32) -> Enemy {
         'T',
         x,
         y,
-        enemy_stats(95, 8, 12, 5, 9),
+        enemy_stats_with_ratings(95, 8, 12, 5, 9, 42, 10),
         enemy_rewards(520, 220, 340),
         true,
     )

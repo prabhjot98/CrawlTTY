@@ -18,6 +18,8 @@ pub(crate) const MAX_BAG_COLUMNS: u16 = 8;
 pub(crate) const MAX_BAG_ROWS: u16 = 8;
 pub(crate) const STARTING_STASH_COLUMNS: u16 = 8;
 pub(crate) const STARTING_STASH_ROWS: u16 = 8;
+pub(crate) const DEFAULT_ENEMY_HIT_RATING: i32 = 25;
+pub(crate) const DEFAULT_ENEMY_DODGE_RATING: i32 = 10;
 
 pub(crate) const RESET: &str = "\x1b[0m";
 pub(crate) const RED: &str = "\x1b[31m";
@@ -368,6 +370,10 @@ pub(crate) struct Enemy {
     pub(crate) damage_max: i32,
     pub(crate) armor: i32,
     pub(crate) speed: i32,
+    #[serde(default = "default_enemy_hit_rating")]
+    pub(crate) hit_rating: i32,
+    #[serde(default = "default_enemy_dodge_rating")]
+    pub(crate) dodge_rating: i32,
     #[serde(default)]
     pub(crate) energy: i32,
     pub(crate) xp: u32,
@@ -488,6 +494,14 @@ pub(crate) fn default_skill_rank() -> u32 {
 
 pub(crate) fn default_item_level() -> u32 {
     1
+}
+
+pub(crate) fn default_enemy_hit_rating() -> i32 {
+    DEFAULT_ENEMY_HIT_RATING
+}
+
+pub(crate) fn default_enemy_dodge_rating() -> i32 {
+    DEFAULT_ENEMY_DODGE_RATING
 }
 
 impl Character {

@@ -148,6 +148,8 @@ MVP hit chance formula:
 
 This is fair, simple, and easy to tune. Equal hit and dodge ratings produce a 50% hit chance before clamping.
 
+The implementation uses the same model for both sides of combat. Player weapon and skill attacks use the character's hit rating against the target enemy's dodge rating. Enemy melee attacks use that enemy's hit rating against the player's current defensive dodge rating, including temporary smoke-protection bonuses. Ranged enemy specials use the enemy hit rating plus a small attack bonus against the same player dodge rating. Enemy hit and dodge ratings are explicit per archetype and gain modest floor-based increases so later floors keep pace without multiplying accuracy as aggressively as health and damage.
+
 ### Damage Types
 
 - Physical
@@ -571,7 +573,7 @@ Rules:
 - Enemy difficulty is doubled across the board: floor 1 enemies have roughly 2x base health and damage.
 - Enemy difficulty still scales steadily by floor, reaching roughly 4x base health and damage by floor 10.
 - XP and gold rewards scale more conservatively by floor, reaching roughly 2x base rewards by floor 10.
-- Armor also rises on all floors and increases modestly on deeper floors.
+- Armor also rises on all floors and increases modestly on deeper floors. Hit and dodge ratings scale more slowly than damage and health.
 - Rooms are rectangular crypt chambers.
 - Corridors are narrow, creating tactical chokepoints.
 - Place player in the first room.
@@ -951,14 +953,16 @@ The first enemies should have small health, damage, armor, speed, and XP values.
 
 Suggested starting enemy stats:
 
-| Enemy       |               Health |           Damage |    Armor |    Speed |         XP |
-| ----------- | -------------------: | ---------------: | -------: | -------: | ---------: |
-| Rat         |                    6 |              1-2 |        0 |       11 |          8 |
-| Skeleton    |                   12 |              2-4 |        1 |        9 |         18 |
-| Cultist     |                   10 | 2-3 ranged/magic |        0 |       10 |         22 |
-| Boneguard   |                   18 |              3-5 |        2 |        8 |         35 |
-| Elite enemy | Base enemy x2 health |      +50% damage | +1 armor | +1 speed | Base XP x3 |
-| Bellkeeper  |                   60 |              5-8 |        3 |        8 |        250 |
+| Enemy       |               Health |           Damage |    Armor |    Speed | Hit | Dodge |         XP |
+| ----------- | -------------------: | ---------------: | -------: | -------: | --: | ----: | ---------: |
+| Rat         |                    6 |              1-2 |        0 |       11 |  18 |    14 |          8 |
+| Skeleton    |                   12 |              2-4 |        1 |        9 |  25 |    10 |         18 |
+| Cultist     |                   10 | 2-3 ranged/magic |        0 |       10 |  28 |    12 |         22 |
+| Boneguard   |                   18 |              3-5 |        2 |        8 |  24 |     8 |         35 |
+| Elite enemy | Base enemy x2 health |      +50% damage | +1 armor | +1 speed | +5 |    +2 | Base XP x3 |
+| Bellkeeper  |                   60 |              5-8 |        3 |        8 |  32 |     8 |        250 |
+
+When enemies are scaled for later floors, health and damage use the floor difficulty multiplier, armor increases every few floors, hit rating increases by `(floor - 1) / 2`, and dodge rating increases by `(floor - 1) / 4`. This keeps accuracy and evasion meaningful without making late-floor enemies hit every turn.
 
 MVP enemy roles:
 
@@ -1022,6 +1026,7 @@ Loot should feel rewarding:
 
 - Enemies have a chance to drop equipment or potions.
 - Enemy health and damage are doubled across the board and scale up by floor, reaching roughly 4x base values on floor 10.
+- Enemy hit and dodge ratings are explicit per archetype and scale modestly by floor.
 - XP and gold rewards scale up by floor, reaching roughly double values on floor 10.
 - Chests always drop gold and an item. Gold is always collected; if the bag is full, the item remains as ground loot on the chest tile.
 - Bellkeeper drops guaranteed better loot.
