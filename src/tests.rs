@@ -3000,6 +3000,7 @@ fn attributes_screen_uses_cursor_selection_and_attribute_colors() {
     let attributes = backend_text(&terminal);
 
     assert!(attributes.contains("> 1) Strength"));
+    assert!(attributes.contains("2) Dexterity 3 -> 4 (+10 hit)"));
     assert!(attributes.contains("W/S or arrows=select"));
     assert!(attributes.contains("Enter=spend"));
     assert_eq!(cell_fg_at_text(&terminal, "Strength"), Color::Red);
@@ -4215,7 +4216,7 @@ fn rogue_ignores_warrior_shared_stat_and_shield_effects() {
     c.warrior.battle_cry_charges = 1;
     c.warrior.second_wind_shield = 5;
 
-    assert_eq!(c.dodge_rating(), 21);
+    assert_eq!(c.dodge_rating(), 12);
     c.warrior.iron_guard_mastery = Some(SkillMastery::Bulwark);
     assert_eq!(c.armor(), c.equipped_armor.armor + c.equipped_shield.armor);
     assert_eq!(enemy_damage_after_mitigation(10, &c), 8);
@@ -4308,6 +4309,21 @@ fn item_summary_marks_gems_with_incomplete_metadata_invalid() {
 }
 
 #[test]
+fn dexterity_only_increases_hit_rating() {
+    let mut c = test_character();
+    c.dexterity = 0;
+    let base_hit = c.hit_rating();
+    let base_dodge = c.dodge_rating();
+    let base_speed = c.speed();
+
+    c.dexterity = 4;
+
+    assert_eq!(c.hit_rating(), base_hit + 40);
+    assert_eq!(c.dodge_rating(), base_dodge);
+    assert_eq!(c.speed(), base_speed);
+}
+
+#[test]
 fn accessory_slots_contribute_stats_and_socket_bonuses() {
     let mut c = test_character();
     c.equipped_helm = item_with_rarity(
@@ -4341,11 +4357,8 @@ fn accessory_slots_contribute_stats_and_socket_bonuses() {
 
     assert_eq!(c.effective_dexterity(), c.dexterity + 3);
     assert_eq!(c.armor(), 1 + 1 + 2 + iron_guard_armor_bonus(&c));
-    assert_eq!(
-        c.dodge_rating(),
-        10 + c.effective_dexterity() * 3 + 2 + 1 + 1
-    );
-    assert_eq!(c.speed(), 10 + c.effective_dexterity() * 5 + 2);
+    assert_eq!(c.dodge_rating(), 10 + 2 + 1 + 1);
+    assert_eq!(c.speed(), 10 + 2);
 }
 
 #[test]
@@ -4387,13 +4400,10 @@ fn equipped_socketed_gems_cover_all_remaining_stat_paths() {
     assert_eq!(c.effective_dexterity(), c.dexterity + 3);
     assert_eq!(c.effective_intelligence(), c.intelligence + 3);
     assert_eq!(c.max_mana(), 10 + c.effective_intelligence() * 5 + 12);
-    assert_eq!(c.hit_rating(), 10 + c.effective_dexterity() * 5 + 10);
-    assert_eq!(
-        c.dodge_rating(),
-        (10 + c.effective_dexterity() * 3 + 2 + 8) as u32
-    );
+    assert_eq!(c.hit_rating(), 10 + c.effective_dexterity() * 10 + 10);
+    assert_eq!(c.dodge_rating(), 10 + 2 + 8);
     assert_eq!(c.armor(), 1 + 1 + iron_guard_armor_bonus(&c) + 3);
-    assert_eq!(c.speed(), (10 + c.effective_dexterity() * 5 + 7) as u32);
+    assert_eq!(c.speed(), 10 + 7);
 }
 
 #[test]
@@ -6332,11 +6342,13 @@ fn player_attack_hit_chance_uses_enemy_dodge_rating() {
     let c = test_character();
     let mut enemy = skeleton(3, 2);
 
+    let hit = c.hit_rating() as f64;
+
     enemy.dodge_rating = 10;
-    assert_eq!(player_attack_hit_chance(&c, &enemy), 25.0 / 35.0);
+    assert_eq!(player_attack_hit_chance(&c, &enemy), hit / (hit + 10.0));
 
     enemy.dodge_rating = 25;
-    assert_eq!(player_attack_hit_chance(&c, &enemy), 0.5);
+    assert_eq!(player_attack_hit_chance(&c, &enemy), hit / (hit + 25.0));
 }
 
 #[test]
