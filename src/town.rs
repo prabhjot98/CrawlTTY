@@ -663,12 +663,17 @@ pub(crate) fn render_salvage_screen(
     if c.inventory.is_empty() {
         lines.push(plain_line("Inventory is empty."));
     } else {
+        let max_rows = inventory_visible_rows(8);
+        let offset = scroll_offset(selected, c.inventory.len(), max_rows);
         lines.extend(
             c.inventory
                 .iter()
-                .take(inventory_visible_rows(8))
+                .skip(offset)
+                .take(max_rows)
                 .enumerate()
-                .map(|(i, item)| selected_line(i == selected, item_summary(item))),
+                .map(|(visible_index, item)| {
+                    selected_line(offset + visible_index == selected, item_summary(item))
+                }),
         );
         let item = &c.inventory[selected.min(c.inventory.len() - 1)];
         lines.push(Line::from(""));
@@ -1204,10 +1209,18 @@ pub(crate) fn render_socket_bench_screen(
             "Socketed Gear",
             Style::default().add_modifier(Modifier::BOLD),
         ));
-        for (i, target) in targets.iter().copied().enumerate() {
+        let max_rows = inventory_visible_rows(7);
+        let offset = scroll_offset(selected_item, targets.len(), max_rows);
+        for (visible_index, target) in targets
+            .iter()
+            .copied()
+            .skip(offset)
+            .take(max_rows)
+            .enumerate()
+        {
             if let Some(item) = target_item(c, target) {
                 lines.push(selected_line(
-                    i == selected_item,
+                    offset + visible_index == selected_item,
                     format!("{}: {}", target_label(target), item.name),
                 ));
             }
@@ -1424,12 +1437,19 @@ pub(crate) fn render_gem_picker_screen(
     if gems.is_empty() {
         lines.push(plain_line("No gems in inventory."));
     } else {
+        let max_rows = inventory_visible_rows(5);
+        let offset = scroll_offset(selected, gems.len(), max_rows);
         lines.extend(
             gems.iter()
                 .copied()
+                .skip(offset)
+                .take(max_rows)
                 .enumerate()
-                .map(|(i, inventory_index)| {
-                    selected_line(i == selected, item_summary(&c.inventory[inventory_index]))
+                .map(|(visible_index, inventory_index)| {
+                    selected_line(
+                        offset + visible_index == selected,
+                        item_summary(&c.inventory[inventory_index]),
+                    )
                 }),
         );
     }
@@ -1509,12 +1529,17 @@ pub(crate) fn render_sell_items_screen(
     if c.inventory.is_empty() {
         lines.push(plain_line("Inventory is empty."));
     } else {
+        let max_rows = inventory_visible_rows(8);
+        let offset = scroll_offset(selected, c.inventory.len(), max_rows);
         lines.extend(
             c.inventory
                 .iter()
-                .take(inventory_visible_rows(8))
+                .skip(offset)
+                .take(max_rows)
                 .enumerate()
-                .map(|(i, item)| selected_line(i == selected, item_summary(item))),
+                .map(|(visible_index, item)| {
+                    selected_line(offset + visible_index == selected, item_summary(item))
+                }),
         );
         let item = &c.inventory[selected.min(c.inventory.len() - 1)];
         lines.push(Line::from(""));
