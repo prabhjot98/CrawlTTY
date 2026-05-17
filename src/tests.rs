@@ -6180,6 +6180,22 @@ fn returning_to_town_requires_clear_floor() {
 }
 
 #[test]
+fn first_floor_of_each_act_can_return_to_town_before_clearing_monsters() {
+    for floor in [1, ACT2_START_FLOOR] {
+        let mut c = test_character();
+        complete_project_for_test(&mut c, TownProject::HerbGarden);
+        let mut d = open_test_dungeon(2, 2, vec![rat(4, 2)]);
+        d.floor = floor;
+        c.active_dungeon = Some(d);
+
+        assert!(try_leave_dungeon_for_town(&mut c));
+        assert!(c.active_dungeon.is_none());
+        assert_eq!(c.herbs, 0);
+        assert!(!c.pending_town_message.contains("Herb Garden grew"));
+    }
+}
+
+#[test]
 fn returning_to_town_after_clear_floor_grows_herbs() {
     let mut c = test_character();
     complete_project_for_test(&mut c, TownProject::HerbGarden);

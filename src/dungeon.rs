@@ -58,19 +58,36 @@ pub(crate) fn can_leave_dungeon_floor(d: &mut Dungeon) -> bool {
     false
 }
 
+fn can_escape_to_town_before_clearing_floor(floor: u32) -> bool {
+    act_floor(floor) == 1
+}
+
 pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
-    let floor = {
+    let (floor, escaped_before_clear) = {
         let Some(d) = c.active_dungeon.as_mut() else {
             return false;
         };
-        if !can_leave_dungeon_floor(d) {
-            return false;
+        let floor = d.floor;
+        let remaining = living_monster_count(d);
+        if remaining > 0 {
+            if !can_escape_to_town_before_clearing_floor(floor) {
+                log_event(
+                    &mut d.log,
+                    LogKind::Warn,
+                    monsters_remaining_message(remaining),
+                );
+                return false;
+            }
+            (floor, true)
+        } else {
+            (floor, false)
         }
-        d.floor
     };
 
-    if let Some(herbs) = grow_herbs_for_newly_completed_floor(c, floor) {
-        append_pending_town_message(c, &herb_garden_reward_message(herbs));
+    if !escaped_before_clear {
+        if let Some(herbs) = grow_herbs_for_newly_completed_floor(c, floor) {
+            append_pending_town_message(c, &herb_garden_reward_message(herbs));
+        }
     }
     leave_dungeon(c);
     true
