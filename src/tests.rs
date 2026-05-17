@@ -3099,6 +3099,68 @@ fn dungeon_containers_use_gothic_borders_and_titles() {
 }
 
 #[test]
+fn dungeon_loot_log_item_names_use_rarity_colors() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut dungeon = open_test_dungeon(2, 2, Vec::new());
+    dungeon.log.push("== Turn 1: Test loot ==".to_string());
+    let loot = [
+        item_with_rarity(
+            "Plain Blade",
+            ItemKind::Weapon,
+            10,
+            weapon_stats(1, 2, 0, SWORD_CRIT_CHANCE),
+            Rarity::Common,
+            1,
+            requirements(0, 0, 0),
+        ),
+        item_with_rarity(
+            "Magic Wand",
+            ItemKind::Weapon,
+            12,
+            weapon_stats(1, 3, 0, WAND_CRIT_CHANCE),
+            Rarity::Magic,
+            1,
+            requirements(0, 0, 0),
+        ),
+        item_with_rarity(
+            "Rare Axe",
+            ItemKind::Weapon,
+            14,
+            weapon_stats(2, 4, 0, AXE_CRIT_CHANCE),
+            Rarity::Rare,
+            1,
+            requirements(0, 0, 0),
+        ),
+    ];
+    for item in &loot {
+        log_event(
+            &mut dungeon.log,
+            LogKind::Loot,
+            format!("Loot found: {}.", colored_item_name(item)),
+        );
+    }
+
+    let mut c = test_character();
+    c.active_dungeon = Some(dungeon);
+    let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
+    terminal.draw(|frame| render_dungeon(frame, &c)).unwrap();
+
+    assert_eq!(
+        cell_fg_at_text(&terminal, "Plain Blade"),
+        rarity_color(&Rarity::Common)
+    );
+    assert_eq!(
+        cell_fg_at_text(&terminal, "Magic Wand"),
+        rarity_color(&Rarity::Magic)
+    );
+    assert_eq!(
+        cell_fg_at_text(&terminal, "Rare Axe"),
+        rarity_color(&Rarity::Rare)
+    );
+}
+
+#[test]
 fn character_creation_active_step_uses_muted_cursed_violet_border() {
     use ratatui::{Terminal, backend::TestBackend, style::Color};
 

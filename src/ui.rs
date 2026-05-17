@@ -302,6 +302,63 @@ pub(crate) fn strip_ansi_codes(text: &str) -> String {
     stripped
 }
 
+pub(crate) fn ansi_styled_spans(text: &str, default_style: Style) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    let mut buffer = String::new();
+    let mut style = default_style;
+    let mut chars = text.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            let mut codes = String::new();
+            for code_ch in chars.by_ref() {
+                if code_ch.is_ascii_alphabetic() {
+                    push_ansi_span(&mut spans, &mut buffer, style);
+                    if code_ch == 'm' {
+                        style = apply_ansi_sgr_codes(&codes, default_style, style);
+                    }
+                    break;
+                }
+                codes.push(code_ch);
+            }
+        } else {
+            buffer.push(ch);
+        }
+    }
+    push_ansi_span(&mut spans, &mut buffer, style);
+    spans
+}
+
+fn push_ansi_span(spans: &mut Vec<Span<'static>>, buffer: &mut String, style: Style) {
+    if !buffer.is_empty() {
+        spans.push(Span::styled(std::mem::take(buffer), style));
+    }
+}
+
+fn apply_ansi_sgr_codes(codes: &str, default_style: Style, current_style: Style) -> Style {
+    let mut style = current_style;
+    let codes = if codes.is_empty() { "0" } else { codes };
+
+    for code in codes.split(';') {
+        match code.parse::<u16>() {
+            Ok(0) => style = default_style,
+            Ok(1) => style = style.add_modifier(Modifier::BOLD),
+            Ok(31) => style = style.fg(DANGER_COLOR),
+            Ok(32) => style = style.fg(ACTION_COLOR),
+            Ok(33) => style = style.fg(RARITY_RARE_COLOR),
+            Ok(34) => style = style.fg(RARITY_MAGIC_COLOR),
+            Ok(35) => style = style.fg(CURSED_COLOR),
+            Ok(36) => style = style.fg(Color::Cyan),
+            Ok(37) => style = style.fg(RARITY_COMMON_COLOR),
+            Ok(39) => style = default_style,
+            _ => {}
+        }
+    }
+
+    style
+}
+
 pub(crate) fn rarity_color(rarity: &Rarity) -> Color {
     match rarity {
         Rarity::Common => RARITY_COMMON_COLOR,

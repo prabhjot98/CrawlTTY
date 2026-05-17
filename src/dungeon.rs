@@ -367,11 +367,14 @@ fn log_line(line: &str, current_group: bool) -> Line<'static> {
         );
     }
 
-    let mut style = Style::default().fg(log_color(&text));
+    let style = Style::default().fg(log_color(&text));
     if !current_group {
-        style = Style::default().fg(Color::DarkGray);
+        return Line::styled(format!("  {text}"), Style::default().fg(Color::DarkGray));
     }
-    Line::styled(format!("  {text}"), style)
+
+    let mut spans = vec![Span::styled("  ", style)];
+    spans.extend(ansi_styled_spans(line, style));
+    Line::from(spans)
 }
 
 fn log_color(line: &str) -> Color {
