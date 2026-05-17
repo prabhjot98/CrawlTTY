@@ -1189,6 +1189,126 @@ fn poison_tick_damages_decrements_and_awards_rewards() {
     assert!(c.xp >= 10);
 }
 
+fn carried_or_ground_loot_count(c: &Character) -> usize {
+    c.inventory.len()
+        + c.active_dungeon
+            .as_ref()
+            .map(|d| d.ground_items.len())
+            .unwrap_or_default()
+}
+
+fn tick_effect_kill_rolls_loot(enemy: Enemy) -> bool {
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Loot".to_string(),
+            CharacterClass::Sorceress,
+            DeathMode::Softcore,
+        );
+        c.inventory.clear();
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy.clone()]));
+
+        enemy_turns(&mut c);
+
+        if carried_or_ground_loot_count(&c) > 0 {
+            return true;
+        }
+    }
+    false
+}
+
+#[test]
+fn poison_tick_kills_can_roll_regular_loot() {
+    let mut enemy = skeleton(12, 12);
+    enemy.hp = 1;
+    enemy.max_hp = 1;
+    enemy.poison_turns = 1;
+    enemy.poison_damage = 1;
+
+    assert!(tick_effect_kill_rolls_loot(enemy));
+}
+
+#[test]
+fn bleed_tick_kills_can_roll_regular_loot() {
+    let mut enemy = skeleton(12, 12);
+    enemy.hp = 1;
+    enemy.max_hp = 1;
+    enemy.bleed_turns = 1;
+    enemy.bleed_damage = 1;
+
+    assert!(tick_effect_kill_rolls_loot(enemy));
+}
+
+#[test]
+fn burning_tick_kills_can_roll_regular_loot() {
+    let mut enemy = skeleton(12, 12);
+    enemy.hp = 1;
+    enemy.max_hp = 1;
+    enemy.burning_turns = 1;
+    enemy.burning_damage = 1;
+
+    assert!(tick_effect_kill_rolls_loot(enemy));
+}
+
+#[test]
+fn rogue_effect_kills_can_roll_regular_loot() {
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Sneak".to_string(),
+            CharacterClass::Rogue,
+            DeathMode::Softcore,
+        );
+        c.inventory.clear();
+        let mut enemy = skeleton(3, 2);
+        enemy.hp = 1;
+        enemy.max_hp = 1;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+        assert_eq!(
+            damage_enemy_with_rogue_effect(&mut c, 0, "Rogue effect", 1),
+            DamageEnemyOutcome::Killed
+        );
+
+        if carried_or_ground_loot_count(&c) > 0 {
+            return;
+        }
+    }
+
+    panic!("rogue effect kills never rolled loot");
+}
+
+#[test]
+fn spiked_guard_kills_can_roll_regular_loot() {
+    for _ in 0..400 {
+        let mut c = Character::new(
+            "Guard".to_string(),
+            CharacterClass::Warrior,
+            DeathMode::Softcore,
+        );
+        c.inventory.clear();
+        c.hp = 999;
+        c.warrior.iron_guard_mastery = Some(SkillMastery::SpikedGuard);
+        let mut enemy = enemy(
+            "Thorn Dummy",
+            's',
+            3,
+            2,
+            enemy_stats_with_ratings(2, 0, 0, 0, 10, 1_000, 0),
+            enemy_rewards(10, 1, 1),
+            false,
+        );
+        enemy.energy = 999;
+        c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+        enemy_turns(&mut c);
+
+        if carried_or_ground_loot_count(&c) > 0 {
+            return;
+        }
+    }
+
+    panic!("Spiked Guard kills never rolled loot");
+}
+
 #[test]
 fn eviscerate_poison_payoff_can_kill_and_award_rewards() {
     for _ in 0..200 {
