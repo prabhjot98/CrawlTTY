@@ -1842,6 +1842,92 @@ fn narrow_stash_screen_keeps_both_grids_and_details_visible() {
 }
 
 #[test]
+fn full_sell_screen_keeps_selected_item_details_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(
+        4,
+        4,
+        (0..16)
+            .map(|index| {
+                let mut item = rusted_sword();
+                item.name = format!("Sell Sword {index}");
+                item
+            })
+            .collect(),
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_sell_items_screen(frame, &c, 15, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Sell Sword 15"));
+    assert!(rendered.contains("Sell value:"));
+}
+
+#[test]
+fn full_salvage_screen_keeps_selected_item_details_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(
+        4,
+        4,
+        (0..16)
+            .map(|index| {
+                let mut item = rusted_sword();
+                item.name = format!("Salvage Sword {index}");
+                item
+            })
+            .collect(),
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_salvage_screen(frame, &c, 15, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Salvage Sword 15"));
+    assert!(rendered.contains("Salvage yield:"));
+}
+
+#[test]
+fn full_socket_screen_keeps_selected_socket_details_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    c.equipped_weapon.sockets = vec![None];
+    c.equipped_armor.sockets = vec![None];
+    c.equipped_shield.sockets = vec![None];
+    c.inventory = ItemGrid::new(
+        4,
+        4,
+        (0..16)
+            .map(|index| {
+                let mut item = rusted_sword();
+                item.name = format!("Socket Sword {index}");
+                item.sockets = vec![None];
+                item
+            })
+            .collect(),
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_socket_bench_screen(frame, &c, 18, 0, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Socket Sword 15"));
+    assert!(rendered.contains("Sockets: Socket Sword 15"));
+    assert!(rendered.contains("> 1. Empty"));
+}
+
+#[test]
 fn skill_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 

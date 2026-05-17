@@ -238,6 +238,32 @@ pub(crate) fn visible_rows_for_area(area: Rect, reserved_rows: u16) -> usize {
     area.height.saturating_sub(reserved_rows).max(5) as usize
 }
 
+pub(crate) fn visible_rows_for_lines_screen(
+    area: Rect,
+    message: &str,
+    reserved_body_rows: u16,
+) -> usize {
+    let footer_height = if message.is_empty() { 3 } else { 4 };
+    let body_inner_height = area
+        .height
+        .saturating_sub(3)
+        .saturating_sub(footer_height)
+        .saturating_sub(2);
+    body_inner_height.saturating_sub(reserved_body_rows).max(1) as usize
+}
+
+pub(crate) fn visible_rows_for_wrapped_lines_screen(
+    area: Rect,
+    message: &str,
+    reserved_body_rows: u16,
+    row_height: u16,
+) -> usize {
+    let row_height = row_height.max(1) as usize;
+    visible_rows_for_lines_screen(area, message, reserved_body_rows)
+        .saturating_div(row_height)
+        .max(1)
+}
+
 pub(crate) fn scroll_offset(selected: usize, total: usize, max_rows: usize) -> usize {
     if total <= max_rows || selected < max_rows {
         0
