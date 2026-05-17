@@ -1735,6 +1735,113 @@ fn inventory_adjacent_screens_render_with_ratatui() {
 }
 
 #[test]
+fn gem_picker_scroll_keeps_high_selected_gem_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    let gem_kinds = [
+        GemKind::Ruby,
+        GemKind::Sapphire,
+        GemKind::Garnet,
+        GemKind::Emerald,
+        GemKind::Amethyst,
+        GemKind::Quartz,
+        GemKind::Jade,
+        GemKind::Onyx,
+        GemKind::Citrine,
+        GemKind::Topaz,
+        GemKind::Opal,
+        GemKind::Bloodstone,
+    ];
+    c.inventory = ItemGrid::new(
+        4,
+        4,
+        gem_kinds
+            .into_iter()
+            .map(|kind| gem_item(kind, GemTier::Flawed))
+            .collect(),
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 16)).unwrap();
+
+    terminal
+        .draw(|frame| render_gem_picker_screen(frame, &c, 11, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Flawed Bloodstone"));
+    assert!(!rendered.contains("Flawed Ruby"));
+    assert!(rendered.contains("Gems: W/S or arrows=select  Enter=choose  Esc=back"));
+}
+
+#[test]
+fn ground_loot_picker_scroll_keeps_high_selected_item_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut c = test_character();
+    let mut dungeon = open_test_dungeon(3, 3, Vec::new());
+    dungeon.ground_items = (0..12)
+        .map(|index| {
+            let mut item = health_potion();
+            item.name = format!("Ground {index}");
+            GroundItem { x: 3, y: 3, item }
+        })
+        .collect();
+    c.active_dungeon = Some(dungeon);
+    let mut terminal = Terminal::new(TestBackend::new(80, 16)).unwrap();
+
+    terminal
+        .draw(|frame| render_ground_loot_picker(frame, &c, 11, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Ground 11"));
+    assert!(!rendered.contains("Ground 0"));
+    assert!(rendered.contains("W/S=move  Enter=pick up  d=discard  Esc=back"));
+}
+
+#[test]
+fn narrow_inventory_and_skill_screens_keep_details_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(54, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_inventory_screen(frame, &c, 0, ""))
+        .unwrap();
+    let inventory = backend_text(&terminal);
+    assert!(inventory.contains("Bag"));
+    assert!(inventory.contains("Details"));
+    assert!(inventory.contains("Lesser Health Potion"));
+
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, 0, ""))
+        .unwrap();
+    let skills = backend_text(&terminal);
+    assert!(skills.contains("Skills"));
+    assert!(skills.contains("Details"));
+    assert!(skills.contains("Current Skill"));
+}
+
+#[test]
+fn narrow_stash_screen_keeps_both_grids_and_details_visible() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(70, 24)).unwrap();
+
+    terminal
+        .draw(|frame| render_stash_screen(frame, &c, StashSide::Inventory, 0, 0, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Inventory *"));
+    assert!(rendered.contains("Stash"));
+    assert!(rendered.contains("Details"));
+    assert!(rendered.contains("Lesser Health Potion"));
+}
+
+#[test]
 fn skill_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
