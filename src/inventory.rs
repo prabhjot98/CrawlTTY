@@ -404,6 +404,12 @@ pub(crate) fn inventory_cell_label(grid: &ItemGrid, index: usize) -> &'static st
         ItemKind::Weapon => "W",
         ItemKind::Armor => "A",
         ItemKind::Shield => "S",
+        ItemKind::Helm => "H",
+        ItemKind::Gloves => "G",
+        ItemKind::Boots => "B",
+        ItemKind::Belt => "T",
+        ItemKind::Amulet => "U",
+        ItemKind::Ring => "R",
         ItemKind::Gem => "G",
     }
 }
@@ -455,7 +461,14 @@ pub(crate) fn selected_item_detail_lines(
             "Damage {}-{} | crit {}%",
             item.damage_min, item.damage_max, item.crit_chance
         ))),
-        ItemKind::Armor | ItemKind::Shield => lines.push(Line::from(format!(
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => lines.push(Line::from(format!(
             "Armor {} | dodge {} | speed {}",
             item.armor, item.dodge, item.speed
         ))),
@@ -489,7 +502,15 @@ pub(crate) fn drop_selected_inventory_item(
 pub(crate) fn item_level_text(item: &Item) -> String {
     if matches!(
         item.kind,
-        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+        ItemKind::Weapon
+            | ItemKind::Armor
+            | ItemKind::Shield
+            | ItemKind::Helm
+            | ItemKind::Gloves
+            | ItemKind::Boots
+            | ItemKind::Belt
+            | ItemKind::Amulet
+            | ItemKind::Ring
     ) {
         format!("{CYAN}ilvl {}{RESET}", item.item_level)
     } else {
@@ -550,7 +571,14 @@ pub(crate) fn item_summary(item: &Item) -> String {
                 item.value
             ) + &socket_summary(item)
         }
-        ItemKind::Armor | ItemKind::Shield => {
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => {
             format!(
                 "{}{} [{} {:?}] {} {WHITE}armor {}{RESET} {GREEN}dodge {}{RESET} {YELLOW}speed {}{RESET} {YELLOW}value {}{RESET}",
                 name,
@@ -619,30 +647,59 @@ pub(crate) fn colored_item_name(item: &Item) -> String {
     format!("{color}{}{RESET}", item.name)
 }
 
+fn is_equipment_kind(kind: ItemKind) -> bool {
+    matches!(
+        kind,
+        ItemKind::Weapon
+            | ItemKind::Armor
+            | ItemKind::Shield
+            | ItemKind::Helm
+            | ItemKind::Gloves
+            | ItemKind::Boots
+            | ItemKind::Belt
+            | ItemKind::Amulet
+            | ItemKind::Ring
+    )
+}
+
+fn is_empty_ring(item: &Item) -> bool {
+    item.kind == ItemKind::Ring && item.name == "Empty Ring"
+}
+
+fn equipped_comparison_target(c: &Character, kind: ItemKind) -> Option<(&'static str, &Item)> {
+    match kind {
+        ItemKind::Weapon => Some(("Weapon", &c.equipped_weapon)),
+        ItemKind::Armor => Some(("Armor", &c.equipped_armor)),
+        ItemKind::Shield => Some(("Shield", &c.equipped_shield)),
+        ItemKind::Helm => Some(("Helm", &c.equipped_helm)),
+        ItemKind::Gloves => Some(("Gloves", &c.equipped_gloves)),
+        ItemKind::Boots => Some(("Boots", &c.equipped_boots)),
+        ItemKind::Belt => Some(("Belt", &c.equipped_belt)),
+        ItemKind::Amulet => Some(("Amulet", &c.equipped_amulet)),
+        ItemKind::Ring if is_empty_ring(&c.equipped_ring1) => Some(("Ring 1", &c.equipped_ring1)),
+        ItemKind::Ring if is_empty_ring(&c.equipped_ring2) => Some(("Ring 2", &c.equipped_ring2)),
+        ItemKind::Ring => Some(("Ring 1", &c.equipped_ring1)),
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => None,
+    }
+}
+
 pub(crate) fn item_comparison(c: &Character, item: &Item) -> Option<String> {
-    let comparison = match item.kind {
-        ItemKind::Weapon => {
-            let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
-            let new_avg = item.damage_min + item.damage_max;
-            format!(
-                "Compare: {}  {}",
-                format_delta("damage", new_avg - cur_avg),
-                format_crit_delta(item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32)
-            )
-        }
-        ItemKind::Armor => format!(
+    let (_, equipped) = equipped_comparison_target(c, item.kind)?;
+    let comparison = if item.kind == ItemKind::Weapon {
+        let cur_avg = equipped.damage_min + equipped.damage_max;
+        let new_avg = item.damage_min + item.damage_max;
+        format!(
+            "Compare: {}  {}",
+            format_delta("damage", new_avg - cur_avg),
+            format_crit_delta(item.crit_chance as i32 - equipped.crit_chance as i32)
+        )
+    } else {
+        format!(
             "Compare: {}  {}  {}",
-            format_delta("armor", item.armor - c.equipped_armor.armor),
-            format_delta("dodge", item.dodge - c.equipped_armor.dodge),
-            format_delta("speed", item.speed - c.equipped_armor.speed)
-        ),
-        ItemKind::Shield => format!(
-            "Compare: {}  {}  {}",
-            format_delta("armor", item.armor - c.equipped_shield.armor),
-            format_delta("dodge", item.dodge - c.equipped_shield.dodge),
-            format_delta("speed", item.speed - c.equipped_shield.speed)
-        ),
-        _ => return None,
+            format_delta("armor", item.armor - equipped.armor),
+            format_delta("dodge", item.dodge - equipped.dodge),
+            format_delta("speed", item.speed - equipped.speed)
+        )
     };
     if let Some(requirements) = unmet_requirements_message(c, item) {
         Some(format!("{comparison}  {RED}LOCKED:{RESET} {requirements}"))
@@ -659,43 +716,26 @@ pub(crate) fn selected_item_equipped_comparison_lines(
         return vec![Line::styled("Select gear to compare.", muted_style())];
     };
 
-    let (slot_label, equipped, delta_spans) = match item.kind {
-        ItemKind::Weapon => {
-            let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
-            let new_avg = item.damage_min + item.damage_max;
-            (
-                "Weapon",
-                &c.equipped_weapon,
-                vec![
-                    stat_delta_span("damage", new_avg - cur_avg),
-                    crit_delta_span(item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32),
-                ],
-            )
-        }
-        ItemKind::Armor => (
-            "Armor",
-            &c.equipped_armor,
-            vec![
-                stat_delta_span("armor", item.armor - c.equipped_armor.armor),
-                stat_delta_span("dodge", item.dodge - c.equipped_armor.dodge),
-                stat_delta_span("speed", item.speed - c.equipped_armor.speed),
-            ],
-        ),
-        ItemKind::Shield => (
-            "Shield",
-            &c.equipped_shield,
-            vec![
-                stat_delta_span("armor", item.armor - c.equipped_shield.armor),
-                stat_delta_span("dodge", item.dodge - c.equipped_shield.dodge),
-                stat_delta_span("speed", item.speed - c.equipped_shield.speed),
-            ],
-        ),
-        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {
-            return vec![Line::styled(
-                "No equipped slot for this item.",
-                muted_style(),
-            )];
-        }
+    let Some((slot_label, equipped)) = equipped_comparison_target(c, item.kind) else {
+        return vec![Line::styled(
+            "No equipped slot for this item.",
+            muted_style(),
+        )];
+    };
+
+    let delta_spans = if item.kind == ItemKind::Weapon {
+        let cur_avg = equipped.damage_min + equipped.damage_max;
+        let new_avg = item.damage_min + item.damage_max;
+        vec![
+            stat_delta_span("damage", new_avg - cur_avg),
+            crit_delta_span(item.crit_chance as i32 - equipped.crit_chance as i32),
+        ]
+    } else {
+        vec![
+            stat_delta_span("armor", item.armor - equipped.armor),
+            stat_delta_span("dodge", item.dodge - equipped.dodge),
+            stat_delta_span("speed", item.speed - equipped.speed),
+        ]
     };
 
     let mut lines = vec![
@@ -722,7 +762,14 @@ fn gear_stat_line(item: &Item) -> Line<'static> {
             "Damage {}-{} | crit {}%",
             item.damage_min, item.damage_max, item.crit_chance
         )),
-        ItemKind::Armor | ItemKind::Shield => Line::from(format!(
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => Line::from(format!(
             "Armor {} | dodge {} | speed {}",
             item.armor, item.dodge, item.speed
         )),
@@ -844,10 +891,7 @@ pub(crate) fn equip_or_use_inventory_item(
         return InventoryActionResult::free("No item in that slot.");
     }
     let selected = c.inventory.remove(index);
-    if matches!(
-        selected.kind,
-        ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
-    ) {
+    if is_equipment_kind(selected.kind) {
         if let Some(message) = unmet_requirements_message(c, &selected) {
             c.inventory.insert(index, selected);
             return InventoryActionResult::free(message);
@@ -880,6 +924,70 @@ pub(crate) fn equip_or_use_inventory_item(
             assert!(
                 c.inventory.insert(index, old),
                 "ItemGrid invariant broken: equipping shield should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Helm => {
+            let name = selected.name.clone();
+            let old = std::mem::replace(&mut c.equipped_helm, selected);
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping helm should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Gloves => {
+            let name = selected.name.clone();
+            let old = std::mem::replace(&mut c.equipped_gloves, selected);
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping gloves should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Boots => {
+            let name = selected.name.clone();
+            let old = std::mem::replace(&mut c.equipped_boots, selected);
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping boots should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Belt => {
+            let name = selected.name.clone();
+            let old = std::mem::replace(&mut c.equipped_belt, selected);
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping belt should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Amulet => {
+            let name = selected.name.clone();
+            let old = std::mem::replace(&mut c.equipped_amulet, selected);
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping amulet should free inventory capacity for old gear"
+            );
+            clamp_current_resources(c);
+            InventoryActionResult::spent(format!("Equipped {name}."))
+        }
+        ItemKind::Ring => {
+            let name = selected.name.clone();
+            let old = if is_empty_ring(&c.equipped_ring1) || !is_empty_ring(&c.equipped_ring2) {
+                std::mem::replace(&mut c.equipped_ring1, selected)
+            } else {
+                std::mem::replace(&mut c.equipped_ring2, selected)
+            };
+            assert!(
+                c.inventory.insert(index, old),
+                "ItemGrid invariant broken: equipping ring should free inventory capacity for old gear"
             );
             clamp_current_resources(c);
             InventoryActionResult::spent(format!("Equipped {name}."))

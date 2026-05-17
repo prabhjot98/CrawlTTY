@@ -2346,7 +2346,14 @@ fn ground_item_detail_lines(c: &Character, selected: usize) -> Vec<Line<'static>
             "Damage {}-{} | crit {}%",
             item.damage_min, item.damage_max, item.crit_chance
         ))),
-        ItemKind::Armor | ItemKind::Shield => lines.push(Line::from(format!(
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => lines.push(Line::from(format!(
             "Armor {} | dodge {} | speed {}",
             item.armor, item.dodge, item.speed
         ))),
@@ -2552,7 +2559,7 @@ fn random_warrior_equipment_loot(floor: u32, better: bool) -> Item {
     let mut rng = rand::thread_rng();
     let (rarity, item_level) = equipment_rarity_and_level(floor, better, &mut rng);
     let bonus = item_level as i32 - 1;
-    let item = match rng.gen_range(0..4) {
+    let item = match rng.gen_range(0..10) {
         0 => item_with_rarity(
             &loot_name(&rarity, "Iron Sword"),
             ItemKind::Weapon,
@@ -2580,7 +2587,7 @@ fn random_warrior_equipment_loot(floor: u32, better: bool) -> Item {
             item_level,
             requirements(4 + item_level, 0, 0),
         ),
-        _ => item_with_rarity(
+        3 => item_with_rarity(
             &loot_name(&rarity, "Guard Shield"),
             ItemKind::Shield,
             45 + bonus as u32 * 15,
@@ -2588,6 +2595,60 @@ fn random_warrior_equipment_loot(floor: u32, better: bool) -> Item {
             rarity,
             item_level,
             requirements(3 + item_level, 0, 0),
+        ),
+        4 => item_with_rarity(
+            &loot_name(&rarity, "Iron Helm"),
+            ItemKind::Helm,
+            40 + bonus as u32 * 12,
+            item_stats(0, 0, 1 + bonus, 0, -bonus.min(1)),
+            rarity,
+            item_level,
+            requirements(3 + item_level, 0, 0),
+        ),
+        5 => item_with_rarity(
+            &loot_name(&rarity, "Plate Gloves"),
+            ItemKind::Gloves,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(2), 1 + bonus / 2, 0),
+            rarity,
+            item_level,
+            requirements(2 + item_level, 0, 0),
+        ),
+        6 => item_with_rarity(
+            &loot_name(&rarity, "March Boots"),
+            ItemKind::Boots,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus, 1),
+            rarity,
+            item_level,
+            requirements(2 + item_level, 1, 0),
+        ),
+        7 => item_with_rarity(
+            &loot_name(&rarity, "War Belt"),
+            ItemKind::Belt,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, 1 + bonus, -bonus.min(1), 0),
+            rarity,
+            item_level,
+            requirements(3 + item_level, 0, 0),
+        ),
+        8 => item_with_rarity(
+            &loot_name(&rarity, "Guard Amulet"),
+            ItemKind::Amulet,
+            45 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(2), 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(1 + item_level / 2, 0, 0),
+        ),
+        _ => item_with_rarity(
+            &loot_name(&rarity, "Iron Ring"),
+            ItemKind::Ring,
+            30 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus.min(2), 0),
+            rarity,
+            item_level,
+            requirements(1 + item_level / 2, 0, 0),
         ),
     };
     add_random_sockets(item, rng.gen_range(0.0..1.0))
@@ -2597,7 +2658,7 @@ fn random_rogue_equipment_loot(floor: u32, better: bool) -> Item {
     let mut rng = rand::thread_rng();
     let (rarity, item_level) = equipment_rarity_and_level(floor, better, &mut rng);
     let bonus = item_level as i32 - 1;
-    let item = match rng.gen_range(0..4) {
+    let item = match rng.gen_range(0..10) {
         0 => item_with_rarity(
             &loot_name(&rarity, "Rogue Dagger"),
             ItemKind::Weapon,
@@ -2625,11 +2686,65 @@ fn random_rogue_equipment_loot(floor: u32, better: bool) -> Item {
             item_level,
             requirements(0, 2 + item_level, 0),
         ),
-        _ => item_with_rarity(
+        3 => item_with_rarity(
             &loot_name(&rarity, "Rogue Buckler"),
             ItemKind::Shield,
             40 + bonus as u32 * 15,
             item_stats(0, 0, 1 + bonus.min(2), 2 + bonus, 0),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        4 => item_with_rarity(
+            &loot_name(&rarity, "Hooded Cowl"),
+            ItemKind::Helm,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus, 0),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        5 => item_with_rarity(
+            &loot_name(&rarity, "Cutpurse Gloves"),
+            ItemKind::Gloves,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, bonus.min(1), 1 + bonus, 1),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        6 => item_with_rarity(
+            &loot_name(&rarity, "Soft Boots"),
+            ItemKind::Boots,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 2 + bonus, 1),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        7 => item_with_rarity(
+            &loot_name(&rarity, "Utility Belt"),
+            ItemKind::Belt,
+            35 + bonus as u32 * 12,
+            item_stats(0, 0, 1 + bonus.min(2), 1, 0),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        8 => item_with_rarity(
+            &loot_name(&rarity, "Shadow Amulet"),
+            ItemKind::Amulet,
+            45 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus, 1),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        _ => item_with_rarity(
+            &loot_name(&rarity, "Silent Ring"),
+            ItemKind::Ring,
+            30 + bonus as u32 * 12,
+            item_stats(0, 0, 0, 1 + bonus.min(2), 1),
             rarity,
             item_level,
             requirements(0, 2 + item_level, 0),

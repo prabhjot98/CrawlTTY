@@ -318,13 +318,19 @@ pub(crate) enum Rarity {
     Rare,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
     HealthPotion,
     ManaPotion,
     Weapon,
     Armor,
     Shield,
+    Helm,
+    Gloves,
+    Boots,
+    Belt,
+    Amulet,
+    Ring,
     Gem,
 }
 
@@ -467,6 +473,20 @@ pub(crate) struct Character {
     pub(crate) equipped_weapon: Item,
     pub(crate) equipped_armor: Item,
     pub(crate) equipped_shield: Item,
+    #[serde(default = "empty_helm")]
+    pub(crate) equipped_helm: Item,
+    #[serde(default = "empty_gloves")]
+    pub(crate) equipped_gloves: Item,
+    #[serde(default = "empty_boots")]
+    pub(crate) equipped_boots: Item,
+    #[serde(default = "empty_belt")]
+    pub(crate) equipped_belt: Item,
+    #[serde(default = "empty_amulet")]
+    pub(crate) equipped_amulet: Item,
+    #[serde(default = "empty_ring")]
+    pub(crate) equipped_ring1: Item,
+    #[serde(default = "empty_ring")]
+    pub(crate) equipped_ring2: Item,
     pub(crate) bellkeeper_defeated: bool,
     #[serde(default)]
     pub(crate) glass_tyrant_defeated: bool,
@@ -549,6 +569,13 @@ impl Character {
             equipped_weapon: rusted_sword(),
             equipped_armor: cloth_tunic(),
             equipped_shield: worn_shield(),
+            equipped_helm: empty_helm(),
+            equipped_gloves: empty_gloves(),
+            equipped_boots: empty_boots(),
+            equipped_belt: empty_belt(),
+            equipped_amulet: empty_amulet(),
+            equipped_ring1: empty_ring(),
+            equipped_ring2: empty_ring(),
             bellkeeper_defeated: false,
             glass_tyrant_defeated: false,
             act1_completed: false,
@@ -588,6 +615,13 @@ impl Character {
             equipped_weapon: training_dagger(),
             equipped_armor: patched_leathers(),
             equipped_shield: empty_offhand(),
+            equipped_helm: empty_helm(),
+            equipped_gloves: empty_gloves(),
+            equipped_boots: empty_boots(),
+            equipped_belt: empty_belt(),
+            equipped_amulet: empty_amulet(),
+            equipped_ring1: empty_ring(),
+            equipped_ring2: empty_ring(),
             bellkeeper_defeated: false,
             glass_tyrant_defeated: false,
             act1_completed: false,
@@ -612,6 +646,35 @@ impl Character {
         self.class == CharacterClass::Warrior
     }
 
+    pub(crate) fn equipped_defensive_items(&self) -> [&Item; 9] {
+        [
+            &self.equipped_armor,
+            &self.equipped_shield,
+            &self.equipped_helm,
+            &self.equipped_gloves,
+            &self.equipped_boots,
+            &self.equipped_belt,
+            &self.equipped_amulet,
+            &self.equipped_ring1,
+            &self.equipped_ring2,
+        ]
+    }
+
+    pub(crate) fn equipped_socketed_items(&self) -> [&Item; 10] {
+        [
+            &self.equipped_weapon,
+            &self.equipped_armor,
+            &self.equipped_shield,
+            &self.equipped_helm,
+            &self.equipped_gloves,
+            &self.equipped_boots,
+            &self.equipped_belt,
+            &self.equipped_amulet,
+            &self.equipped_ring1,
+            &self.equipped_ring2,
+        ]
+    }
+
     pub(crate) fn max_hp(&self) -> u32 {
         let bonuses = self.socket_bonuses();
         10 + self.effective_strength() * 5 + bonuses.max_hp
@@ -633,19 +696,27 @@ impl Character {
         } else {
             0
         };
+        let equipment_dodge: i32 = self
+            .equipped_defensive_items()
+            .iter()
+            .map(|item| item.dodge)
+            .sum();
         (10 + self.effective_dexterity() as i32 * 3
-            + self.equipped_shield.dodge
-            + self.equipped_armor.dodge
+            + equipment_dodge
             + bonuses.dodge_rating
             + mastery_bonus)
             .max(0) as u32
     }
     pub(crate) fn speed(&self) -> u32 {
         let bonuses = self.socket_bonuses();
+        let equipment_speed: i32 = self
+            .equipped_defensive_items()
+            .iter()
+            .map(|item| item.speed)
+            .sum();
         (10 + self.effective_dexterity() as i32 * 5
             + self.equipped_weapon.speed
-            + self.equipped_armor.speed
-            + self.equipped_shield.speed
+            + equipment_speed
             + bonuses.speed)
             .max(1) as u32
     }
@@ -659,11 +730,12 @@ impl Character {
         } else {
             0
         };
-        self.equipped_armor.armor
-            + self.equipped_shield.armor
-            + iron_guard_armor_bonus(self)
-            + bulwark_bonus
-            + bonuses.armor
+        let equipment_armor: i32 = self
+            .equipped_defensive_items()
+            .iter()
+            .map(|item| item.armor)
+            .sum();
+        equipment_armor + iron_guard_armor_bonus(self) + bulwark_bonus + bonuses.armor
     }
     pub(crate) fn weapon_damage(&self) -> (i32, i32) {
         let bonuses = self.socket_bonuses();
@@ -693,10 +765,11 @@ impl Character {
             .min(100)
     }
     pub(crate) fn socket_bonuses(&self) -> GemBonuses {
-        self.equipped_weapon
-            .socket_bonuses()
-            .add(self.equipped_armor.socket_bonuses())
-            .add(self.equipped_shield.socket_bonuses())
+        self.equipped_socketed_items()
+            .iter()
+            .fold(GemBonuses::default(), |bonuses, item| {
+                bonuses.add(item.socket_bonuses())
+            })
     }
 }
 

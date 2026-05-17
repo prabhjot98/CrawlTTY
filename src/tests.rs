@@ -1886,9 +1886,24 @@ fn rogue_random_equipment_loot_uses_rogue_item_families() {
         let is_scimitar = loot.kind == ItemKind::Weapon && loot.name.contains("Scimitar");
         let is_light_armor = loot.kind == ItemKind::Armor && loot.name.contains("Leathers");
         let is_buckler = loot.kind == ItemKind::Shield && loot.name.contains("Buckler");
+        let is_cowl = loot.kind == ItemKind::Helm && loot.name.contains("Cowl");
+        let is_gloves = loot.kind == ItemKind::Gloves && loot.name.contains("Gloves");
+        let is_boots = loot.kind == ItemKind::Boots && loot.name.contains("Boots");
+        let is_belt = loot.kind == ItemKind::Belt && loot.name.contains("Belt");
+        let is_amulet = loot.kind == ItemKind::Amulet && loot.name.contains("Amulet");
+        let is_ring = loot.kind == ItemKind::Ring && loot.name.contains("Ring");
 
         assert!(
-            is_dagger || is_scimitar || is_light_armor || is_buckler,
+            is_dagger
+                || is_scimitar
+                || is_light_armor
+                || is_buckler
+                || is_cowl
+                || is_gloves
+                || is_boots
+                || is_belt
+                || is_amulet
+                || is_ring,
             "unexpected Rogue equipment drop: {}",
             loot.name
         );
@@ -1914,12 +1929,47 @@ fn warrior_random_equipment_loot_uses_warrior_item_families() {
         let is_axe = loot.kind == ItemKind::Weapon && loot.name.contains("Axe");
         let is_mail = loot.kind == ItemKind::Armor && loot.name.contains("Mail");
         let is_guard_shield = loot.kind == ItemKind::Shield && loot.name.contains("Guard Shield");
+        let is_helm = loot.kind == ItemKind::Helm && loot.name.contains("Helm");
+        let is_gloves = loot.kind == ItemKind::Gloves && loot.name.contains("Gloves");
+        let is_boots = loot.kind == ItemKind::Boots && loot.name.contains("Boots");
+        let is_belt = loot.kind == ItemKind::Belt && loot.name.contains("Belt");
+        let is_amulet = loot.kind == ItemKind::Amulet && loot.name.contains("Amulet");
+        let is_ring = loot.kind == ItemKind::Ring && loot.name.contains("Ring");
 
         assert!(
-            is_sword || is_axe || is_mail || is_guard_shield,
+            is_sword
+                || is_axe
+                || is_mail
+                || is_guard_shield
+                || is_helm
+                || is_gloves
+                || is_boots
+                || is_belt
+                || is_amulet
+                || is_ring,
             "unexpected Warrior equipment drop: {}",
             loot.name
         );
+    }
+}
+
+#[test]
+fn random_equipment_loot_can_drop_new_equipment_slots() {
+    let mut seen = std::collections::HashSet::new();
+    for _ in 0..1000 {
+        seen.insert(random_equipment_loot_for_class(CharacterClass::Warrior, 3, false).kind);
+        seen.insert(random_equipment_loot_for_class(CharacterClass::Rogue, 3, false).kind);
+    }
+
+    for kind in [
+        ItemKind::Helm,
+        ItemKind::Gloves,
+        ItemKind::Boots,
+        ItemKind::Belt,
+        ItemKind::Amulet,
+        ItemKind::Ring,
+    ] {
+        assert!(seen.contains(&kind), "expected loot pool to drop {kind:?}");
     }
 }
 
@@ -2684,6 +2734,31 @@ fn item_grid_new_panics_when_initial_items_exceed_capacity() {
 }
 
 #[test]
+fn new_characters_start_with_empty_accessory_slots() {
+    let warrior = test_character();
+    assert_eq!(warrior.equipped_helm.name, "Empty Helm");
+    assert_eq!(warrior.equipped_gloves.name, "Empty Gloves");
+    assert_eq!(warrior.equipped_boots.name, "Empty Boots");
+    assert_eq!(warrior.equipped_belt.name, "Empty Belt");
+    assert_eq!(warrior.equipped_amulet.name, "Empty Amulet");
+    assert_eq!(warrior.equipped_ring1.name, "Empty Ring");
+    assert_eq!(warrior.equipped_ring2.name, "Empty Ring");
+
+    let rogue = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    assert_eq!(rogue.equipped_helm.kind, ItemKind::Helm);
+    assert_eq!(rogue.equipped_gloves.kind, ItemKind::Gloves);
+    assert_eq!(rogue.equipped_boots.kind, ItemKind::Boots);
+    assert_eq!(rogue.equipped_belt.kind, ItemKind::Belt);
+    assert_eq!(rogue.equipped_amulet.kind, ItemKind::Amulet);
+    assert_eq!(rogue.equipped_ring1.kind, ItemKind::Ring);
+    assert_eq!(rogue.equipped_ring2.kind, ItemKind::Ring);
+}
+
+#[test]
 fn new_warrior_matches_mvp_starting_state() {
     let c = test_character();
 
@@ -3015,6 +3090,47 @@ fn item_summary_marks_gems_with_incomplete_metadata_invalid() {
         strip_ansi_codes(&item_summary(&missing_kind)).contains("Invalid gem metadata"),
         "missing kind summary should mark invalid metadata"
     );
+}
+
+#[test]
+fn accessory_slots_contribute_stats_and_socket_bonuses() {
+    let mut c = test_character();
+    c.equipped_helm = item_with_rarity(
+        "Test Helm",
+        ItemKind::Helm,
+        10,
+        item_stats(0, 0, 2, 1, 0),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
+    );
+    c.equipped_boots = item_with_rarity(
+        "Test Boots",
+        ItemKind::Boots,
+        10,
+        item_stats(0, 0, 0, 1, 2),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
+    );
+    c.equipped_amulet = item_with_rarity(
+        "Socketed Amulet",
+        ItemKind::Amulet,
+        10,
+        item_stats(0, 0, 0, 0, 0),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    );
+    c.equipped_amulet.sockets = vec![Some(GemSocket::filled(GemKind::Emerald, GemTier::Pristine))];
+
+    assert_eq!(c.effective_dexterity(), c.dexterity + 3);
+    assert_eq!(c.armor(), 1 + 1 + 2 + iron_guard_armor_bonus(&c));
+    assert_eq!(
+        c.dodge_rating(),
+        10 + c.effective_dexterity() * 3 + 2 + 1 + 1
+    );
+    assert_eq!(c.speed(), 10 + c.effective_dexterity() * 5 + 2);
 }
 
 #[test]
@@ -3827,7 +3943,27 @@ fn blacksmith_salvage_converts_gear_to_type_shards() {
     assert_eq!(c.weapon_shards, 1);
     assert_eq!(c.inventory.len(), 1);
     assert!(matches!(c.inventory[0].kind, ItemKind::HealthPotion));
-    assert!(salvage_inventory_item(&mut c, 0).contains("Only weapons"));
+
+    c.inventory.push(item_with_rarity(
+        "Iron Helm",
+        ItemKind::Helm,
+        25,
+        item_stats(0, 0, 2, 0, -1),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
+    ));
+    let helm_index = c
+        .inventory
+        .iter()
+        .position(|item| matches!(item.kind, ItemKind::Helm))
+        .unwrap();
+    let helm_message = salvage_inventory_item(&mut c, helm_index);
+    assert!(helm_message.contains("armor shard"));
+    assert_eq!(c.armor_shards, 1);
+    assert_eq!(c.inventory.len(), 1);
+    assert!(matches!(c.inventory[0].kind, ItemKind::HealthPotion));
+    assert!(salvage_inventory_item(&mut c, 0).contains("Only equipment"));
 }
 
 #[test]
@@ -3916,7 +4052,7 @@ fn salvage_requires_forge_and_reinforced_anvil_adds_one_shard() {
         .unwrap();
     assert_eq!(
         salvage_inventory_item(&mut c, health_index),
-        "Only weapons, armor, and shields can be salvaged."
+        "Only equipment can be salvaged."
     );
 
     let axe_index = c
@@ -3969,6 +4105,58 @@ fn equipping_weapon_swaps_old_weapon_back_to_inventory() {
             .iter()
             .any(|item| item.name.starts_with("Rusted Sword"))
     );
+}
+
+#[test]
+fn equipping_accessory_swaps_old_item_back_to_inventory() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Iron Helm",
+        ItemKind::Helm,
+        25,
+        item_stats(0, 0, 2, 0, -1),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    let result = equip_or_use_inventory_item(&mut c, 0);
+
+    assert!(result.spent_turn);
+    assert_eq!(result.message, "Equipped Iron Helm.");
+    assert_eq!(c.equipped_helm.name, "Iron Helm");
+    assert_eq!(c.inventory[0].name, "Empty Helm");
+}
+
+#[test]
+fn rings_fill_empty_second_slot_before_replacing_first_ring() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.equipped_ring1 = item_with_rarity(
+        "Copper Ring",
+        ItemKind::Ring,
+        10,
+        item_stats(0, 0, 0, 1, 0),
+        Rarity::Common,
+        1,
+        requirements(0, 0, 0),
+    );
+    c.inventory.push(item_with_rarity(
+        "Silver Ring",
+        ItemKind::Ring,
+        20,
+        item_stats(0, 0, 0, 2, 0),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    equip_or_use_inventory_item(&mut c, 0);
+
+    assert_eq!(c.equipped_ring1.name, "Copper Ring");
+    assert_eq!(c.equipped_ring2.name, "Silver Ring");
+    assert_eq!(c.inventory[0].name, "Empty Ring");
 }
 
 #[test]
@@ -4713,6 +4901,37 @@ fn inventory_shield_equipped_panel_compares_against_equipped_shield() {
 }
 
 #[test]
+fn inventory_accessory_equipped_panel_compares_against_matching_slot() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Test Boots",
+        ItemKind::Boots,
+        20,
+        item_stats(0, 0, 1, 3, 2),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0))
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>();
+
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Equipped Boots: Empty Boots")
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Delta: +1 armor  +3 dodge  +2 speed")
+    );
+}
+
+#[test]
 fn inventory_locked_gear_comparison_shows_cannot_equip_reason() {
     let mut c = test_character();
     c.inventory.clear();
@@ -4792,7 +5011,15 @@ fn boss_reward_loot_is_always_magic_or_rare_equipment() {
         let loot = random_equipment_loot(ACT1_FLOORS, true);
         assert!(matches!(
             loot.kind,
-            ItemKind::Weapon | ItemKind::Armor | ItemKind::Shield
+            ItemKind::Weapon
+                | ItemKind::Armor
+                | ItemKind::Shield
+                | ItemKind::Helm
+                | ItemKind::Gloves
+                | ItemKind::Boots
+                | ItemKind::Belt
+                | ItemKind::Amulet
+                | ItemKind::Ring
         ));
         assert!(matches!(loot.rarity, Rarity::Magic | Rarity::Rare));
     }

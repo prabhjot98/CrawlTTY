@@ -722,6 +722,13 @@ pub(crate) enum UpgradeSlot {
     Weapon,
     Armor,
     Shield,
+    Helm,
+    Gloves,
+    Boots,
+    Belt,
+    Amulet,
+    Ring1,
+    Ring2,
 }
 
 pub(crate) fn salvage_screen(
@@ -827,7 +834,7 @@ pub(crate) fn salvage_inventory_item(c: &mut Character, index: usize) -> String 
         return "No item selected.".to_string();
     }
     let Some(kind) = shard_kind(&c.inventory[index]) else {
-        return "Only weapons, armor, and shields can be salvaged.".to_string();
+        return "Only equipment can be salvaged.".to_string();
     };
     if c.inventory[index].sockets.iter().any(Option::is_some) {
         return "Remove socketed gems before salvaging this item.".to_string();
@@ -888,8 +895,14 @@ pub(crate) fn upgrade_item(item: &mut Item) {
             item.damage_min += 1;
             item.damage_max += 1;
         }
-        ItemKind::Armor => item.armor += 1,
-        ItemKind::Shield => item.armor += 1,
+        ItemKind::Armor
+        | ItemKind::Shield
+        | ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => item.armor += 1,
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
@@ -899,6 +912,13 @@ pub(crate) fn equipped_item(c: &Character, slot: UpgradeSlot) -> &Item {
         UpgradeSlot::Weapon => &c.equipped_weapon,
         UpgradeSlot::Armor => &c.equipped_armor,
         UpgradeSlot::Shield => &c.equipped_shield,
+        UpgradeSlot::Helm => &c.equipped_helm,
+        UpgradeSlot::Gloves => &c.equipped_gloves,
+        UpgradeSlot::Boots => &c.equipped_boots,
+        UpgradeSlot::Belt => &c.equipped_belt,
+        UpgradeSlot::Amulet => &c.equipped_amulet,
+        UpgradeSlot::Ring1 => &c.equipped_ring1,
+        UpgradeSlot::Ring2 => &c.equipped_ring2,
     }
 }
 
@@ -907,6 +927,13 @@ pub(crate) fn equipped_item_mut(c: &mut Character, slot: UpgradeSlot) -> &mut It
         UpgradeSlot::Weapon => &mut c.equipped_weapon,
         UpgradeSlot::Armor => &mut c.equipped_armor,
         UpgradeSlot::Shield => &mut c.equipped_shield,
+        UpgradeSlot::Helm => &mut c.equipped_helm,
+        UpgradeSlot::Gloves => &mut c.equipped_gloves,
+        UpgradeSlot::Boots => &mut c.equipped_boots,
+        UpgradeSlot::Belt => &mut c.equipped_belt,
+        UpgradeSlot::Amulet => &mut c.equipped_amulet,
+        UpgradeSlot::Ring1 => &mut c.equipped_ring1,
+        UpgradeSlot::Ring2 => &mut c.equipped_ring2,
     }
 }
 
@@ -915,6 +942,12 @@ pub(crate) fn shard_kind(item: &Item) -> Option<ItemKind> {
         ItemKind::Weapon => Some(ItemKind::Weapon),
         ItemKind::Armor => Some(ItemKind::Armor),
         ItemKind::Shield => Some(ItemKind::Shield),
+        ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => Some(ItemKind::Armor),
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => None,
     }
 }
@@ -924,6 +957,12 @@ pub(crate) fn shard_name(kind: ItemKind) -> &'static str {
         ItemKind::Weapon => "weapon",
         ItemKind::Armor => "armor",
         ItemKind::Shield => "shield",
+        ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => "armor",
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => "unknown",
     }
 }
@@ -933,6 +972,12 @@ pub(crate) fn shard_count(c: &Character, kind: ItemKind) -> u32 {
         ItemKind::Weapon => c.weapon_shards,
         ItemKind::Armor => c.armor_shards,
         ItemKind::Shield => c.shield_shards,
+        ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => c.armor_shards,
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => 0,
     }
 }
@@ -942,6 +987,12 @@ pub(crate) fn add_shards(c: &mut Character, kind: ItemKind, amount: u32) {
         ItemKind::Weapon => c.weapon_shards += amount,
         ItemKind::Armor => c.armor_shards += amount,
         ItemKind::Shield => c.shield_shards += amount,
+        ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => c.armor_shards += amount,
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
@@ -951,6 +1002,12 @@ pub(crate) fn spend_shards(c: &mut Character, kind: ItemKind, amount: u32) {
         ItemKind::Weapon => c.weapon_shards = c.weapon_shards.saturating_sub(amount),
         ItemKind::Armor => c.armor_shards = c.armor_shards.saturating_sub(amount),
         ItemKind::Shield => c.shield_shards = c.shield_shards.saturating_sub(amount),
+        ItemKind::Helm
+        | ItemKind::Gloves
+        | ItemKind::Boots
+        | ItemKind::Belt
+        | ItemKind::Amulet
+        | ItemKind::Ring => c.armor_shards = c.armor_shards.saturating_sub(amount),
         ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {}
     }
 }
@@ -1197,6 +1254,27 @@ fn socketed_targets(c: &Character) -> Vec<SocketBenchTarget> {
     if !c.equipped_shield.sockets.is_empty() {
         targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Shield));
     }
+    if !c.equipped_helm.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Helm));
+    }
+    if !c.equipped_gloves.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Gloves));
+    }
+    if !c.equipped_boots.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Boots));
+    }
+    if !c.equipped_belt.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Belt));
+    }
+    if !c.equipped_amulet.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Amulet));
+    }
+    if !c.equipped_ring1.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Ring1));
+    }
+    if !c.equipped_ring2.sockets.is_empty() {
+        targets.push(SocketBenchTarget::Equipped(UpgradeSlot::Ring2));
+    }
     targets.extend(
         c.inventory
             .iter()
@@ -1212,6 +1290,13 @@ fn target_label(target: SocketBenchTarget) -> &'static str {
         SocketBenchTarget::Equipped(UpgradeSlot::Weapon) => "Equipped weapon",
         SocketBenchTarget::Equipped(UpgradeSlot::Armor) => "Equipped armor",
         SocketBenchTarget::Equipped(UpgradeSlot::Shield) => "Equipped shield",
+        SocketBenchTarget::Equipped(UpgradeSlot::Helm) => "Equipped helm",
+        SocketBenchTarget::Equipped(UpgradeSlot::Gloves) => "Equipped gloves",
+        SocketBenchTarget::Equipped(UpgradeSlot::Boots) => "Equipped boots",
+        SocketBenchTarget::Equipped(UpgradeSlot::Belt) => "Equipped belt",
+        SocketBenchTarget::Equipped(UpgradeSlot::Amulet) => "Equipped amulet",
+        SocketBenchTarget::Equipped(UpgradeSlot::Ring1) => "Equipped ring 1",
+        SocketBenchTarget::Equipped(UpgradeSlot::Ring2) => "Equipped ring 2",
         SocketBenchTarget::Inventory(_) => "Carried gear",
     }
 }
