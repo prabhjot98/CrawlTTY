@@ -795,7 +795,7 @@ fn rogue_dungeon_header_uses_energy_resource_label() {
 fn town_and_dungeon_huds_render_level_aware_unicode_xp_bar() {
     use ratatui::{Terminal, backend::TestBackend};
 
-    let expected = "Lv 2  XP [██░░░░░░░░░░░░░░░░░░] 10% -> Lv 3";
+    let expected = "Lv 2  XP ██░░░░░░░░░░░░░░░░░░ 10%";
     let mut c = test_character();
     c.level = 2;
     c.xp = 8;
@@ -4839,7 +4839,7 @@ fn saved_character_without_herbs_defaults_to_zero() {
 fn xp_text_shows_level_aware_unicode_progress_bar() {
     assert_eq!(
         xp_text(2, 8, xp_required_for_next_level(2)),
-        format!("{MAGENTA}Lv 2  XP [██░░░░░░░░░░░░░░░░░░] 10% -> Lv 3{RESET}")
+        format!("{MAGENTA}Lv 2  XP ██░░░░░░░░░░░░░░░░░░ 10%{RESET}")
     );
 }
 

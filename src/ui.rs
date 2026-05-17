@@ -327,7 +327,7 @@ pub(crate) fn xp_bar_line(level: u32, current: u32, needed: u32) -> Line<'static
         stat_span(format!("Lv {level}"), TITLE_COLOR),
         Span::raw("  "),
         stat_span("XP", CURSED_COLOR),
-        Span::raw(" ["),
+        Span::raw(" "),
         Span::styled(
             XP_BAR_FILLED.repeat(filled),
             Style::default()
@@ -335,11 +335,8 @@ pub(crate) fn xp_bar_line(level: u32, current: u32, needed: u32) -> Line<'static
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(XP_BAR_EMPTY.repeat(empty), muted_style()),
-        Span::raw("] "),
-        Span::styled(
-            format!("{percent}% -> Lv {}", level.saturating_add(1)),
-            body_style(),
-        ),
+        Span::raw(" "),
+        Span::styled(format!("{percent}%"), body_style()),
     ])
 }
 
@@ -347,10 +344,9 @@ pub(crate) fn xp_bar_line(level: u32, current: u32, needed: u32) -> Line<'static
 pub(crate) fn xp_bar_text(level: u32, current: u32, needed: u32, width: usize) -> String {
     let (filled, empty, percent) = xp_bar_progress(current, needed, width);
     format!(
-        "Lv {level}  XP [{}{}] {percent}% -> Lv {}",
+        "Lv {level}  XP {}{} {percent}%",
         XP_BAR_FILLED.repeat(filled),
-        XP_BAR_EMPTY.repeat(empty),
-        level.saturating_add(1)
+        XP_BAR_EMPTY.repeat(empty)
     )
 }
 
