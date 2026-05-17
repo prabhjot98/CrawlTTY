@@ -4,7 +4,7 @@ use ratatui::{prelude::*, widgets::Paragraph};
 pub(crate) fn inventory_screen(
     c: &mut Character,
     terminal: &mut ratatui::DefaultTerminal,
-) -> Result<bool> {
+) -> Result<InventoryScreenExit> {
     let mut selected = 0usize;
     let mut message = String::new();
     loop {
@@ -22,7 +22,7 @@ pub(crate) fn inventory_screen(
         };
         message.clear();
         match key {
-            '\u{1b}' => return Ok(false),
+            '\u{1b}' => return Ok(InventoryScreenExit::NoTurn),
             'w' | 'W' | 'a' | 'A' | 's' | 'S' | 'd' | 'D' => {
                 selected = move_grid_cursor(selected, c.inventory.columns, c.inventory.rows, key);
             }
@@ -34,18 +34,20 @@ pub(crate) fn inventory_screen(
                 }
                 if c.active_dungeon.is_some() && result.spent_turn {
                     log_inventory_action(c, &message);
-                    return Ok(true);
+                    return Ok(InventoryScreenExit::TurnSpent);
                 }
             }
             '\n' => {
-                let result = equip_or_use_inventory_item(c, selected);
+                let result = finish_inventory_enter_action(c, selected)?;
                 message = result.message;
-                if result.spent_turn {
-                    append_autosave_status(c, &mut message);
-                }
-                if c.active_dungeon.is_some() && result.spent_turn {
-                    log_inventory_action(c, &message);
-                    return Ok(true);
+                match result.flow {
+                    InventoryMenuFlow::StayOpen => {}
+                    InventoryMenuFlow::ReturnedToTown => {
+                        return Ok(InventoryScreenExit::ReturnedToTown);
+                    }
+                    InventoryMenuFlow::HardcoreDeath => {
+                        return Ok(InventoryScreenExit::HardcoreDeath);
+                    }
                 }
             }
             _ => message = "Unknown inventory command.".to_string(),
@@ -222,6 +224,27 @@ pub(crate) fn inventory_screen_text_for_test(
     lines
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InventoryScreenExit {
+    NoTurn,
+    TurnSpent,
+    ReturnedToTown,
+    HardcoreDeath,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InventoryMenuFlow {
+    StayOpen,
+    ReturnedToTown,
+    HardcoreDeath,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InventoryMenuCommandResult {
+    pub(crate) message: String,
+    pub(crate) flow: InventoryMenuFlow,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InventoryActionResult {
     pub(crate) message: String,
@@ -242,6 +265,60 @@ impl InventoryActionResult {
             spent_turn: false,
         }
     }
+}
+
+pub(crate) fn finish_inventory_enter_action(
+    c: &mut Character,
+    index: usize,
+) -> Result<InventoryMenuCommandResult> {
+    finish_inventory_enter_action_with(c, index, |c, before_floor, before_log_len| {
+        finish_dungeon_action(c, before_floor, before_log_len, true, "Inventory")
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn finish_inventory_enter_action_for_test(
+    c: &mut Character,
+    index: usize,
+) -> Result<InventoryMenuCommandResult> {
+    finish_inventory_enter_action_with(c, index, |c, before_floor, before_log_len| {
+        finish_dungeon_action_with(c, before_floor, before_log_len, true, "Inventory", |_| {
+            Ok(())
+        })
+    })
+}
+
+fn finish_inventory_enter_action_with(
+    c: &mut Character,
+    index: usize,
+    finish_dungeon_turn: impl FnOnce(&mut Character, Option<u32>, usize) -> Result<DeathOutcome>,
+) -> Result<InventoryMenuCommandResult> {
+    let before_floor = current_dungeon_floor(c);
+    let before_log_len = current_dungeon_log_len(c);
+    let result = equip_or_use_inventory_item(c, index);
+    let mut message = result.message;
+    if !result.spent_turn {
+        return Ok(InventoryMenuCommandResult {
+            message,
+            flow: InventoryMenuFlow::StayOpen,
+        });
+    }
+
+    if c.active_dungeon.is_some() {
+        log_inventory_action(c, &message);
+        let flow = match finish_dungeon_turn(c, before_floor, before_log_len)? {
+            DeathOutcome::Alive => InventoryMenuFlow::StayOpen,
+            DeathOutcome::SoftcoreRevived => InventoryMenuFlow::ReturnedToTown,
+            DeathOutcome::HardcoreDeleted => InventoryMenuFlow::HardcoreDeath,
+        };
+        return Ok(InventoryMenuCommandResult { message, flow });
+    }
+
+    append_autosave_status(c, &mut message);
+    Ok(InventoryMenuCommandResult {
+        message,
+        flow: InventoryMenuFlow::StayOpen,
+    })
 }
 
 pub(crate) fn log_inventory_action(c: &mut Character, message: &str) {

@@ -117,7 +117,16 @@ pub(crate) fn dungeon_loop(
                         took_turn = ground_loot_picker(c, terminal)?;
                     }
                 }
-                'i' | 'I' => took_turn = inventory_screen(c, terminal)?,
+                'i' | 'I' => match inventory_screen(c, terminal)? {
+                    InventoryScreenExit::NoTurn => {}
+                    InventoryScreenExit::TurnSpent => took_turn = true,
+                    InventoryScreenExit::ReturnedToTown => {
+                        return Ok(DungeonLoopExit::ReturnedToTown);
+                    }
+                    InventoryScreenExit::HardcoreDeath => {
+                        return Ok(DungeonLoopExit::HardcoreDeath);
+                    }
+                },
                 '\u{1b}' => {
                     if try_leave_dungeon_for_town(c) {
                         full_heal_on_town_return(c);
@@ -132,16 +141,10 @@ pub(crate) fn dungeon_loop(
                 }
             }
         }
-        mark_latest_log_group(c, before_log_len, took_turn, action_label);
-        if took_turn {
-            if should_resolve_enemy_turns_after_action(c, before_floor) {
-                tick_player_effects(c);
-                enemy_turns(c);
-                if check_death(c) == DeathOutcome::HardcoreDeleted {
-                    return Ok(DungeonLoopExit::HardcoreDeath);
-                }
-            }
-            save_character(c)?;
+        if finish_dungeon_action(c, before_floor, before_log_len, took_turn, action_label)?
+            == DeathOutcome::HardcoreDeleted
+        {
+            return Ok(DungeonLoopExit::HardcoreDeath);
         }
         if c.active_dungeon.is_none() {
             return Ok(DungeonLoopExit::ReturnedToTown);
@@ -573,6 +576,49 @@ pub(crate) fn dungeon_action_label(key: char) -> &'static str {
         DeathMode::Softcore,
     );
     dungeon_action_label_for(&warrior, key)
+}
+
+pub(crate) fn finish_dungeon_action(
+    c: &mut Character,
+    before_floor: Option<u32>,
+    before_log_len: usize,
+    took_turn: bool,
+    action_label: &'static str,
+) -> Result<DeathOutcome> {
+    finish_dungeon_action_with(
+        c,
+        before_floor,
+        before_log_len,
+        took_turn,
+        action_label,
+        save_character,
+    )
+}
+
+pub(crate) fn finish_dungeon_action_with(
+    c: &mut Character,
+    before_floor: Option<u32>,
+    before_log_len: usize,
+    took_turn: bool,
+    action_label: &'static str,
+    save_after_turn: impl FnOnce(&Character) -> Result<()>,
+) -> Result<DeathOutcome> {
+    mark_latest_log_group(c, before_log_len, took_turn, action_label);
+    if !took_turn {
+        return Ok(DeathOutcome::Alive);
+    }
+
+    let mut death_outcome = DeathOutcome::Alive;
+    if should_resolve_enemy_turns_after_action(c, before_floor) {
+        tick_player_effects(c);
+        enemy_turns(c);
+        death_outcome = check_death(c);
+        if death_outcome == DeathOutcome::HardcoreDeleted {
+            return Ok(death_outcome);
+        }
+    }
+    save_after_turn(c)?;
+    Ok(death_outcome)
 }
 
 pub(crate) fn handle_class_skill_key(c: &mut Character, key: char) -> bool {

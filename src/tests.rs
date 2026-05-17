@@ -3972,6 +3972,43 @@ fn equipping_replacement_gear_clamps_hp_and_mana_after_socket_bonus_loss() {
 }
 
 #[test]
+fn dungeon_inventory_enter_actions_resolve_turn_and_keep_menu_open() {
+    let mut c = test_character();
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    c.inventory.clear();
+    c.inventory.push(crude_axe());
+
+    let result = finish_inventory_enter_action_for_test(&mut c, 0).unwrap();
+
+    assert_eq!(result.flow, InventoryMenuFlow::StayOpen);
+    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg, STR F).");
+    assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.log_turn, 1);
+    assert_eq!(d.log[0], "== Turn 1: Inventory ==");
+    assert_eq!(d.log[1], "[INFO] Equipped Crude Axe (4-6 dmg, STR F).");
+
+    c.hp = c.max_hp() - 1;
+    let health_index = c.inventory.len();
+    assert!(c.inventory.push(health_potion()));
+
+    let result = finish_inventory_enter_action_for_test(&mut c, health_index).unwrap();
+
+    assert_eq!(result.flow, InventoryMenuFlow::StayOpen);
+    assert_eq!(
+        result.message,
+        "Used a lesser health potion and restored 1 HP."
+    );
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.log_turn, 2);
+    assert_eq!(d.log[2], "== Turn 2: Inventory ==");
+    assert_eq!(
+        d.log[3],
+        "[INFO] Used a lesser health potion and restored 1 HP."
+    );
+}
+
+#[test]
 fn successful_inventory_actions_spend_dungeon_turns() {
     let mut c = test_character();
     c.inventory.push(crude_axe());
