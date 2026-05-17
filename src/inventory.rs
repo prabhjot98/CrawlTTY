@@ -250,18 +250,18 @@ pub(crate) fn inventory_cell_spans(
     let Some(item) = grid.get(index) else {
         let style = if selected { focus_style } else { body_style() };
         return vec![
-            Span::styled("[", style),
+            Span::styled(GRID_OPEN_GLYPH, style),
             Span::styled(label, style),
-            Span::styled("]", style),
+            Span::styled(GRID_CLOSE_GLYPH, style),
         ];
     };
 
     let outline_style = Style::default().fg(rarity_color(&item.rarity));
     let label_style = if selected { focus_style } else { body_style() };
     vec![
-        Span::styled("[", outline_style),
+        Span::styled(GRID_OPEN_GLYPH, outline_style),
         Span::styled(label, label_style),
-        Span::styled("]", outline_style),
+        Span::styled(GRID_CLOSE_GLYPH, outline_style),
     ]
 }
 
@@ -400,7 +400,7 @@ pub(crate) fn inventory_screen_text_for_test(
         c.inventory.capacity()
     )];
     lines.push(if focus == InventoryFocus::Bag {
-        "Bag *".to_string()
+        format!("Bag {ACTIVE_MARKER}")
     } else {
         "Bag".to_string()
     });
@@ -408,7 +408,10 @@ pub(crate) fn inventory_screen_text_for_test(
         let mut line = String::new();
         for col in 0..c.inventory.columns {
             let index = usize::from(row) * usize::from(c.inventory.columns) + usize::from(col);
-            line.push_str(&format!("[{}] ", inventory_cell_label(&c.inventory, index)));
+            line.push_str(&format!(
+                "{GRID_OPEN_GLYPH}{}{GRID_CLOSE_GLYPH} ",
+                inventory_cell_label(&c.inventory, index)
+            ));
         }
         lines.push(line);
     }
@@ -419,7 +422,7 @@ pub(crate) fn inventory_screen_text_for_test(
             .map(line_to_plain_text),
     );
     lines.push(if focus == InventoryFocus::Character {
-        "Character *".to_string()
+        format!("Character {ACTIVE_MARKER}")
     } else {
         "Character".to_string()
     });
@@ -682,22 +685,9 @@ pub(crate) fn move_grid_cursor(selected: usize, columns: u16, rows: u16, key: ch
 #[allow(dead_code)]
 pub(crate) fn inventory_cell_label(grid: &ItemGrid, index: usize) -> &'static str {
     let Some(item) = grid.get(index) else {
-        return ".";
+        return EMPTY_CELL_GLYPH;
     };
-    match item.kind {
-        ItemKind::HealthPotion => "H",
-        ItemKind::ManaPotion => "M",
-        ItemKind::Weapon => "W",
-        ItemKind::Armor => "A",
-        ItemKind::Shield => "S",
-        ItemKind::Helm => "H",
-        ItemKind::Gloves => "G",
-        ItemKind::Boots => "B",
-        ItemKind::Belt => "T",
-        ItemKind::Amulet => "U",
-        ItemKind::Ring => "R",
-        ItemKind::Gem => "G",
-    }
+    item_kind_glyph(item.kind)
 }
 
 #[allow(dead_code)]

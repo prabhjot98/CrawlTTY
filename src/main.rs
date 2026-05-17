@@ -10,6 +10,7 @@ pub(crate) use std::{
 mod classes;
 mod dungeon;
 mod dungeon_gen;
+mod glyphs;
 mod input;
 mod inventory;
 mod items;
@@ -25,6 +26,7 @@ mod ui;
 pub(crate) use classes::*;
 pub(crate) use dungeon::*;
 pub(crate) use dungeon_gen::*;
+pub(crate) use glyphs::*;
 pub(crate) use input::{
     KEY_ARROW_DOWN, KEY_ARROW_UP, UiInput, read_ui_input, read_ui_input_nav_timed,
     read_ui_input_raw_arrows_timed, read_ui_input_timed, set_ratatui_owns_raw_mode,

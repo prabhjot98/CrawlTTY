@@ -1,4 +1,31 @@
 use super::*;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+#[test]
+fn unicode_visual_palette_uses_single_cell_non_emoji_glyphs() {
+    for (name, text, expected_width) in unicode_width_samples() {
+        assert_eq!(
+            UnicodeWidthStr::width(*text),
+            *expected_width,
+            "{name} should occupy {expected_width} terminal cell(s): {text:?}"
+        );
+        for ch in text.chars() {
+            assert_eq!(
+                UnicodeWidthChar::width(ch),
+                Some(1),
+                "{name} contains a non-single-cell glyph: {ch:?}"
+            );
+            assert!(
+                !(('\u{fe00}'..='\u{fe0f}').contains(&ch)),
+                "{name} should avoid variation selectors that can trigger emoji presentation"
+            );
+            assert!(
+                u32::from(ch) < 0x1f000,
+                "{name} should avoid emoji-plane glyphs that often render double-width"
+            );
+        }
+    }
+}
 
 fn test_character() -> Character {
     Character::new(
@@ -2032,12 +2059,12 @@ fn clamp_grid_cursor_clamps_to_grid_capacity() {
 fn inventory_cell_label_shows_item_kind_or_empty_cell() {
     let mut grid = ItemGrid::new(2, 2, vec![health_potion(), rusted_sword()]);
 
-    assert_eq!(inventory_cell_label(&grid, 0), "H");
-    assert_eq!(inventory_cell_label(&grid, 1), "W");
-    assert_eq!(inventory_cell_label(&grid, 2), ".");
+    assert_eq!(inventory_cell_label(&grid, 0), HEALTH_POTION_GLYPH);
+    assert_eq!(inventory_cell_label(&grid, 1), WEAPON_GLYPH);
+    assert_eq!(inventory_cell_label(&grid, 2), EMPTY_CELL_GLYPH);
 
     grid.push(mana_potion());
-    assert_eq!(inventory_cell_label(&grid, 2), "M");
+    assert_eq!(inventory_cell_label(&grid, 2), MANA_POTION_GLYPH);
 }
 
 #[test]
@@ -2173,14 +2200,14 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
     let grid = ItemGrid::new(2, 2, vec![rare_sword, magic_axe]);
 
     let rare_selected = inventory_cell_spans(&grid, 0, true);
-    assert_eq!(rare_selected[0].content.as_ref(), "[");
+    assert_eq!(rare_selected[0].content.as_ref(), GRID_OPEN_GLYPH);
     assert_eq!(
         rare_selected[0].style,
         Style::default().fg(RARITY_RARE_COLOR)
     );
-    assert_eq!(rare_selected[1].content.as_ref(), "W");
+    assert_eq!(rare_selected[1].content.as_ref(), WEAPON_GLYPH);
     assert_eq!(rare_selected[1].style, selected_cursor_style());
-    assert_eq!(rare_selected[2].content.as_ref(), "]");
+    assert_eq!(rare_selected[2].content.as_ref(), GRID_CLOSE_GLYPH);
     assert_eq!(
         rare_selected[2].style,
         Style::default().fg(RARITY_RARE_COLOR)
@@ -2203,7 +2230,7 @@ fn inventory_cell_spans_use_rarity_outline_and_focus_label() {
             .iter()
             .map(|span| span.content.as_ref())
             .collect::<Vec<_>>(),
-        vec!["[", ".", "]"]
+        vec![GRID_OPEN_GLYPH, EMPTY_CELL_GLYPH, GRID_CLOSE_GLYPH]
     );
     assert!(
         empty_selected
@@ -2361,7 +2388,7 @@ fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_co
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Inventory - Bag 4 x 4 - 1 / 16"));
-    assert!(rendered.contains("[W]"));
+    assert!(rendered.contains("⟦†⟧"));
     assert!(rendered.contains("Crude Axe"));
     assert!(rendered.contains("Equipped Weapon: Rusted Sword"));
     assert!(rendered.contains("Delta: +2 damage  crit -3"));
@@ -2429,7 +2456,7 @@ fn stash_render_lines_include_both_grid_capacities() {
     let rendered = lines.join("\n");
 
     assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
-    assert!(rendered.contains("Inventory *"));
+    assert!(rendered.contains("Inventory ✦"));
     assert!(rendered.contains("Tab=switch"));
 }
 
@@ -2447,10 +2474,10 @@ fn stash_render_80_columns_shows_both_grids_details_message_and_commands() {
 
     assert!(rendered.contains("Stash - Inventory 3/16 - Stash 0/64"));
     assert!(rendered.contains("Inventory"));
-    assert!(rendered.contains("Stash *"));
-    assert!(rendered.contains("[H]"));
-    assert!(rendered.contains("[M]"));
-    assert!(rendered.contains("[.] [.] [.] [.] [.] [.] [.] [.]"));
+    assert!(rendered.contains("Stash ✦"));
+    assert!(rendered.contains("⟦✚⟧"));
+    assert!(rendered.contains("⟦✧⟧"));
+    assert!(rendered.contains("⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧ ⟦·⟧"));
     assert!(rendered.contains("Empty cell"));
     assert!(rendered.contains("Stored item."));
     assert!(rendered.contains("Tab=switch  WASD/Arrows=move  Enter=transfer  Esc=back"));
@@ -2469,7 +2496,7 @@ fn wide_stash_render_keeps_stash_grid_content_sized() {
     let lines = backend_lines(&terminal);
     let body_top = &lines[3];
 
-    let stash_title_x = char_index(body_top, "Stash *");
+    let stash_title_x = char_index(body_top, "Stash ✦");
     let details_title_x = char_index(body_top, "Details");
 
     assert_eq!(details_title_x - stash_title_x, 34);
@@ -2542,7 +2569,7 @@ fn character_creation_renders_as_stepped_ratatui_screen() {
     assert!(rendered.contains("Step 2: Name"));
     assert!(rendered.contains("Step 3: Death Mode"));
     assert!(rendered.contains("Name: Mara"));
-    assert!(rendered.contains("> Hardcore"));
+    assert!(rendered.contains("› Hardcore"));
     assert!(rendered.contains("Up/Down or Tab=mode"));
     assert!(rendered.contains("Enter=confirm"));
     assert!(!rendered.contains("S/H"));
@@ -2562,7 +2589,7 @@ fn town_service_screens_render_with_ratatui() {
         .unwrap();
     let merchant = backend_text(&terminal);
     assert!(merchant.contains("Merchant"));
-    assert!(merchant.contains("> Buy Lesser Health Potion - 50 gold"));
+    assert!(merchant.contains("› Buy Lesser Health Potion - 50 gold"));
     assert!(merchant.contains("Buy Lesser Mana Potion - 100 gold"));
     assert!(merchant.contains("Sell items"));
 
@@ -2571,7 +2598,7 @@ fn town_service_screens_render_with_ratatui() {
         .unwrap();
     let blacksmith = backend_text(&terminal);
     assert!(blacksmith.contains("Blacksmith"));
-    assert!(blacksmith.contains("> Manage sockets"));
+    assert!(blacksmith.contains("› Manage sockets"));
 
     terminal
         .draw(|frame| render_town_projects_screen(frame, &c, 0, ""))
@@ -2586,7 +2613,7 @@ fn town_service_screens_render_with_ratatui() {
     let distillery = backend_text(&terminal);
     assert!(distillery.contains("Distillery"));
     assert!(distillery.contains("Herbs: 7"));
-    assert!(distillery.contains("> Craft Lesser Health Potion - 3 herbs"));
+    assert!(distillery.contains("› Craft Lesser Health Potion - 3 herbs"));
     assert!(distillery.contains("Craft Lesser Mana Potion - 4 herbs"));
 
     terminal
@@ -2999,8 +3026,8 @@ fn attributes_screen_uses_cursor_selection_and_attribute_colors() {
         .unwrap();
     let attributes = backend_text(&terminal);
 
-    assert!(attributes.contains("> 1) Strength"));
-    assert!(attributes.contains("2) Dexterity 3 -> 4 (+10 hit)"));
+    assert!(attributes.contains("› 1) Strength"));
+    assert!(attributes.contains("2) Dexterity 3 → 4 (+10 hit)"));
     assert!(attributes.contains("W/S or arrows=select"));
     assert!(attributes.contains("Enter=spend"));
     assert_eq!(cell_fg_at_text(&terminal, "Strength"), Color::Red);
@@ -3141,7 +3168,7 @@ fn character_creation_only_shows_cursor_for_active_choice_step() {
         })
         .unwrap();
     let name_step = backend_text(&terminal);
-    assert_eq!(name_step.matches('>').count(), 0);
+    assert_eq!(name_step.matches(SELECTION_CURSOR).count(), 0);
 
     terminal
         .draw(|frame| {
@@ -3156,9 +3183,9 @@ fn character_creation_only_shows_cursor_for_active_choice_step() {
         })
         .unwrap();
     let class_step = backend_text(&terminal);
-    assert_eq!(class_step.matches('>').count(), 1);
-    assert!(class_step.contains("> Warrior"));
-    assert!(!class_step.contains("> Softcore"));
+    assert_eq!(class_step.matches(SELECTION_CURSOR).count(), 1);
+    assert!(class_step.contains("› Warrior"));
+    assert!(!class_step.contains("› Softcore"));
 
     terminal
         .draw(|frame| {
@@ -3173,9 +3200,9 @@ fn character_creation_only_shows_cursor_for_active_choice_step() {
         })
         .unwrap();
     let death_mode_step = backend_text(&terminal);
-    assert_eq!(death_mode_step.matches('>').count(), 1);
-    assert!(!death_mode_step.contains("> Warrior"));
-    assert!(death_mode_step.contains("> Softcore"));
+    assert_eq!(death_mode_step.matches(SELECTION_CURSOR).count(), 1);
+    assert!(!death_mode_step.contains("› Warrior"));
+    assert!(death_mode_step.contains("› Softcore"));
 }
 
 #[test]
@@ -3289,11 +3316,11 @@ fn merchant_sell_screen_uses_inventory_grid_layout() {
     let rendered = backend_text(&terminal);
 
     assert!(rendered.contains("Bag"));
-    assert!(rendered.contains("[W]"));
+    assert!(rendered.contains("⟦†⟧"));
     assert!(rendered.contains("Details"));
     assert!(rendered.contains("Equipped"));
     assert!(rendered.contains("Sell value:"));
-    assert!(!rendered.contains("> Rusted Sword"));
+    assert!(!rendered.contains("› Rusted Sword"));
 }
 
 #[test]
@@ -3397,7 +3424,7 @@ fn narrow_stash_screen_keeps_both_grids_and_details_visible() {
         .unwrap();
     let rendered = backend_text(&terminal);
 
-    assert!(rendered.contains("Inventory *"));
+    assert!(rendered.contains("Inventory ✦"));
     assert!(rendered.contains("Stash"));
     assert!(rendered.contains("Details"));
     assert!(rendered.contains("Lesser Health Potion"));
@@ -3486,7 +3513,7 @@ fn full_socket_screen_keeps_selected_socket_details_visible() {
 
     assert!(rendered.contains("Socket Sword 15"));
     assert!(rendered.contains("Sockets: Socket Sword 15"));
-    assert!(rendered.contains("> 1. Empty"));
+    assert!(rendered.contains("› 1. Empty"));
 }
 
 #[test]
@@ -3503,9 +3530,9 @@ fn socket_bench_only_shows_socket_cursor() {
         .unwrap();
     let rendered = backend_text(&terminal);
 
-    assert_eq!(rendered.matches('>').count(), 1);
-    assert!(rendered.contains("> 1. Empty"));
-    assert!(!rendered.contains("> Weapon:"));
+    assert_eq!(rendered.matches(SELECTION_CURSOR).count(), 1);
+    assert!(rendered.contains("› 1. Empty"));
+    assert!(!rendered.contains("› Weapon:"));
 }
 
 #[test]
@@ -3523,7 +3550,7 @@ fn skill_screens_render_with_ratatui() {
     assert!(skill_tree.contains("Warrior Skill Tree"));
     assert!(!skill_tree.contains("Ironbound Skill Tree"));
     assert!(skill_tree.contains("Cleave"));
-    assert!(skill_tree.contains("> Cleave"));
+    assert!(skill_tree.contains("› Cleave"));
     assert!(skill_tree.contains("Current Skill"));
     assert!(skill_tree.contains("Improved Skill"));
     assert!(skill_tree.contains("Next rank 5"));
@@ -3548,7 +3575,7 @@ fn skill_screens_render_with_ratatui() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        locked_passive_tree.contains("└─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"),
+        locked_passive_tree.contains("└─⊘ Deep Cut unlocks at Cleave rank 2 (1/2)"),
         "{locked_passive_lines}"
     );
     assert!(!locked_passive_tree.contains("Deep Cut rank 0/5"));
@@ -3575,9 +3602,9 @@ fn locked_skills_show_only_locked_rows_until_unlocked() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(warrior_lines.contains("   └─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"));
+    assert!(warrior_lines.contains("   └─⊘ Deep Cut unlocks at Cleave rank 2 (1/2)"));
     assert!(!warrior_lines.contains("Deep Cut rank 0/5"));
-    assert!(warrior_lines.contains("> Shield Bash rank 1/5"));
+    assert!(warrior_lines.contains("› Shield Bash rank 1/5"));
 
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     terminal
@@ -3594,7 +3621,7 @@ fn locked_skills_show_only_locked_rows_until_unlocked() {
         .map(line_text)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(unlocked_lines.contains("> Deep Cut rank 0/5"));
+    assert!(unlocked_lines.contains("› Deep Cut rank 0/5"));
     assert!(!unlocked_lines.contains("Deep Cut unlocks at Cleave rank 2"));
 
     let rogue = Character::new(
@@ -3608,9 +3635,9 @@ fn locked_skills_show_only_locked_rows_until_unlocked() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(rogue_lines.contains("   └─🔒︎ Eviscerate unlocks at Backstab rank 2 (1/2)"));
+    assert!(rogue_lines.contains("   └─⊘ Eviscerate unlocks at Backstab rank 2 (1/2)"));
     assert!(!rogue_lines.contains("Eviscerate rank 0/5"));
-    assert!(rogue_lines.contains("> Venom Edge rank 1/5"));
+    assert!(rogue_lines.contains("› Venom Edge rank 1/5"));
 }
 
 #[test]
@@ -3690,14 +3717,14 @@ fn sorceress_skill_tree_shows_branches_and_locked_unlocks() {
 
     assert!(text.contains("Sorceress Skill Tree"));
     assert!(text.contains("Flame Branch"));
-    assert!(text.contains("> Firebolt rank 1/5"));
-    assert!(text.contains("└─🔒︎ Kindle unlocks at Firebolt rank 2 (1/2)"));
+    assert!(text.contains("› Firebolt rank 1/5"));
+    assert!(text.contains("└─⊘ Kindle unlocks at Firebolt rank 2 (1/2)"));
     assert!(text.contains("Frost Branch"));
     assert!(text.contains("Frost Ring rank 1/5"));
-    assert!(text.contains("└─🔒︎ Mana Shield unlocks at Frost Ring rank 2 (1/2)"));
+    assert!(text.contains("└─⊘ Mana Shield unlocks at Frost Ring rank 2 (1/2)"));
     assert!(text.contains("Storm Branch"));
     assert!(text.contains("Chain Spark rank 1/5"));
-    assert!(text.contains("└─🔒︎ Static Charge unlocks at Chain Spark rank 2 (1/2)"));
+    assert!(text.contains("└─⊘ Static Charge unlocks at Chain Spark rank 2 (1/2)"));
     assert!(!text.contains("Kindle rank 0/5"));
     assert!(!text.contains("Mana Shield rank 0/5"));
     assert!(!text.contains("Static Charge rank 0/5"));
@@ -4023,9 +4050,9 @@ fn character_creation_renders_class_choices() {
     let text = backend_text(&terminal);
     assert!(text.contains("Warrior"));
     assert!(text.contains("Rogue"));
-    assert!(text.contains("> Rogue"));
+    assert!(text.contains("› Rogue"));
     assert!(text.contains("Hardcore"));
-    assert!(!text.contains("> Hardcore"));
+    assert!(!text.contains("› Hardcore"));
 }
 
 #[test]
@@ -4082,9 +4109,9 @@ fn character_creation_renders_sorceress_choice() {
     assert!(text.contains("Warrior"));
     assert!(text.contains("Rogue"));
     assert!(text.contains("Sorceress"));
-    assert!(text.contains("> Sorceress"));
-    assert!(!text.contains("> Warrior"));
-    assert!(!text.contains("> Rogue"));
+    assert!(text.contains("› Sorceress"));
+    assert!(!text.contains("› Warrior"));
+    assert!(!text.contains("› Rogue"));
 }
 
 #[test]
@@ -4731,7 +4758,7 @@ fn town_project_board_uses_list_and_details_panels() {
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("> [Appraiser] Hire Appraiser"))
+            .any(|line| line.contains("› [Appraiser] Hire Appraiser"))
     );
     assert!(
         !lines
@@ -4741,17 +4768,17 @@ fn town_project_board_uses_list_and_details_panels() {
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("└─ 🔒 [Smith] Reinforced Anvil"))
+            .any(|line| line.contains("└─ ⊘ [Smith] Reinforced Anvil"))
     );
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("   └─ 🔒 [Smith] Socket Bench"))
+            .any(|line| line.contains("   └─ ⊘ [Smith] Socket Bench"))
     );
     assert!(
         lines
             .iter()
-            .any(|line| line.contains("└─ 🔒 [Quartermaster] Pack Hooks"))
+            .any(|line| line.contains("└─ ⊘ [Quartermaster] Pack Hooks"))
     );
     assert!(
         !lines
@@ -5575,7 +5602,7 @@ fn dungeon_map_renders_ground_item_glyph() {
 
     let lines = dungeon_map_lines_for_test(&d);
 
-    assert_eq!(lines[4].chars().nth(3), Some('!'));
+    assert_eq!(lines[4].chars().nth(3), Some(LOOT_GLYPH));
 }
 
 #[test]
@@ -5989,7 +6016,10 @@ fn cell_fg_at_text(
     let (y, x) = lines
         .iter()
         .enumerate()
-        .find_map(|(y, line)| line.find(needle).map(|x| (y, x)))
+        .find_map(|(y, line)| {
+            line.find(needle)
+                .map(|byte_index| (y, UnicodeWidthStr::width(&line[..byte_index])))
+        })
         .unwrap();
 
     cell_fg_at(terminal, x, y)
@@ -6007,7 +6037,7 @@ fn cell_fg_at(
 
 fn char_index(text: &str, needle: &str) -> usize {
     text.find(needle)
-        .map(|byte_index| text[..byte_index].chars().count())
+        .map(|byte_index| UnicodeWidthStr::width(&text[..byte_index]))
         .unwrap()
 }
 

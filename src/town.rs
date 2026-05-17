@@ -94,7 +94,11 @@ fn plain_line(text: impl Into<String>) -> Line<'static> {
 }
 
 fn selected_line(selected: bool, text: impl Into<String>) -> Line<'static> {
-    let prefix = if selected { "> " } else { "  " };
+    let prefix = if selected {
+        SELECTION_CURSOR_PREFIX
+    } else {
+        "  "
+    };
     let style = if selected {
         selected_cursor_style()
     } else {
@@ -657,12 +661,12 @@ fn town_project_list_row_text(
     let dependency_prefix = if dependency_depth == 0 {
         String::new()
     } else {
-        format!("{}└─ ", "   ".repeat(dependency_depth - 1))
+        format!("{}{TREE_CHILD} ", "   ".repeat(dependency_depth - 1))
     };
     match town_project_availability(c, project) {
         ProjectAvailability::Available => format!("{dependency_prefix}{label}"),
         ProjectAvailability::Completed => format!("{dependency_prefix}{label} - Complete"),
-        ProjectAvailability::Locked(_) => format!("{dependency_prefix}🔒{label}"),
+        ProjectAvailability::Locked(_) => format!("{dependency_prefix}{LOCKED_MARKER} {label}"),
     }
 }
 
@@ -1682,7 +1686,7 @@ pub(crate) fn render_gem_picker_screen(
         let list = List::new(items)
             .block(gothic_block("Gems"))
             .highlight_style(selected_cursor_style())
-            .highlight_symbol("> ");
+            .highlight_symbol(SELECTION_CURSOR_PREFIX);
         let mut state = ListState::default();
         state.select(Some(selected.saturating_sub(offset)));
         frame.render_stateful_widget(list, layout[1], &mut state);
@@ -1996,7 +2000,7 @@ fn render_stash_details(
 
 fn stash_grid_title(title: &str, active: bool) -> String {
     if active {
-        format!("{title} *")
+        format!("{title} {ACTIVE_MARKER}")
     } else {
         title.to_string()
     }
@@ -2060,7 +2064,10 @@ fn append_grid_text_for_test(lines: &mut Vec<String>, title: &str, grid: &ItemGr
         let mut line = String::new();
         for col in 0..grid.columns {
             let index = usize::from(row) * usize::from(grid.columns) + usize::from(col);
-            line.push_str(&format!("[{}] ", inventory_cell_label(grid, index)));
+            line.push_str(&format!(
+                "{GRID_OPEN_GLYPH}{}{GRID_CLOSE_GLYPH} ",
+                inventory_cell_label(grid, index)
+            ));
         }
         lines.push(line);
     }
@@ -2267,11 +2274,18 @@ fn attribute_choice_line(
     };
     let current = choice.current_value(c);
     Line::from(vec![
-        Span::styled(if selected { "> " } else { "  " }, marker_style),
+        Span::styled(
+            if selected {
+                SELECTION_CURSOR_PREFIX
+            } else {
+                "  "
+            },
+            marker_style,
+        ),
         Span::raw(format!("{}) ", index + 1)),
         Span::styled(choice.name().to_string(), attribute_style),
         Span::raw(format!(
-            " {current} -> {} ({})",
+            " {current} → {} ({})",
             current + 1,
             choice.benefit()
         )),
