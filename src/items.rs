@@ -2,6 +2,8 @@ use crate::*;
 
 pub(crate) const SWORD_CRIT_CHANCE: u32 = 8;
 pub(crate) const AXE_CRIT_CHANCE: u32 = 5;
+pub(crate) const DAGGER_CRIT_CHANCE: u32 = 14;
+pub(crate) const SCIMITAR_CRIT_CHANCE: u32 = 10;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ItemStats {
@@ -242,7 +244,7 @@ pub(crate) fn training_dagger() -> Item {
         "Training Dagger (2-4 dmg, DEX D)",
         ItemKind::Weapon,
         20,
-        weapon_stats(2, 4, 1, 12),
+        weapon_stats(2, 4, 1, DAGGER_CRIT_CHANCE),
         Rarity::Common,
         1,
         requirements(0, 2, 0),

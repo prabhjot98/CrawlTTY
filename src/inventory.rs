@@ -571,7 +571,7 @@ pub(crate) fn unmet_requirements_message(c: &Character, item: &Item) -> Option<S
         return None;
     }
     if !can_equip_item_for_class(c, item) {
-        return Some("Rogue cannot equip shields.".to_string());
+        return Some("Rogue cannot equip non-buckler shields.".to_string());
     }
     let mut missing = Vec::new();
     if c.strength < item.required_strength {
@@ -599,6 +599,7 @@ fn can_equip_item_for_class(c: &Character, item: &Item) -> bool {
     c.class != CharacterClass::Rogue
         || item.kind != ItemKind::Shield
         || item.name == "Empty Offhand"
+        || item.name.contains("Buckler")
 }
 
 pub(crate) fn equip_or_use_inventory_item(

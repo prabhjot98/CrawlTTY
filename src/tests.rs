@@ -1463,6 +1463,89 @@ fn rogue_random_consumable_loot_does_not_drop_mana_potions() {
 }
 
 #[test]
+fn rogue_random_equipment_loot_uses_rogue_item_families() {
+    let mut saw_dagger = false;
+    let mut saw_scimitar = false;
+    let mut saw_light_armor = false;
+    let mut saw_buckler = false;
+
+    for _ in 0..2000 {
+        let loot = random_equipment_loot_for_class(CharacterClass::Rogue, 3, false);
+        let is_dagger = loot.kind == ItemKind::Weapon && loot.name.contains("Dagger");
+        let is_scimitar = loot.kind == ItemKind::Weapon && loot.name.contains("Scimitar");
+        let is_light_armor = loot.kind == ItemKind::Armor && loot.name.contains("Leathers");
+        let is_buckler = loot.kind == ItemKind::Shield && loot.name.contains("Buckler");
+
+        assert!(
+            is_dagger || is_scimitar || is_light_armor || is_buckler,
+            "unexpected Rogue equipment drop: {}",
+            loot.name
+        );
+
+        saw_dagger |= is_dagger;
+        saw_scimitar |= is_scimitar;
+        saw_light_armor |= is_light_armor;
+        saw_buckler |= is_buckler;
+        assert_eq!(loot.required_intelligence, 0);
+    }
+
+    assert!(saw_dagger);
+    assert!(saw_scimitar);
+    assert!(saw_light_armor);
+    assert!(saw_buckler);
+}
+
+#[test]
+fn warrior_random_equipment_loot_uses_warrior_item_families() {
+    for _ in 0..2000 {
+        let loot = random_equipment_loot_for_class(CharacterClass::Warrior, 3, false);
+        let is_sword = loot.kind == ItemKind::Weapon && loot.name.contains("Sword");
+        let is_axe = loot.kind == ItemKind::Weapon && loot.name.contains("Axe");
+        let is_mail = loot.kind == ItemKind::Armor && loot.name.contains("Mail");
+        let is_guard_shield = loot.kind == ItemKind::Shield && loot.name.contains("Guard Shield");
+
+        assert!(
+            is_sword || is_axe || is_mail || is_guard_shield,
+            "unexpected Warrior equipment drop: {}",
+            loot.name
+        );
+    }
+}
+
+#[test]
+fn rogue_can_equip_bucklers_but_not_warrior_shields() {
+    let c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    let mut buckler = None;
+    let mut guard_shield = None;
+
+    for _ in 0..2000 {
+        let rogue_loot = random_equipment_loot_for_class(CharacterClass::Rogue, 1, false);
+        if rogue_loot.name.contains("Buckler") {
+            buckler = Some(rogue_loot);
+        }
+
+        let warrior_loot = random_equipment_loot_for_class(CharacterClass::Warrior, 1, false);
+        if warrior_loot.name.contains("Guard Shield") {
+            guard_shield = Some(warrior_loot);
+        }
+
+        if buckler.is_some() && guard_shield.is_some() {
+            break;
+        }
+    }
+
+    let buckler = buckler.expect("expected Rogue loot pool to produce a buckler");
+    let guard_shield = guard_shield.expect("expected Warrior loot pool to produce a guard shield");
+
+    assert!(can_equip_item(&c, &buckler));
+    assert!(!can_equip_item(&c, &guard_shield));
+}
+
+#[test]
 fn attributes_screen_with_no_points_shows_empty_state_and_back_command() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -1741,7 +1824,7 @@ fn new_rogue_matches_starting_state() {
 }
 
 #[test]
-fn rogue_cannot_equip_non_empty_shields() {
+fn rogue_cannot_equip_warrior_shields() {
     let mut c = Character::new(
         "Sneak".to_string(),
         CharacterClass::Rogue,
@@ -1758,7 +1841,7 @@ fn rogue_cannot_equip_non_empty_shields() {
     assert!(!can_equip_item(&c, c.inventory.get(shield_index).unwrap()));
     let result = equip_or_use_inventory_item(&mut c, shield_index);
 
-    assert_eq!(result.message, "Rogue cannot equip shields.");
+    assert_eq!(result.message, "Rogue cannot equip non-buckler shields.");
     assert!(!result.spent_turn);
     assert_eq!(c.equipped_shield.name, "Empty Offhand");
     assert!(

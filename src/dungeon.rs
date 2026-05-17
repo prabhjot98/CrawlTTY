@@ -1202,7 +1202,7 @@ pub(crate) fn resolve_enemy_death(
         );
     }
     if was_boss {
-        let loot = random_equipment_loot(d.floor, true);
+        let loot = random_equipment_loot_for_class(c.class, d.floor, true);
         let loot_name = colored_item_name(&loot);
         add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Boss reward dropped");
         let boss_gem_name = if can_drop_gem_on_floor(d.floor) && rng.gen_bool(0.25) {
@@ -1936,7 +1936,7 @@ pub(crate) fn maybe_drop_loot_in_dungeon(
     let drop_chance = if guaranteed_magic { 1.0 } else { 0.22 };
     if rng.gen_bool(drop_chance) {
         let loot = if guaranteed_magic {
-            random_equipment_loot(d.floor, true)
+            random_equipment_loot_for_class(c.class, d.floor, true)
         } else {
             random_loot_for_class(c.class, d.floor, rng.gen_bool(0.30))
         };
@@ -2343,7 +2343,7 @@ pub(crate) fn random_loot_for_class(class: CharacterClass, floor: u32, better: b
         }
         return mana_potion();
     }
-    random_equipment_loot(floor, better)
+    random_equipment_loot_for_class(class, floor, better)
 }
 
 pub(crate) fn socket_count_for_roll(rarity: &Rarity, roll: f64) -> usize {
@@ -2421,8 +2421,23 @@ pub(crate) fn random_gem() -> Item {
     gem_item(kind, tier)
 }
 
+#[allow(dead_code)]
 pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
-    let mut rng = rand::thread_rng();
+    random_warrior_equipment_loot(floor, better)
+}
+
+pub(crate) fn random_equipment_loot_for_class(
+    class: CharacterClass,
+    floor: u32,
+    better: bool,
+) -> Item {
+    match class {
+        CharacterClass::Warrior => random_warrior_equipment_loot(floor, better),
+        CharacterClass::Rogue => random_rogue_equipment_loot(floor, better),
+    }
+}
+
+fn equipment_rarity_and_level(floor: u32, better: bool, rng: &mut impl rand::Rng) -> (Rarity, u32) {
     let rarity = if better {
         if rng.gen_bool(0.25) {
             Rarity::Rare
@@ -2437,7 +2452,12 @@ pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
         Rarity::Magic => 1,
         Rarity::Rare => 2,
     };
-    let item_level = floor + rarity_bonus;
+    (rarity, floor + rarity_bonus)
+}
+
+fn random_warrior_equipment_loot(floor: u32, better: bool) -> Item {
+    let mut rng = rand::thread_rng();
+    let (rarity, item_level) = equipment_rarity_and_level(floor, better, &mut rng);
     let bonus = item_level as i32 - 1;
     let item = match rng.gen_range(0..4) {
         0 => item_with_rarity(
@@ -2475,6 +2495,51 @@ pub(crate) fn random_equipment_loot(floor: u32, better: bool) -> Item {
             rarity,
             item_level,
             requirements(3 + item_level, 0, 0),
+        ),
+    };
+    add_random_sockets(item, rng.gen_range(0.0..1.0))
+}
+
+fn random_rogue_equipment_loot(floor: u32, better: bool) -> Item {
+    let mut rng = rand::thread_rng();
+    let (rarity, item_level) = equipment_rarity_and_level(floor, better, &mut rng);
+    let bonus = item_level as i32 - 1;
+    let item = match rng.gen_range(0..4) {
+        0 => item_with_rarity(
+            &loot_name(&rarity, "Rogue Dagger"),
+            ItemKind::Weapon,
+            40 + bonus as u32 * 15,
+            weapon_stats(2 + bonus, 4 + bonus, 1, DAGGER_CRIT_CHANCE),
+            rarity,
+            item_level,
+            requirements(0, 3 + item_level, 0),
+        ),
+        1 => item_with_rarity(
+            &loot_name(&rarity, "Rogue Scimitar"),
+            ItemKind::Weapon,
+            50 + bonus as u32 * 15,
+            weapon_stats(3 + bonus, 5 + bonus, 0, SCIMITAR_CRIT_CHANCE),
+            rarity,
+            item_level,
+            requirements(1 + item_level / 2, 3 + item_level, 0),
+        ),
+        2 => item_with_rarity(
+            &loot_name(&rarity, "Rogue Leathers"),
+            ItemKind::Armor,
+            45 + bonus as u32 * 15,
+            item_stats(0, 0, 1 + bonus, 2 + bonus, 1),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
+        ),
+        _ => item_with_rarity(
+            &loot_name(&rarity, "Rogue Buckler"),
+            ItemKind::Shield,
+            40 + bonus as u32 * 15,
+            item_stats(0, 0, 1 + bonus.min(2), 2 + bonus, 0),
+            rarity,
+            item_level,
+            requirements(0, 2 + item_level, 0),
         ),
     };
     add_random_sockets(item, rng.gen_range(0.0..1.0))

@@ -225,7 +225,7 @@ Example skills:
 
 ### 4. Rogue
 
-A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. Rogue on-hit skill effects only apply when the attack hits. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture unlocks at Venom Edge rank 2, and Slip Away unlocks at Smoke Step rank 2. Rupture starts inactive and extends Venom Edge poison duration by rank once unlocked. Slip Away starts inactive and adds smoke-protection dodge once unlocked. Smoke Step spends Energy after the player chooses an explicit direction, dashes 1-2 cardinal tiles along a clear path to an open destination, resolves normal landing-tile interactions, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus unlocked Slip Away, and enables an empowered Backstab on the next player action. Rogues cannot equip shields in the first pass and use Energy instead of mana potions.
+A fast dagger fighter using Energy, internal combo points, poison setup, burst finishers, and smoke-assisted mobility. The current implementation labels the Rogue dungeon resource as Energy, regenerates it during dungeon turns, shows class-aware Rogue dungeon skill help with Energy/CP and rank-scaled values, and implements Backstab, Venom Edge, Eviscerate, and Smoke Step. Rogue on-hit skill effects only apply when the attack hits. The skill tree screen is class-aware: Rogues see Daggers, Venom, and Smoke branches with Backstab, Eviscerate, Venom Edge, Rupture, Smoke Step, and Slip Away upgrades. Eviscerate upgrades require Backstab rank 2, Rupture unlocks at Venom Edge rank 2, and Slip Away unlocks at Smoke Step rank 2. Rupture starts inactive and extends Venom Edge poison duration by rank once unlocked. Slip Away starts inactive and adds smoke-protection dodge once unlocked. Smoke Step spends Energy after the player chooses an explicit direction, dashes 1-2 cardinal tiles along a clear path to an open destination, resolves normal landing-tile interactions, briefly improves defense with rank-scaled smoke dodge from Smoke Step plus unlocked Slip Away, and enables an empowered Backstab on the next player action. Rogues use Energy instead of mana potions and can equip Rogue bucklers, but not Warrior shields.
 
 Possible builds:
 
@@ -451,6 +451,13 @@ Damage should come from base item damage plus scaling bonuses from the relevant 
 ### Loot Goals
 
 Loot should support build experimentation. A weapon that adds fire damage should interest an Embercaller, Rogue, or Wildspeaker in different ways.
+
+Current class-specific equipment direction:
+
+- Random equipment drops route through the active character class.
+- Warriors receive Warrior equipment only: swords, axes, mail armor, and guard shields.
+- Rogues receive Rogue equipment only: daggers, scimitars, light armor, and bucklers.
+- Bows and ranged Dexterity weapons are reserved for a future Ranger class.
 
 ## Inventory
 
@@ -1009,7 +1016,7 @@ Other MVP items:
 
 ### MVP Equipment Interaction
 
-The inventory screen should show currently equipped weapon, armor, and offhand/shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory. Full-bag replacement gear equips are allowed because removing the selected carried item frees the cell reused for the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed for classes that can equip shields. Rogues keep an empty offhand and cannot equip shields in the first Rogue pass. Dropping an item in a dungeon places it on the ground instead of deleting it.
+The inventory screen should show currently equipped weapon, armor, and offhand/shield. The current target design is a ratatui grid: the bag starts at `4 x 4`, shows empty cells, uses a cursor to select cells, and shows item details in a right side panel. Pressing Enter equips gear or uses consumables and swaps old equipped gear back into inventory. Full-bag replacement gear equips are allowed because removing the selected carried item frees the cell reused for the old gear. Weapon damage should come from the equipped weapon. Armor and shields should affect armor, dodge, and speed for classes that can equip shields. Rogues can equip empty offhand and Rogue bucklers, but cannot equip Warrior shields. Dropping an item in a dungeon places it on the ground instead of deleting it.
 
 Loot should feel rewarding:
 
