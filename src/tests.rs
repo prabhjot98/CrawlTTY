@@ -1337,7 +1337,9 @@ fn character_creation_renders_as_ratatui_screen() {
 fn town_service_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
-    let c = test_character();
+    let mut c = test_character();
+    c.herbs = 7;
+    complete_project_for_test(&mut c, TownProject::Distillery);
     let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
 
     terminal
@@ -1362,6 +1364,15 @@ fn town_service_screens_render_with_ratatui() {
     let projects = backend_text(&terminal);
     assert!(projects.contains("Town Projects"));
     assert!(projects.contains("Enter=fund project"));
+
+    terminal
+        .draw(|frame| render_distillery_screen(frame, &c, 0, ""))
+        .unwrap();
+    let distillery = backend_text(&terminal);
+    assert!(distillery.contains("Distillery"));
+    assert!(distillery.contains("Herbs: 7"));
+    assert!(distillery.contains("> Craft Lesser Health Potion - 3 herbs"));
+    assert!(distillery.contains("Craft Lesser Mana Potion - 4 herbs"));
 
     terminal
         .draw(|frame| render_spend_attributes_screen(frame, &c, 0, ""))
@@ -1453,6 +1464,77 @@ fn rogue_cannot_buy_or_use_mana_potions() {
     assert!(!result.spent_turn);
     assert!(
         c.inventory
+            .iter()
+            .any(|item| matches!(item.kind, ItemKind::ManaPotion))
+    );
+}
+
+#[test]
+fn distillery_crafts_potions_from_herbs() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::Distillery);
+    c.herbs = 7;
+    c.inventory = ItemGrid::new(4, 4, Vec::new());
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserHealthPotion);
+
+    assert_eq!(message, "Crafted Lesser Health Potion for 3 herbs.");
+    assert_eq!(c.herbs, 4);
+    assert!(matches!(c.inventory[0].kind, ItemKind::HealthPotion));
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserManaPotion);
+
+    assert_eq!(message, "Crafted Lesser Mana Potion for 4 herbs.");
+    assert_eq!(c.herbs, 0);
+    assert!(matches!(c.inventory[1].kind, ItemKind::ManaPotion));
+}
+
+#[test]
+fn distillery_recipe_failures_do_not_spend_herbs() {
+    let mut c = test_character();
+    c.herbs = 10;
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserHealthPotion);
+
+    assert_eq!(
+        message,
+        "Complete the Distillery project before crafting potions."
+    );
+    assert_eq!(c.herbs, 10);
+
+    complete_project_for_test(&mut c, TownProject::Distillery);
+    c.herbs = 2;
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserHealthPotion);
+
+    assert_eq!(message, "Need 3 herbs to craft Lesser Health Potion.");
+    assert_eq!(c.herbs, 2);
+
+    c.herbs = 3;
+    c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserHealthPotion);
+
+    assert_eq!(message, "No room in inventory.");
+    assert_eq!(c.herbs, 3);
+}
+
+#[test]
+fn rogues_do_not_craft_mana_potions() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    complete_project_for_test(&mut c, TownProject::Distillery);
+    c.herbs = 4;
+
+    let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserManaPotion);
+
+    assert_eq!(message, "Rogue uses Energy and cannot craft mana potions.");
+    assert_eq!(c.herbs, 4);
+    assert!(
+        !c.inventory
             .iter()
             .any(|item| matches!(item.kind, ItemKind::ManaPotion))
     );
@@ -2460,6 +2542,50 @@ fn saved_character_without_town_projects_defaults_to_empty_projects() {
 
     assert_eq!(c.class_name(), "Warrior");
     assert!(c.completed_town_projects.is_empty());
+}
+
+#[test]
+fn saved_character_without_herbs_defaults_to_zero() {
+    let json = r#"{
+        "name": "Legacy",
+        "class_name": "Ironbound",
+        "death_mode": "Softcore",
+        "level": 1,
+        "xp": 0,
+        "gold": 50,
+        "strength": 6,
+        "dexterity": 3,
+        "intelligence": 1,
+        "hp": 40,
+        "mana": 15,
+        "inventory": {"columns": 4, "rows": 4, "items": []},
+        "stash": {"columns": 8, "rows": 8, "items": []},
+        "equipped_weapon": {
+            "name": "Rusted Sword",
+            "kind": "Weapon",
+            "value": 20,
+            "damage_min": 3,
+            "damage_max": 5
+        },
+        "equipped_armor": {
+            "name": "Cloth Tunic",
+            "kind": "Armor",
+            "value": 12,
+            "armor": 1
+        },
+        "equipped_shield": {
+            "name": "Worn Shield",
+            "kind": "Shield",
+            "value": 40,
+            "armor": 1,
+            "dodge": 2
+        },
+        "bellkeeper_defeated": false
+    }"#;
+
+    let c: Character = serde_json::from_str(json).unwrap();
+
+    assert_eq!(c.herbs, 0);
 }
 
 #[test]
@@ -3681,6 +3807,62 @@ fn stairs_require_clear_floor_before_advancing() {
 }
 
 #[test]
+fn herb_garden_grows_herbs_when_cleared_floor_advances() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::HerbGarden);
+    c.active_dungeon = Some(generate_dungeon(1));
+    {
+        let d = c.active_dungeon.as_mut().unwrap();
+        d.player_x = d.stairs_x;
+        d.player_y = d.stairs_y;
+        d.enemies.clear();
+    }
+
+    use_stairs(&mut c);
+
+    assert!((1..=3).contains(&c.herbs));
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert_eq!(d.floor, 2);
+    assert!(d.log.iter().any(|line| line.contains("Herb Garden")));
+}
+
+#[test]
+fn cleared_floors_do_not_grow_herbs_without_herb_garden() {
+    let mut c = test_character();
+    c.active_dungeon = Some(generate_dungeon(1));
+    {
+        let d = c.active_dungeon.as_mut().unwrap();
+        d.player_x = d.stairs_x;
+        d.player_y = d.stairs_y;
+        d.enemies.clear();
+    }
+
+    use_stairs(&mut c);
+
+    assert_eq!(c.herbs, 0);
+    assert_eq!(c.active_dungeon.as_ref().unwrap().floor, 2);
+}
+
+#[test]
+fn herb_garden_grows_herbs_when_boss_floor_is_completed() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::HerbGarden);
+    let mut boss = one_hp_test_boss(3, 2);
+    boss.hp = 0;
+    let mut d = open_test_dungeon(2, 2, vec![boss]);
+
+    assert!(resolve_enemy_death(
+        &mut c,
+        &mut d,
+        0,
+        EnemyDeathCause::Effect { source: "test" }
+    ));
+
+    assert!((1..=3).contains(&c.herbs));
+    assert!(c.pending_town_message.contains("Herb Garden grew"));
+}
+
+#[test]
 fn returning_to_town_requires_clear_floor() {
     let mut c = test_character();
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![rat(4, 2)]));
@@ -3692,6 +3874,18 @@ fn returning_to_town_requires_clear_floor() {
     c.active_dungeon.as_mut().unwrap().enemies[0].hp = 0;
     assert!(try_leave_dungeon_for_town(&mut c));
     assert!(c.active_dungeon.is_none());
+}
+
+#[test]
+fn returning_to_town_after_clear_floor_grows_herbs() {
+    let mut c = test_character();
+    complete_project_for_test(&mut c, TownProject::HerbGarden);
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+
+    assert!(try_leave_dungeon_for_town(&mut c));
+
+    assert!((1..=3).contains(&c.herbs));
+    assert!(c.pending_town_message.contains("Herb Garden grew"));
 }
 
 #[test]

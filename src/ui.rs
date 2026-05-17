@@ -115,6 +115,7 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
             &[
                 ("m", "merchant"),
                 ("b", "blacksmith"),
+                ("l", "distillery"),
                 ("s", "stash"),
                 ("p", "projects"),
                 ("t", "quest"),

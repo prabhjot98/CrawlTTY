@@ -7,6 +7,8 @@ use ratatui::{
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_MESSAGE: &str = "Unknown dungeon command.";
 pub(crate) const UNKNOWN_DUNGEON_COMMAND_LOG_LINE: &str = "[WARN] Unknown dungeon command.";
 const RANGED_ATTACK_HIT_BONUS: i32 = 5;
+const MIN_HERBS_PER_COMPLETED_FLOOR: u32 = 1;
+const MAX_HERBS_PER_COMPLETED_FLOOR: u32 = 3;
 
 pub(crate) fn clear_combat_state(c: &mut Character) {
     c.warrior.cleave_cooldown = 0;
@@ -63,6 +65,9 @@ pub(crate) fn try_leave_dungeon_for_town(c: &mut Character) -> bool {
         }
     }
 
+    if let Some(herbs) = grow_herbs_for_completed_floor(c) {
+        append_pending_town_message(c, &herb_garden_reward_message(herbs));
+    }
     leave_dungeon(c);
     true
 }
@@ -1172,6 +1177,21 @@ pub(crate) fn complete_boss_fight_in_dungeon(c: &mut Character, boss_name: &str)
     }
 }
 
+pub(crate) fn grow_herbs_for_completed_floor(c: &mut Character) -> Option<u32> {
+    if !has_completed_project(c, TownProject::HerbGarden) {
+        return None;
+    }
+    let herbs =
+        rand::thread_rng().gen_range(MIN_HERBS_PER_COMPLETED_FLOOR..=MAX_HERBS_PER_COMPLETED_FLOOR);
+    c.herbs += herbs;
+    Some(herbs)
+}
+
+fn herb_garden_reward_message(herbs: u32) -> String {
+    let herb_text = if herbs == 1 { "herb" } else { "herbs" };
+    format!("Herb Garden grew {herbs} {herb_text}.")
+}
+
 pub(crate) fn resolve_enemy_death(
     c: &mut Character,
     d: &mut Dungeon,
@@ -1222,6 +1242,9 @@ pub(crate) fn resolve_enemy_death(
             None
         };
         complete_boss_fight_in_dungeon(c, &name);
+        let herb_summary = grow_herbs_for_completed_floor(c)
+            .map(|herbs| format!(" {}", herb_garden_reward_message(herbs)))
+            .unwrap_or_default();
         let level_summary = if levels_gained.is_empty() {
             String::new()
         } else {
@@ -1239,7 +1262,7 @@ pub(crate) fn resolve_enemy_death(
             .map(|gem_name| format!(" Gem: {gem_name}."))
             .unwrap_or_default();
         c.pending_town_message = format!(
-            "Defeated {name}! +{}, +{}. Boss reward: {loot_name}.{level_summary} {quest_hint}",
+            "Defeated {name}! +{}, +{}. Boss reward: {loot_name}.{herb_summary}{level_summary} {quest_hint}",
             xp_reward_text(xp),
             gold_reward_text(gold)
         );
@@ -2705,7 +2728,16 @@ pub(crate) fn use_stairs(c: &mut Character) {
             format!("{blocker} blocks your escape. Defeat it!"),
         );
     } else {
-        c.active_dungeon = Some(generate_dungeon(floor + 1));
+        let herb_reward = grow_herbs_for_completed_floor(c);
+        let mut next_dungeon = generate_dungeon(floor + 1);
+        if let Some(herbs) = herb_reward {
+            log_event(
+                &mut next_dungeon.log,
+                LogKind::Loot,
+                herb_garden_reward_message(herbs),
+            );
+        }
+        c.active_dungeon = Some(next_dungeon);
     }
 }
 

@@ -37,6 +37,8 @@ pub(crate) fn quest_giver(c: &mut Character) -> String {
 }
 
 pub(crate) const TOWN_FULL_HEAL_MESSAGE: &str = "You were fully healed.";
+pub(crate) const LESSER_HEALTH_POTION_HERB_COST: u32 = 3;
+pub(crate) const LESSER_MANA_POTION_HERB_COST: u32 = 4;
 
 pub(crate) fn full_heal(c: &mut Character) {
     c.hp = c.max_hp();
@@ -225,6 +227,153 @@ pub(crate) fn buy_merchant_offer(c: &mut Character, offer: MerchantOffer) -> Str
     let item_name = offer.name();
     let _ = c.inventory.push(item);
     format!("Bought {item_name} for {} gold.", offer.cost())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DistilleryRecipe {
+    LesserHealthPotion,
+    LesserManaPotion,
+}
+
+impl DistilleryRecipe {
+    fn name(self) -> &'static str {
+        match self {
+            DistilleryRecipe::LesserHealthPotion => "Lesser Health Potion",
+            DistilleryRecipe::LesserManaPotion => "Lesser Mana Potion",
+        }
+    }
+
+    fn herb_cost(self) -> u32 {
+        match self {
+            DistilleryRecipe::LesserHealthPotion => LESSER_HEALTH_POTION_HERB_COST,
+            DistilleryRecipe::LesserManaPotion => LESSER_MANA_POTION_HERB_COST,
+        }
+    }
+
+    fn item(self) -> Item {
+        match self {
+            DistilleryRecipe::LesserHealthPotion => health_potion(),
+            DistilleryRecipe::LesserManaPotion => mana_potion(),
+        }
+    }
+
+    fn label(self) -> String {
+        format!("Craft {} - {} herbs", self.name(), self.herb_cost())
+    }
+}
+
+fn distillery_recipes(c: &Character) -> Vec<DistilleryRecipe> {
+    let mut recipes = vec![DistilleryRecipe::LesserHealthPotion];
+    if c.class != CharacterClass::Rogue {
+        recipes.push(DistilleryRecipe::LesserManaPotion);
+    }
+    recipes
+}
+
+pub(crate) fn craft_distillery_recipe(c: &mut Character, recipe: DistilleryRecipe) -> String {
+    if !has_completed_project(c, TownProject::Distillery) {
+        return "Complete the Distillery project before crafting potions.".to_string();
+    }
+    if c.class == CharacterClass::Rogue && matches!(recipe, DistilleryRecipe::LesserManaPotion) {
+        return "Rogue uses Energy and cannot craft mana potions.".to_string();
+    }
+    let cost = recipe.herb_cost();
+    if c.herbs < cost {
+        return format!("Need {cost} herbs to craft {}.", recipe.name());
+    }
+    if !c.inventory.has_space() {
+        return "No room in inventory.".to_string();
+    }
+
+    c.herbs -= cost;
+    let _ = c.inventory.push(recipe.item());
+    format!("Crafted {} for {cost} herbs.", recipe.name())
+}
+
+pub(crate) fn distillery(c: &mut Character, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
+    let mut selected = 0usize;
+    let mut message = String::new();
+    loop {
+        let recipes = distillery_recipes(c);
+        clamp_selection(&mut selected, recipes.len());
+        terminal
+            .draw(|frame| render_distillery_screen(frame, c, selected, &message))
+            .context("failed to draw distillery")?;
+        let key = match read_ui_input_nav()? {
+            UiInput::Key(key) => key,
+            UiInput::Redraw => continue,
+        };
+        message.clear();
+        match key {
+            '\u{1b}' => break,
+            'w' | 'W' => selected = selected.saturating_sub(1),
+            's' | 'S' => {
+                if selected + 1 < recipes.len() {
+                    selected += 1;
+                }
+            }
+            '\n' => {
+                message = craft_distillery_recipe(c, recipes[selected]);
+                if message.starts_with("Crafted ") {
+                    append_autosave_status(c, &mut message);
+                }
+            }
+            _ => message = "Unknown distillery command.".to_string(),
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn render_distillery_screen(
+    frame: &mut Frame,
+    c: &Character,
+    selected: usize,
+    message: &str,
+) {
+    let recipes = distillery_recipes(c);
+    let mut lines = vec![
+        plain_line(format!("Distillery - Herbs: {}", c.herbs)),
+        plain_line("The Herb Garden grows herbs when you complete dungeon floors."),
+        Line::from(""),
+        Line::styled("Recipes", Style::default().add_modifier(Modifier::BOLD)),
+    ];
+    if has_completed_project(c, TownProject::Distillery) {
+        lines.extend(
+            recipes
+                .iter()
+                .enumerate()
+                .map(|(i, recipe)| selected_line(i == selected, recipe.label())),
+        );
+    } else {
+        lines.push(plain_line(
+            "Complete the Distillery project before crafting potions.",
+        ));
+    }
+    lines.extend([
+        Line::from(""),
+        Line::styled(
+            "Inventory Preview",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+    ]);
+    if c.inventory.is_empty() {
+        lines.push(plain_line("Empty"));
+    } else {
+        lines.extend(
+            c.inventory
+                .iter()
+                .take(inventory_visible_rows(8))
+                .map(|item| plain_line(item_summary(item))),
+        );
+    }
+    render_lines_screen(
+        frame,
+        "Distillery",
+        "Alchemy",
+        lines,
+        message,
+        "Distillery: W/S or arrows=select  Enter=craft  Esc=back",
+    );
 }
 
 pub(crate) fn render_merchant_screen(

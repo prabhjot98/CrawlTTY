@@ -479,7 +479,7 @@ Current direction:
 - The stash is also a grid, starts at `8 x 8`, and uses the same selected-item detail panel pattern.
 - Stash transfers require destination capacity. Moving an item into a full inventory or stash grid fails with `No room in destination.` and leaves both grids unchanged.
 - Future storage expansion beyond the first `8 x 8` bag should use tabs rather than one larger grid.
-- Ratatui is the standard renderer for interactive screens, including character creation, town, dungeon, merchant, blacksmith, projects, attributes, skills, inventory, stash, ground-loot, sell, salvage, socket, and gem-picking flows. Non-interactive process messages such as reset-save output, fatal exit notices, and final goodbye text may remain plain stdout. The attributes screen supports cursor selection with `W/S`, arrow keys, and `Enter`, while keeping `1-3` hotkeys available.
+- Ratatui is the standard renderer for interactive screens, including character creation, town, dungeon, merchant, blacksmith, distillery, projects, attributes, skills, inventory, stash, ground-loot, sell, salvage, socket, and gem-picking flows. Non-interactive process messages such as reset-save output, fatal exit notices, and final goodbye text may remain plain stdout. The attributes screen supports cursor selection with `W/S`, arrow keys, and `Enter`, while keeping `1-3` hotkeys available.
 
 Recommended features:
 
@@ -872,7 +872,7 @@ Even without graphics, the game can feel responsive with:
 - Color is allowed in the terminal UI, but all gameplay symbols must remain ASCII-only.
 - Dungeon colors: player green, walls gray, floor dim gray, stairs cyan, chests yellow, boss red, elite magenta, and enemies use distinct colors.
 - Command help for town, vendors, stash, attributes, dungeon, and pause screens should be anchored to the bottom of the terminal so it is easy to find.
-- The current implementation renders interactive screens with ratatui. Character creation starts inside the ratatui terminal session, and town submenus such as merchant, blacksmith, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health potions to all classes, sells lesser mana potions to Warriors, and buys unwanted inventory items. The skills screen uses cursor selection with a two-pane body: the skills container uses one half of the available body width, and the details pane uses the other half to show the selected skill's current effect and next-rank improvement. The attributes screen uses cursor selection, remains viewable when no attribute points are available, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Terminal resize events trigger an immediate redraw of the active ratatui screen.
+- The current implementation renders interactive screens with ratatui. Character creation starts inside the ratatui terminal session, and town submenus such as merchant, blacksmith, distillery, projects, attributes, skills, sell, salvage, socket, and gem picker draw through ratatui event loops rather than legacy ANSI `println!` screens. The merchant sells lesser health potions to all classes, sells lesser mana potions to Warriors, and buys unwanted inventory items. The Distillery town screen shows the current herb count and crafts lesser potions from herbs once the Distillery project is complete. The skills screen uses cursor selection with a two-pane body: the skills container uses one half of the available body width, and the details pane uses the other half to show the selected skill's current effect and next-rank improvement. The attributes screen uses cursor selection, remains viewable when no attribute points are available, and shows an explicit empty state until the player backs out. Attribute labels use semantic colors: Strength red, Dexterity green, and Intelligence blue. Terminal resize events trigger an immediate redraw of the active ratatui screen.
 - In dungeon combat, each active skill should have a help line above the footer showing its key, cost, cooldown, effect, and remaining cooldown/active turns.
 - Important UI text should use color: green for safe/positive options, yellow for gold/items/messages, red for danger/quit/back, blue for mana, and cyan/magenta for headings or special screens.
 - Animated projectile movement using short delays
@@ -1016,6 +1016,7 @@ Other MVP items:
 
 - Lesser health potions: restore 15% of maximum health.
 - Lesser mana potions: restore 15% of maximum mana for mana-using classes. Rogues use Energy, cannot use mana potions, and class-aware consumable drops avoid mana potions for Rogues.
+- Herbs: non-bag alchemy currency. Completing the Herb Garden project grows 1-3 herbs after each completed dungeon floor. Completing the Distillery project unlocks potion crafting: 3 herbs for a lesser health potion, and 4 herbs for a lesser mana potion for mana-using classes.
 - Gold
 
 ### MVP Equipment Interaction
@@ -1181,6 +1182,7 @@ design.md
 - The player starts with 2 lesser health potions and 1 lesser mana potion.
 - MVP includes both lesser health potions and lesser mana potions.
 - Lesser potions restore 15% of maximum health or mana.
+- Herbs do not take inventory space. The Distillery UI displays the current herb count and available potion recipes.
 - Mana only restores from mana potions or by returning to town.
 - Starting weapon and gear are automatically picked based on class.
 - The MVP main objective is to kill the Bellkeeper.

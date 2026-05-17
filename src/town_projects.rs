@@ -106,14 +106,14 @@ pub(crate) const TOWN_PROJECTS: &[TownProjectDefinition] = &[
         group: "Alchemist",
         name: "Herb Garden",
         cost: 350,
-        benefit: "Unlock growing herbs.",
+        benefit: "Grow 1-3 herbs after each completed dungeon floor.",
     },
     TownProjectDefinition {
         project: TownProject::Distillery,
         group: "Alchemist",
         name: "Distillery",
         cost: 500,
-        benefit: "Unlock potion crafting infrastructure.",
+        benefit: "Craft lesser potions from herbs.",
     },
 ];
 

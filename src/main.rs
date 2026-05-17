@@ -119,6 +119,11 @@ fn run_game(
                 terminal.clear()?;
                 town_message.clear();
             }
+            'l' | 'L' => {
+                distillery(character, terminal)?;
+                terminal.clear()?;
+                town_message.clear();
+            }
             's' | 'S' => {
                 stash_menu(character, terminal)?;
                 terminal.clear()?;

@@ -483,6 +483,8 @@ pub(crate) struct Character {
     #[serde(default)]
     pub(crate) shield_shards: u32,
     #[serde(default)]
+    pub(crate) herbs: u32,
+    #[serde(default)]
     pub(crate) completed_town_projects: Vec<TownProject>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) pending_town_message: String,
@@ -551,6 +553,7 @@ impl Character {
             weapon_shards: 0,
             armor_shards: 0,
             shield_shards: 0,
+            herbs: 0,
             completed_town_projects: Vec::new(),
             pending_town_message: String::new(),
         }
@@ -589,6 +592,7 @@ impl Character {
             weapon_shards: 0,
             armor_shards: 0,
             shield_shards: 0,
+            herbs: 0,
             completed_town_projects: Vec::new(),
             warrior: WarriorState::default(),
             rogue: RogueState::default(),
