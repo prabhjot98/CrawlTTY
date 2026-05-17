@@ -2900,6 +2900,9 @@ fn successful_inventory_actions_spend_dungeon_turns() {
         .unwrap();
     assert!(equip_or_use_inventory_item(&mut c, potion_index).spent_turn);
 
+    assert!(!drop_selected_inventory_item(&mut c, 0).spent_turn);
+
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
     c.inventory.push(rusted_sword());
     let sword_index = c.inventory.len() - 1;
     assert!(drop_selected_inventory_item(&mut c, sword_index).spent_turn);
@@ -3267,6 +3270,19 @@ fn dropping_inventory_item_in_dungeon_creates_ground_item() {
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.ground_items.len(), 1);
     assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (4, 5));
+}
+
+#[test]
+fn dropping_inventory_item_in_town_is_disallowed() {
+    let mut c = test_character();
+    c.inventory = ItemGrid::new(4, 4, vec![mana_potion()]);
+
+    let result = drop_selected_inventory_item(&mut c, 0);
+
+    assert_eq!(result.message, "Drop items only inside a dungeon.");
+    assert!(!result.spent_turn);
+    assert_eq!(c.inventory.len(), 1);
+    assert!(matches!(c.inventory[0].kind, ItemKind::ManaPotion));
 }
 
 fn backend_text(terminal: &ratatui::Terminal<ratatui::backend::TestBackend>) -> String {

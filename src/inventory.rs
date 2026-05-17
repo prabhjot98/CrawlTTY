@@ -362,14 +362,13 @@ pub(crate) fn drop_selected_inventory_item(
     } else if index >= c.inventory.len() {
         InventoryActionResult::free("No item selected.")
     } else {
-        let item = c.inventory.remove(index);
-        let message = if let Some(d) = c.active_dungeon.as_mut() {
-            let name = item.name.clone();
-            add_ground_item(d, d.player_x, d.player_y, item);
-            format!("Dropped {name} on the ground.")
-        } else {
-            format!("Dropped {}.", item.name)
+        let Some(d) = c.active_dungeon.as_mut() else {
+            return InventoryActionResult::free("Drop items only inside a dungeon.");
         };
+        let item = c.inventory.remove(index);
+        let name = item.name.clone();
+        add_ground_item(d, d.player_x, d.player_y, item);
+        let message = format!("Dropped {name} on the ground.");
         InventoryActionResult::spent(message)
     }
 }
