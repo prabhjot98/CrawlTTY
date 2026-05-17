@@ -2537,7 +2537,8 @@ fn skill_screens_render_with_ratatui() {
         locked_passive_tree.contains("└─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"),
         "{locked_passive_lines}"
     );
-    assert!(locked_passive_tree.contains("Upgrade: Cleave rank 1/2"));
+    assert!(!locked_passive_tree.contains("Deep Cut rank 0/5"));
+    assert!(locked_passive_tree.contains("Shield Bash rank 1/5"));
     assert!(!locked_passive_tree.contains("branch starter"));
 
     c.warrior.cleave_rank = 5;
@@ -2550,26 +2551,37 @@ fn skill_screens_render_with_ratatui() {
 }
 
 #[test]
-fn locked_skills_start_at_rank_zero_until_allocated() {
+fn locked_skills_show_only_locked_rows_until_unlocked() {
     use ratatui::{Terminal, backend::TestBackend};
 
-    let c = test_character();
+    let mut c = test_character();
     let warrior_lines = skill_tree_lines(&c, 1, "")
         .iter()
         .map(line_text)
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(warrior_lines.contains("> Deep Cut rank 0/5"));
     assert!(warrior_lines.contains("   └─🔒︎ Deep Cut unlocks at Cleave rank 2 (1/2)"));
+    assert!(!warrior_lines.contains("Deep Cut rank 0/5"));
+    assert!(warrior_lines.contains("> Shield Bash rank 1/5"));
 
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     terminal
         .draw(|frame| render_skill_tree_screen(frame, &c, 1, ""))
         .unwrap();
     let warrior_screen = backend_text(&terminal);
-    assert!(warrior_screen.contains("Deep Cut rank 0/5"));
-    assert!(warrior_screen.contains("Next rank 1/5"));
+    assert!(!warrior_screen.contains("Deep Cut rank 0/5"));
+    assert!(warrior_screen.contains("Shield Bash rank 1/5"));
+    assert!(warrior_screen.contains("Next rank 2/5"));
+
+    c.warrior.cleave_rank = 2;
+    let unlocked_lines = skill_tree_lines(&c, 1, "")
+        .iter()
+        .map(line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(unlocked_lines.contains("> Deep Cut rank 0/5"));
+    assert!(!unlocked_lines.contains("Deep Cut unlocks at Cleave rank 2"));
 
     let rogue = Character::new(
         "Sneak".to_string(),
@@ -2582,8 +2594,9 @@ fn locked_skills_start_at_rank_zero_until_allocated() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(rogue_lines.contains("> Eviscerate rank 0/5"));
     assert!(rogue_lines.contains("   └─🔒︎ Eviscerate unlocks at Backstab rank 2 (1/2)"));
+    assert!(!rogue_lines.contains("Eviscerate rank 0/5"));
+    assert!(rogue_lines.contains("> Venom Edge rank 1/5"));
 }
 
 #[test]
@@ -2612,10 +2625,10 @@ fn rogue_skill_screen_renders_with_ratatui() {
 
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     terminal
-        .draw(|frame| render_skill_tree_screen(frame, &c, 3, ""))
+        .draw(|frame| render_skill_tree_screen(frame, &c, 1, ""))
         .unwrap();
     let rendered = backend_text(&terminal);
-    assert!(rendered.contains("Venom Edge poison lasts 3 turns."));
+    assert!(rendered.contains("Poison deals 2/turn for 3 turns."));
 }
 
 #[test]

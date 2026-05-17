@@ -61,11 +61,21 @@ const ROGUE_SKILL_TREE_SKILLS: [&str; 6] = [
     "Slip Away",
 ];
 
-fn skill_tree_skills(c: &Character) -> &'static [&'static str] {
-    match c.class {
+fn skill_tree_skills(c: &Character) -> Vec<&'static str> {
+    let skills = match c.class {
         CharacterClass::Warrior => &WARRIOR_SKILL_TREE_SKILLS,
         CharacterClass::Rogue => &ROGUE_SKILL_TREE_SKILLS,
-    }
+    };
+    skills
+        .iter()
+        .copied()
+        .filter(|skill| !skill_is_locked(c, skill))
+        .collect()
+}
+
+fn selected_skill_name(c: &Character, selected: usize) -> &'static str {
+    let skills = skill_tree_skills(c);
+    skills[selected.min(skills.len() - 1)]
 }
 
 pub(crate) fn render_skill_tree_screen(
@@ -74,8 +84,7 @@ pub(crate) fn render_skill_tree_screen(
     selected: usize,
     message: &str,
 ) {
-    let skills = skill_tree_skills(c);
-    let selected_skill = skills[selected.min(skills.len() - 1)];
+    let selected_skill = selected_skill_name(c, selected);
     let title = match c.class {
         CharacterClass::Warrior => "Warrior Skill Tree",
         CharacterClass::Rogue => "Rogue Skill Tree",
@@ -95,13 +104,18 @@ pub(crate) fn skill_tree_lines(
     selected: usize,
     message: &str,
 ) -> Vec<Line<'static>> {
+    let selected_skill = selected_skill_name(c, selected);
     match c.class {
-        CharacterClass::Warrior => warrior_skill_tree_lines(c, selected, message),
-        CharacterClass::Rogue => rogue_skill_tree_lines(c, selected, message),
+        CharacterClass::Warrior => warrior_skill_tree_lines(c, selected_skill, message),
+        CharacterClass::Rogue => rogue_skill_tree_lines(c, selected_skill, message),
     }
 }
 
-fn warrior_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Vec<Line<'static>> {
+fn warrior_skill_tree_lines(
+    c: &Character,
+    selected_skill: &str,
+    message: &str,
+) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::styled(
             "Warrior Skill Tree",
@@ -122,49 +136,60 @@ fn warrior_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Ve
         "Weapons Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Cleave", c.warrior.cleave_rank);
+    append_skill_choice_lines(&mut lines, selected_skill, "Cleave", c.warrior.cleave_rank);
     append_mastery_status_lines(&mut lines, c, "Cleave");
     append_passive_unlock_line(&mut lines, c, "Deep Cut");
-    append_skill_choice_lines(&mut lines, selected, "Deep Cut", c.warrior.deep_cut_rank);
-    append_mastery_status_lines(&mut lines, c, "Deep Cut");
+    if !skill_is_locked(c, "Deep Cut") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Deep Cut",
+            c.warrior.deep_cut_rank,
+        );
+        append_mastery_status_lines(&mut lines, c, "Deep Cut");
+    }
     lines.push(Line::styled(
         "Defense Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
     append_skill_choice_lines(
         &mut lines,
-        selected,
+        selected_skill,
         "Shield Bash",
         c.warrior.shield_bash_rank,
     );
     append_mastery_status_lines(&mut lines, c, "Shield Bash");
     append_passive_unlock_line(&mut lines, c, "Iron Guard");
-    append_skill_choice_lines(
-        &mut lines,
-        selected,
-        "Iron Guard",
-        c.warrior.iron_guard_rank,
-    );
-    append_mastery_status_lines(&mut lines, c, "Iron Guard");
+    if !skill_is_locked(c, "Iron Guard") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Iron Guard",
+            c.warrior.iron_guard_rank,
+        );
+        append_mastery_status_lines(&mut lines, c, "Iron Guard");
+    }
     lines.push(Line::styled(
         "Warcry Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
     append_skill_choice_lines(
         &mut lines,
-        selected,
+        selected_skill,
         "Battle Cry",
         c.warrior.battle_cry_rank,
     );
     append_mastery_status_lines(&mut lines, c, "Battle Cry");
     append_passive_unlock_line(&mut lines, c, "Second Wind");
-    append_skill_choice_lines(
-        &mut lines,
-        selected,
-        "Second Wind",
-        c.warrior.second_wind_rank,
-    );
-    append_mastery_status_lines(&mut lines, c, "Second Wind");
+    if !skill_is_locked(c, "Second Wind") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Second Wind",
+            c.warrior.second_wind_rank,
+        );
+        append_mastery_status_lines(&mut lines, c, "Second Wind");
+    }
     lines.push(Line::from(""));
     lines.push(skill_line(
         "Each rank upgrade costs 1 skill point. Masteries are free at rank 5.",
@@ -172,7 +197,11 @@ fn warrior_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Ve
     lines
 }
 
-fn rogue_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Vec<Line<'static>> {
+fn rogue_skill_tree_lines(
+    c: &Character,
+    selected_skill: &str,
+    message: &str,
+) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::styled(
             "Rogue Skill Tree",
@@ -193,23 +222,54 @@ fn rogue_skill_tree_lines(c: &Character, selected: usize, message: &str) -> Vec<
         "Daggers Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Backstab", c.rogue.backstab_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Backstab",
+        c.rogue.backstab_rank,
+    );
     append_passive_unlock_line(&mut lines, c, "Eviscerate");
-    append_skill_choice_lines(&mut lines, selected, "Eviscerate", c.rogue.eviscerate_rank);
+    if !skill_is_locked(c, "Eviscerate") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Eviscerate",
+            c.rogue.eviscerate_rank,
+        );
+    }
     lines.push(Line::styled(
         "Venom Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Venom Edge", c.rogue.venom_edge_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Venom Edge",
+        c.rogue.venom_edge_rank,
+    );
     append_passive_unlock_line(&mut lines, c, "Rupture");
-    append_skill_choice_lines(&mut lines, selected, "Rupture", c.rogue.rupture_rank);
+    if !skill_is_locked(c, "Rupture") {
+        append_skill_choice_lines(&mut lines, selected_skill, "Rupture", c.rogue.rupture_rank);
+    }
     lines.push(Line::styled(
         "Smoke Branch",
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    append_skill_choice_lines(&mut lines, selected, "Smoke Step", c.rogue.smoke_step_rank);
+    append_skill_choice_lines(
+        &mut lines,
+        selected_skill,
+        "Smoke Step",
+        c.rogue.smoke_step_rank,
+    );
     append_passive_unlock_line(&mut lines, c, "Slip Away");
-    append_skill_choice_lines(&mut lines, selected, "Slip Away", c.rogue.slip_away_rank);
+    if !skill_is_locked(c, "Slip Away") {
+        append_skill_choice_lines(
+            &mut lines,
+            selected_skill,
+            "Slip Away",
+            c.rogue.slip_away_rank,
+        );
+    }
     lines.push(Line::from(""));
     lines.push(skill_line(
         "Each rank upgrade costs 1 skill point. Masteries are Warrior-only.",
@@ -231,51 +291,41 @@ fn selected_skill_line(selected: bool, text: impl Into<String>) -> Line<'static>
     Line::styled(format!("{prefix}{}", strip_ansi_codes(&text.into())), style)
 }
 
-fn skill_choice_index(name: &str) -> usize {
-    WARRIOR_SKILL_TREE_SKILLS
-        .iter()
-        .position(|skill| *skill == name)
-        .or_else(|| {
-            ROGUE_SKILL_TREE_SKILLS
-                .iter()
-                .position(|skill| *skill == name)
-        })
-        .unwrap_or(0)
-}
-
 fn append_skill_choice_lines(
     lines: &mut Vec<Line<'static>>,
-    selected: usize,
+    selected_skill: &str,
     name: &str,
     rank: u32,
 ) {
-    let index = skill_choice_index(name);
     lines.push(selected_skill_line(
-        selected == index,
+        selected_skill == name,
         format!("{name} rank {rank}/5"),
     ));
 }
 
 fn append_passive_unlock_line(lines: &mut Vec<Line<'static>>, c: &Character, passive: &str) {
-    if let Some(prerequisite) = passive_prerequisite(c, passive) {
-        let marker = if prerequisite.current_rank < prerequisite.required_rank {
-            "🔒︎ "
-        } else {
-            ""
-        };
+    if let Some(prerequisite) =
+        passive_prerequisite(c, passive).filter(|_| skill_is_locked(c, passive))
+    {
         let action = if skill_rank(c, passive) == 0 {
             "unlocks"
         } else {
             "upgrades"
         };
         lines.push(skill_line(format!(
-            "   └─{marker}{passive} {action} at {} rank {} ({}/{})",
+            "   └─🔒︎ {passive} {action} at {} rank {} ({}/{})",
             prerequisite.starter,
             prerequisite.required_rank,
             prerequisite.current_rank.min(prerequisite.required_rank),
             prerequisite.required_rank
         )));
     }
+}
+
+fn skill_is_locked(c: &Character, skill: &str) -> bool {
+    passive_prerequisite(c, skill)
+        .map(|prerequisite| prerequisite.current_rank < prerequisite.required_rank)
+        .unwrap_or(false)
 }
 
 fn append_mastery_status_lines(lines: &mut Vec<Line<'static>>, c: &Character, skill: &str) {
