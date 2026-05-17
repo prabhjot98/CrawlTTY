@@ -164,40 +164,38 @@ pub(crate) fn render_dungeon(frame: &mut Frame, c: &Character) {
     let skill_panel_height = dungeon_skill_panel_height(&skill_help_lines, frame.area().width);
 
     let layout = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Min(9),
+        Constraint::Length(4),
+        Constraint::Min(8),
         Constraint::Length(skill_panel_height),
         Constraint::Length(4),
     ])
     .split(frame.area());
 
-    let header = Paragraph::new(Line::from(vec![
-        Span::styled(
-            format!("{} Floor {}", act_name(d.floor), act_floor(d.floor)),
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::raw("  "),
-        stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
-        Span::raw("  "),
-        stat_span(
-            format!(
-                "{} {}/{}",
-                c.resource_label(),
-                c.current_resource(),
-                c.max_resource()
+    let header = Paragraph::new(vec![
+        Line::from(vec![
+            Span::styled(
+                format!("{} Floor {}", act_name(d.floor), act_floor(d.floor)),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
-            Color::Blue,
-        ),
-        Span::raw("  "),
-        stat_span(format!("Gold {}", c.gold), Color::Yellow),
-        Span::raw("  "),
-        stat_span(
-            format!("XP {}/{}", c.xp, xp_required_for_next_level(c.level)),
-            Color::Magenta,
-        ),
-    ]))
+            Span::raw("  "),
+            stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
+            Span::raw("  "),
+            stat_span(
+                format!(
+                    "{} {}/{}",
+                    c.resource_label(),
+                    c.current_resource(),
+                    c.max_resource()
+                ),
+                Color::Blue,
+            ),
+            Span::raw("  "),
+            stat_span(format!("Gold {}", c.gold), Color::Yellow),
+        ]),
+        xp_bar_line(c.level, c.xp, xp_required_for_next_level(c.level)),
+    ])
     .block(gothic_block("Dungeon"));
     frame.render_widget(header, layout[0]);
 

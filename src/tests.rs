@@ -708,6 +708,41 @@ fn rogue_dungeon_header_uses_energy_resource_label() {
 }
 
 #[test]
+fn town_and_dungeon_huds_render_level_aware_unicode_xp_bar() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let expected = "Lv 2  XP [██░░░░░░░░░░░░░░░░░░] 10% -> Lv 3";
+    let mut c = test_character();
+    c.level = 2;
+    c.xp = 8;
+
+    let mut town_terminal = Terminal::new(TestBackend::new(120, 28)).unwrap();
+    town_terminal
+        .draw(|frame| render_town(frame, &c, ""))
+        .unwrap();
+    let town = backend_text(&town_terminal);
+    assert!(
+        town.contains(expected),
+        "{}",
+        backend_lines(&town_terminal).join("\n")
+    );
+    assert!(!town.contains("XP 8/80"));
+
+    c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
+    let mut dungeon_terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
+    dungeon_terminal
+        .draw(|frame| render_dungeon(frame, &c))
+        .unwrap();
+    let dungeon = backend_text(&dungeon_terminal);
+    assert!(
+        dungeon.contains(expected),
+        "{}",
+        backend_lines(&dungeon_terminal).join("\n")
+    );
+    assert!(!dungeon.contains("XP 8/80"));
+}
+
+#[test]
 fn rogue_dungeon_render_shows_fourth_skill_help() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -4522,10 +4557,10 @@ fn saved_character_without_herbs_defaults_to_zero() {
 }
 
 #[test]
-fn xp_text_shows_current_and_needed_for_next_level() {
+fn xp_text_shows_level_aware_unicode_progress_bar() {
     assert_eq!(
-        xp_text(8, xp_required_for_next_level(2)),
-        format!("{MAGENTA}XP 8/80{RESET}")
+        xp_text(2, 8, xp_required_for_next_level(2)),
+        format!("{MAGENTA}Lv 2  XP [██░░░░░░░░░░░░░░░░░░] 10% -> Lv 3{RESET}")
     );
 }
 

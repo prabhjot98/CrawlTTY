@@ -183,15 +183,9 @@ pub(crate) fn render_town(frame: &mut Frame, c: &Character, town_message: &str) 
                 Style::default().fg(ACTION_COLOR),
             ),
             Span::raw("  "),
-            stat_span(format!("Level {}", c.level), TITLE_COLOR),
-            Span::raw("  "),
-            stat_span(
-                format!("XP {}/{}", c.xp, xp_required_for_next_level(c.level)),
-                CURSED_COLOR,
-            ),
-            Span::raw("  "),
             stat_span(format!("Gold {}", c.gold), WARNING_COLOR),
         ]),
+        xp_bar_line(c.level, c.xp, xp_required_for_next_level(c.level)),
         Line::from(vec![
             stat_span(format!("HP {}/{}", c.hp, c.max_hp()), Color::Red),
             Span::raw("  "),
@@ -323,6 +317,58 @@ pub(crate) fn stat_span(text: impl Into<String>, color: Color) -> Span<'static> 
     )
 }
 
+const XP_BAR_WIDTH: usize = 20;
+const XP_BAR_FILLED: &str = "█";
+const XP_BAR_EMPTY: &str = "░";
+
+pub(crate) fn xp_bar_line(level: u32, current: u32, needed: u32) -> Line<'static> {
+    let (filled, empty, percent) = xp_bar_progress(current, needed, XP_BAR_WIDTH);
+    Line::from(vec![
+        stat_span(format!("Lv {level}"), TITLE_COLOR),
+        Span::raw("  "),
+        stat_span("XP", CURSED_COLOR),
+        Span::raw(" ["),
+        Span::styled(
+            XP_BAR_FILLED.repeat(filled),
+            Style::default()
+                .fg(CURSED_COLOR)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(XP_BAR_EMPTY.repeat(empty), muted_style()),
+        Span::raw("] "),
+        Span::styled(
+            format!("{percent}% -> Lv {}", level.saturating_add(1)),
+            body_style(),
+        ),
+    ])
+}
+
+#[cfg(test)]
+pub(crate) fn xp_bar_text(level: u32, current: u32, needed: u32, width: usize) -> String {
+    let (filled, empty, percent) = xp_bar_progress(current, needed, width);
+    format!(
+        "Lv {level}  XP [{}{}] {percent}% -> Lv {}",
+        XP_BAR_FILLED.repeat(filled),
+        XP_BAR_EMPTY.repeat(empty),
+        level.saturating_add(1)
+    )
+}
+
+fn xp_bar_progress(current: u32, needed: u32, width: usize) -> (usize, usize, u32) {
+    if width == 0 {
+        return (0, 0, 0);
+    }
+    if needed == 0 {
+        return (width, 0, 100);
+    }
+
+    let capped_current = u64::from(current.min(needed));
+    let needed = u64::from(needed);
+    let filled = ((capped_current * width as u64) / needed).min(width as u64) as usize;
+    let percent = ((capped_current * 100) / needed).min(100) as u32;
+    (filled, width - filled, percent)
+}
+
 pub(crate) fn command_line(title: &str, commands: &[(&str, &str)]) -> Line<'static> {
     let mut spans = Vec::new();
     if !title.is_empty() {
@@ -396,8 +442,11 @@ pub(crate) fn gold_text(value: u32) -> String {
 }
 
 #[cfg(test)]
-pub(crate) fn xp_text(current: u32, needed: u32) -> String {
-    format!("{MAGENTA}XP {current}/{needed}{RESET}")
+pub(crate) fn xp_text(level: u32, current: u32, needed: u32) -> String {
+    format!(
+        "{MAGENTA}{}{RESET}",
+        xp_bar_text(level, current, needed, XP_BAR_WIDTH)
+    )
 }
 
 pub(crate) fn unspent_skills_text(value: u32) -> String {
