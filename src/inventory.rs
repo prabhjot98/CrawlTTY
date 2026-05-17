@@ -79,26 +79,39 @@ pub(crate) fn render_inventory_screen(
     .block(gothic_block("Inventory"));
     frame.render_widget(title, layout[0]);
 
+    let selected_item = c.inventory.get(selected);
     let grid_width = item_grid_render_width(&c.inventory);
     let grid_height = c.inventory.rows.saturating_add(2);
-    let (grid_area, details_area) = if layout[1].width >= grid_width.saturating_add(38) {
-        let body = Layout::horizontal([Constraint::Length(grid_width), Constraint::Min(38)])
+    let (grid_area, details_area, equipped_area) =
+        if layout[1].width >= grid_width.saturating_add(64) {
+            let body = Layout::horizontal([
+                Constraint::Length(grid_width),
+                Constraint::Min(32),
+                Constraint::Min(32),
+            ])
             .split(layout[1]);
-        (body[0], body[1])
-    } else {
-        let body = Layout::vertical([Constraint::Length(grid_height), Constraint::Min(3)])
+            (body[0], body[1], body[2])
+        } else {
+            let body = Layout::vertical([
+                Constraint::Length(grid_height),
+                Constraint::Min(3),
+                Constraint::Min(3),
+            ])
             .split(layout[1]);
-        (body[0], body[1])
-    };
+            (body[0], body[1], body[2])
+        };
     render_item_grid(frame, &c.inventory, selected, grid_area, "Bag", false);
     let details = Paragraph::new(selected_item_detail_lines(
         c,
         &c.inventory,
         "Bag",
-        c.inventory.get(selected),
+        selected_item,
     ))
     .block(gothic_block("Details"));
     frame.render_widget(details, details_area);
+    let equipped = Paragraph::new(selected_item_equipped_comparison_lines(c, selected_item))
+        .block(gothic_block("Equipped"));
+    frame.render_widget(equipped, equipped_area);
 
     render_commands_footer(frame, layout[2], footer_text(message, INVENTORY_COMMANDS));
 }
@@ -181,8 +194,19 @@ pub(crate) fn inventory_screen_text_for_test(
         }
         lines.push(line);
     }
+    let selected_item = c.inventory.get(selected);
     lines.extend(
-        selected_item_detail_lines(c, &c.inventory, "Bag", c.inventory.get(selected))
+        selected_item_detail_lines(c, &c.inventory, "Bag", selected_item)
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|span| span.content.to_string())
+                    .collect()
+            }),
+    );
+    lines.extend(
+        selected_item_equipped_comparison_lines(c, selected_item)
             .into_iter()
             .map(|line| {
                 line.spans
@@ -319,7 +343,7 @@ pub(crate) fn clamp_grid_cursor(selected: &mut usize, grid: &ItemGrid) {
 
 #[allow(dead_code)]
 pub(crate) fn selected_item_detail_lines(
-    c: &Character,
+    _c: &Character,
     grid: &ItemGrid,
     grid_label: &str,
     item: Option<&Item>,
@@ -362,7 +386,6 @@ pub(crate) fn selected_item_detail_lines(
         ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
         ItemKind::Gem => lines.push(Line::from(strip_ansi_codes(&gem_summary(item)))),
     }
-    lines.extend(gear_comparison_detail_lines(c, item));
     lines
 }
 
@@ -551,44 +574,51 @@ pub(crate) fn item_comparison(c: &Character, item: &Item) -> Option<String> {
     }
 }
 
-fn gear_comparison_detail_lines(c: &Character, item: &Item) -> Vec<Line<'static>> {
-    let (slot_label, equipped, delta) = match item.kind {
+pub(crate) fn selected_item_equipped_comparison_lines(
+    c: &Character,
+    item: Option<&Item>,
+) -> Vec<Line<'static>> {
+    let Some(item) = item else {
+        return vec![Line::styled("Select gear to compare.", muted_style())];
+    };
+
+    let (slot_label, equipped, delta_spans) = match item.kind {
         ItemKind::Weapon => {
             let cur_avg = c.equipped_weapon.damage_min + c.equipped_weapon.damage_max;
             let new_avg = item.damage_min + item.damage_max;
             (
                 "Weapon",
                 &c.equipped_weapon,
-                format!(
-                    "{}  {}",
-                    format_delta("damage", new_avg - cur_avg),
-                    format_crit_delta(
-                        item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32
-                    )
-                ),
+                vec![
+                    stat_delta_span("damage", new_avg - cur_avg),
+                    crit_delta_span(item.crit_chance as i32 - c.equipped_weapon.crit_chance as i32),
+                ],
             )
         }
         ItemKind::Armor => (
             "Armor",
             &c.equipped_armor,
-            format!(
-                "{}  {}  {}",
-                format_delta("armor", item.armor - c.equipped_armor.armor),
-                format_delta("dodge", item.dodge - c.equipped_armor.dodge),
-                format_delta("speed", item.speed - c.equipped_armor.speed)
-            ),
+            vec![
+                stat_delta_span("armor", item.armor - c.equipped_armor.armor),
+                stat_delta_span("dodge", item.dodge - c.equipped_armor.dodge),
+                stat_delta_span("speed", item.speed - c.equipped_armor.speed),
+            ],
         ),
         ItemKind::Shield => (
             "Shield",
             &c.equipped_shield,
-            format!(
-                "{}  {}  {}",
-                format_delta("armor", item.armor - c.equipped_shield.armor),
-                format_delta("dodge", item.dodge - c.equipped_shield.dodge),
-                format_delta("speed", item.speed - c.equipped_shield.speed)
-            ),
+            vec![
+                stat_delta_span("armor", item.armor - c.equipped_shield.armor),
+                stat_delta_span("dodge", item.dodge - c.equipped_shield.dodge),
+                stat_delta_span("speed", item.speed - c.equipped_shield.speed),
+            ],
         ),
-        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => return Vec::new(),
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => {
+            return vec![Line::styled(
+                "No equipped slot for this item.",
+                muted_style(),
+            )];
+        }
     };
 
     let mut lines = vec![
@@ -596,7 +626,9 @@ fn gear_comparison_detail_lines(c: &Character, item: &Item) -> Vec<Line<'static>
             "Equipped {slot_label}: {}",
             item_base_name(&equipped.name)
         )),
-        Line::from(format!("Delta: {}", strip_ansi_codes(&delta))),
+        gear_stat_line(equipped),
+        Line::from(""),
+        delta_line(delta_spans),
     ];
     if let Some(requirements) = unmet_requirements_message(c, item) {
         lines.push(Line::styled(
@@ -605,6 +637,59 @@ fn gear_comparison_detail_lines(c: &Character, item: &Item) -> Vec<Line<'static>
         ));
     }
     lines
+}
+
+fn gear_stat_line(item: &Item) -> Line<'static> {
+    match item.kind {
+        ItemKind::Weapon => Line::from(format!(
+            "Damage {}-{} | crit {}%",
+            item.damage_min, item.damage_max, item.crit_chance
+        )),
+        ItemKind::Armor | ItemKind::Shield => Line::from(format!(
+            "Armor {} | dodge {} | speed {}",
+            item.armor, item.dodge, item.speed
+        )),
+        ItemKind::HealthPotion | ItemKind::ManaPotion | ItemKind::Gem => Line::from(""),
+    }
+}
+
+fn delta_line(delta_spans: Vec<Span<'static>>) -> Line<'static> {
+    let mut spans = vec![Span::raw("Delta: ")];
+    for (index, span) in delta_spans.into_iter().enumerate() {
+        if index > 0 {
+            spans.push(Span::raw("  "));
+        }
+        spans.push(span);
+    }
+    Line::from(spans)
+}
+
+fn stat_delta_span(label: &'static str, delta: i32) -> Span<'static> {
+    let text = if delta >= 0 {
+        format!("+{delta} {label}")
+    } else {
+        format!("{delta} {label}")
+    };
+    Span::styled(text, delta_style(delta))
+}
+
+fn crit_delta_span(delta: i32) -> Span<'static> {
+    let text = if delta >= 0 {
+        format!("crit +{delta}")
+    } else {
+        format!("crit {delta}")
+    };
+    Span::styled(text, delta_style(delta))
+}
+
+fn delta_style(delta: i32) -> Style {
+    if delta > 0 {
+        Style::default().fg(Color::Green)
+    } else if delta < 0 {
+        Style::default().fg(Color::Red)
+    } else {
+        body_style()
+    }
 }
 
 fn item_base_name(name: &str) -> &str {

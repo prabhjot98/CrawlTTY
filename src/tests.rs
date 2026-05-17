@@ -1431,14 +1431,58 @@ fn selected_item_detail_lines_strip_ansi_from_rendered_text() {
 }
 
 #[test]
-fn inventory_render_lines_include_grid_capacity_and_selected_details() {
-    let c = test_character();
+fn equipped_comparison_lines_show_current_slot_and_color_deltas() {
+    use ratatui::style::{Color, Style};
+
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(item_with_rarity(
+        "Test Hauberk",
+        ItemKind::Armor,
+        20,
+        item_stats(0, 0, 3, 2, -1),
+        Rarity::Magic,
+        1,
+        requirements(0, 0, 0),
+    ));
+
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0));
+    let text = lines.iter().map(line_text).collect::<Vec<_>>();
+
+    assert!(
+        text.iter()
+            .any(|line| line == "Equipped Armor: Cloth Tunic")
+    );
+    assert!(
+        text.iter()
+            .any(|line| line == "Armor 1 | dodge 0 | speed 0")
+    );
+
+    let delta_line = lines
+        .iter()
+        .find(|line| line_text(line).starts_with("Delta:"))
+        .unwrap();
+    assert!(delta_line.spans.iter().any(|span| {
+        span.content.as_ref() == "+2 armor" && span.style == Style::default().fg(Color::Green)
+    }));
+    assert!(delta_line.spans.iter().any(|span| {
+        span.content.as_ref() == "-1 speed" && span.style == Style::default().fg(Color::Red)
+    }));
+}
+
+#[test]
+fn inventory_render_lines_include_grid_capacity_selected_details_and_equipped_comparison() {
+    let mut c = test_character();
+    c.inventory.clear();
+    c.inventory.push(crude_axe());
     let lines = inventory_screen_text_for_test(&c, 0, "");
     let rendered = lines.join("\n");
 
-    assert!(rendered.contains("Inventory - Bag 4 x 4 - 3 / 16"));
-    assert!(rendered.contains("[H]"));
-    assert!(rendered.contains("Lesser Health Potion"));
+    assert!(rendered.contains("Inventory - Bag 4 x 4 - 1 / 16"));
+    assert!(rendered.contains("[W]"));
+    assert!(rendered.contains("Crude Axe"));
+    assert!(rendered.contains("Equipped Weapon: Rusted Sword"));
+    assert!(rendered.contains("Delta: +2 damage  crit -3"));
     assert!(rendered.contains("WASD/Arrows=move  Enter=equip/use  x=drop  Esc=back"));
 }
 
@@ -1523,7 +1567,7 @@ fn inventory_render_footer_shows_message_and_commands() {
 }
 
 #[test]
-fn wide_inventory_render_keeps_bag_grid_content_sized() {
+fn wide_inventory_render_keeps_bag_grid_content_sized_with_equipped_panel_to_the_right() {
     use ratatui::{Terminal, backend::TestBackend};
 
     let c = test_character();
@@ -1537,12 +1581,14 @@ fn wide_inventory_render_keeps_bag_grid_content_sized() {
 
     let bag_title_x = char_index(body_top, "Bag");
     let details_title_x = char_index(body_top, "Details");
+    let equipped_title_x = char_index(body_top, "Equipped");
 
     assert_eq!(
         details_title_x - bag_title_x,
         usize::from(item_grid_render_width(&c.inventory))
     );
     assert!(details_title_x <= 24);
+    assert!(equipped_title_x > details_title_x);
 }
 
 #[test]
@@ -1960,6 +2006,11 @@ fn town_and_inventory_containers_use_gothic_borders_and_titles() {
     assert!(text_has_fg_at_any_occurrence(
         &inventory_terminal,
         "Details",
+        TITLE_COLOR
+    ));
+    assert!(text_has_fg_at_any_occurrence(
+        &inventory_terminal,
+        "Equipped",
         TITLE_COLOR
     ));
 }
@@ -4342,12 +4393,12 @@ fn weapon_summary_and_comparison_show_crit_chance() {
 }
 
 #[test]
-fn inventory_weapon_details_compare_against_equipped_weapon() {
+fn inventory_weapon_equipped_panel_compares_against_equipped_weapon() {
     let mut c = test_character();
     c.inventory.clear();
     c.inventory.push(crude_axe());
 
-    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0))
         .iter()
         .map(line_text)
         .collect::<Vec<_>>();
@@ -4361,7 +4412,7 @@ fn inventory_weapon_details_compare_against_equipped_weapon() {
 }
 
 #[test]
-fn inventory_armor_details_compare_against_equipped_armor() {
+fn inventory_armor_equipped_panel_compares_against_equipped_armor() {
     let mut c = test_character();
     c.inventory.clear();
     c.inventory.push(item_with_rarity(
@@ -4374,7 +4425,7 @@ fn inventory_armor_details_compare_against_equipped_armor() {
         requirements(0, 0, 0),
     ));
 
-    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0))
         .iter()
         .map(line_text)
         .collect::<Vec<_>>();
@@ -4392,7 +4443,7 @@ fn inventory_armor_details_compare_against_equipped_armor() {
 }
 
 #[test]
-fn inventory_shield_details_compare_against_equipped_shield() {
+fn inventory_shield_equipped_panel_compares_against_equipped_shield() {
     let mut c = test_character();
     c.inventory.clear();
     c.inventory.push(item_with_rarity(
@@ -4405,7 +4456,7 @@ fn inventory_shield_details_compare_against_equipped_shield() {
         requirements(0, 0, 0),
     ));
 
-    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0))
         .iter()
         .map(line_text)
         .collect::<Vec<_>>();
@@ -4436,7 +4487,7 @@ fn inventory_locked_gear_comparison_shows_cannot_equip_reason() {
         requirements(10, 0, 0),
     ));
 
-    let lines = selected_item_detail_lines(&c, &c.inventory, "Bag", c.inventory.get(0))
+    let lines = selected_item_equipped_comparison_lines(&c, c.inventory.get(0))
         .iter()
         .map(line_text)
         .collect::<Vec<_>>();
