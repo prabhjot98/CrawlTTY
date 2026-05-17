@@ -1,7 +1,7 @@
 use crate::*;
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 pub(crate) fn inventory_screen(
@@ -78,12 +78,18 @@ pub(crate) fn render_inventory_screen(
     .block(Block::default().borders(Borders::ALL).title("Inventory"));
     frame.render_widget(title, layout[0]);
 
-    let body = Layout::horizontal([
-        Constraint::Length(item_grid_render_width(&c.inventory)),
-        Constraint::Min(38),
-    ])
-    .split(layout[1]);
-    render_item_grid(frame, &c.inventory, selected, body[0], "Bag");
+    let grid_width = item_grid_render_width(&c.inventory);
+    let grid_height = c.inventory.rows.saturating_add(2);
+    let (grid_area, details_area) = if layout[1].width >= grid_width.saturating_add(38) {
+        let body = Layout::horizontal([Constraint::Length(grid_width), Constraint::Min(38)])
+            .split(layout[1]);
+        (body[0], body[1])
+    } else {
+        let body = Layout::vertical([Constraint::Length(grid_height), Constraint::Min(3)])
+            .split(layout[1]);
+        (body[0], body[1])
+    };
+    render_item_grid(frame, &c.inventory, selected, grid_area, "Bag");
     let details = Paragraph::new(selected_item_detail_lines(
         c,
         &c.inventory,
@@ -91,7 +97,7 @@ pub(crate) fn render_inventory_screen(
         c.inventory.get(selected),
     ))
     .block(Block::default().borders(Borders::ALL).title("Details"));
-    frame.render_widget(details, body[1]);
+    frame.render_widget(details, details_area);
 
     let footer_text = if message.is_empty() {
         INVENTORY_COMMANDS.to_string()
@@ -99,7 +105,9 @@ pub(crate) fn render_inventory_screen(
         format!("{message}\n{INVENTORY_COMMANDS}")
     };
     frame.render_widget(
-        Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL).title("Commands")),
+        Paragraph::new(footer_text)
+            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .wrap(Wrap { trim: false }),
         layout[2],
     );
 }

@@ -2221,11 +2221,19 @@ pub(crate) fn render_ground_loot_picker(
         .block(Block::default().borders(Borders::ALL).title("Ground Loot"));
     frame.render_widget(title, layout[0]);
 
-    let body = Layout::horizontal([Constraint::Min(32), Constraint::Length(38)]).split(layout[1]);
-    render_ground_loot_list(frame, c, selected, body[0]);
+    let (list_area, details_area) = if layout[1].width >= 72 {
+        let body =
+            Layout::horizontal([Constraint::Min(32), Constraint::Length(38)]).split(layout[1]);
+        (body[0], body[1])
+    } else {
+        let body = Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(layout[1]);
+        (body[0], body[1])
+    };
+    render_ground_loot_list(frame, c, selected, list_area);
     let details = Paragraph::new(ground_item_detail_lines(c, selected))
         .block(Block::default().borders(Borders::ALL).title("Details"));
-    frame.render_widget(details, body[1]);
+    frame.render_widget(details, details_area);
 
     let footer_text = if message.is_empty() {
         GROUND_LOOT_COMMANDS.to_string()
@@ -2233,7 +2241,9 @@ pub(crate) fn render_ground_loot_picker(
         format!("{message}\n{GROUND_LOOT_COMMANDS}")
     };
     frame.render_widget(
-        Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL).title("Commands")),
+        Paragraph::new(footer_text)
+            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .wrap(Wrap { trim: false }),
         layout[2],
     );
 }

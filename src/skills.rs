@@ -314,8 +314,12 @@ fn render_skill_tree_layout(
         layout[0],
     );
 
-    let body = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(layout[1]);
+    let body = if layout[1].width >= 80 {
+        Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(layout[1])
+    } else {
+        Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).split(layout[1])
+    };
     frame.render_widget(
         Paragraph::new(skill_lines)
             .block(Block::default().borders(Borders::ALL).title("Skills"))
@@ -335,7 +339,9 @@ fn render_skill_tree_layout(
         format!("{message}\n{commands}")
     };
     frame.render_widget(
-        Paragraph::new(footer).block(Block::default().borders(Borders::ALL).title("Commands")),
+        Paragraph::new(footer)
+            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .wrap(Wrap { trim: false }),
         layout[2],
     );
 }
