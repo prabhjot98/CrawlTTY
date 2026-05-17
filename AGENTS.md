@@ -13,6 +13,7 @@ At the start of every conversation in this repository:
 Whenever you make a code change in a git repository:
 - Run appropriate verification when practical.
 - Keep DESIGN.md updated with the current game design and implementation status whenever gameplay, UI, data model, or system behavior changes.
+- Add a concise line to CHANGELOG.md whenever a gameplay change is made.
 - Stage only the files you changed for the requested task.
 - Create a git commit before the final response.
 - Do not commit unrelated user changes.
