@@ -5419,6 +5419,33 @@ fn full_inventory_monster_loot_goes_to_ground() {
 }
 
 #[test]
+fn monster_loot_pool_does_not_drop_potions() {
+    let mut c = test_character();
+    c.inventory.clear();
+    let mut d = open_test_dungeon(2, 2, vec![skeleton(4, 2)]);
+    let mut saw_enemy_item_drop = false;
+
+    for _ in 0..2_000 {
+        c.inventory.clear();
+        maybe_drop_loot_in_dungeon(&mut c, &mut d, 0, false);
+
+        for item in c.inventory.iter() {
+            assert!(
+                !matches!(item.kind, ItemKind::HealthPotion | ItemKind::ManaPotion),
+                "enemy loot dropped potion: {}",
+                item.name
+            );
+            saw_enemy_item_drop = true;
+        }
+    }
+
+    assert!(
+        saw_enemy_item_drop,
+        "expected sampled enemy loot to drop at least one item"
+    );
+}
+
+#[test]
 fn dungeon_loot_goes_to_ground_when_inventory_is_full() {
     let mut c = test_character();
     c.inventory = ItemGrid::new(1, 1, vec![health_potion()]);

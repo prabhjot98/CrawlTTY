@@ -2227,7 +2227,7 @@ pub(crate) fn maybe_drop_loot_in_dungeon(
         let loot = if guaranteed_magic {
             random_equipment_loot_for_class(c.class, d.floor, true)
         } else {
-            random_loot_for_class(c.class, d.floor, rng.gen_bool(0.30))
+            random_equipment_loot_for_class(c.class, d.floor, rng.gen_bool(0.30))
         };
         add_loot_to_bag_or_ground(c, d, loot, drop_x, drop_y, "Dropped");
     }

@@ -1051,7 +1051,7 @@ The inventory screen shows currently equipped weapon, armor, offhand/shield, hel
 
 Loot should feel rewarding:
 
-- Enemies have a chance to drop equipment or potions.
+- Enemies have a chance to drop equipment; potions stay out of the enemy loot pool.
 - Enemy health and damage are doubled across the board and scale up by floor, reaching roughly 4x base values on floor 10.
 - Enemy hit and dodge ratings are explicit per archetype and scale modestly by floor.
 - XP and gold rewards scale up by floor, reaching roughly double values on floor 10.
