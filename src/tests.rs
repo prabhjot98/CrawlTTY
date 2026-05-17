@@ -1743,6 +1743,46 @@ fn attributes_screen_uses_cursor_selection_and_attribute_colors() {
 }
 
 #[test]
+fn character_creation_active_step_uses_muted_cursed_violet_border() {
+    use ratatui::{Terminal, backend::TestBackend, style::Color};
+
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+    terminal
+        .draw(|frame| {
+            render_character_creation_screen(
+                frame,
+                CharacterCreationStep::Name,
+                "",
+                CharacterClass::Warrior,
+                DeathMode::Softcore,
+                "",
+            )
+        })
+        .unwrap();
+
+    let cursed_violet = Color::Rgb(148, 80, 190);
+    assert_eq!(cell_fg_at(&terminal, 0, 7), cursed_violet);
+    assert_ne!(cell_fg_at(&terminal, 0, 3), cursed_violet);
+}
+
+#[test]
+fn active_stash_grid_uses_muted_cursed_violet_border() {
+    use ratatui::{Terminal, backend::TestBackend, style::Color};
+
+    let c = test_character();
+    let mut terminal = Terminal::new(TestBackend::new(120, 28)).unwrap();
+
+    terminal
+        .draw(|frame| render_stash_screen(frame, &c, StashSide::Stash, 0, 0, ""))
+        .unwrap();
+
+    let cursed_violet = Color::Rgb(148, 80, 190);
+    assert_ne!(cell_fg_at(&terminal, 0, 3), cursed_violet);
+    assert_eq!(cell_fg_at(&terminal, 18, 3), cursed_violet);
+}
+
+#[test]
 fn inventory_adjacent_screens_render_with_ratatui() {
     use ratatui::{Terminal, backend::TestBackend};
 
@@ -3769,14 +3809,23 @@ fn cell_fg_at_text(
     terminal: &ratatui::Terminal<ratatui::backend::TestBackend>,
     needle: &str,
 ) -> ratatui::style::Color {
-    let buffer = terminal.backend().buffer();
-    let width = usize::from(buffer.area.width);
     let lines = backend_lines(terminal);
     let (y, x) = lines
         .iter()
         .enumerate()
         .find_map(|(y, line)| line.find(needle).map(|x| (y, x)))
         .unwrap();
+
+    cell_fg_at(terminal, x, y)
+}
+
+fn cell_fg_at(
+    terminal: &ratatui::Terminal<ratatui::backend::TestBackend>,
+    x: usize,
+    y: usize,
+) -> ratatui::style::Color {
+    let buffer = terminal.backend().buffer();
+    let width = usize::from(buffer.area.width);
     buffer.content()[y * width + x].fg
 }
 

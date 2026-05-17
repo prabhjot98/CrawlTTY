@@ -4,6 +4,16 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
+pub(crate) const SELECTED_CONTAINER_BORDER_COLOR: Color = Color::Rgb(148, 80, 190);
+
+pub(crate) fn selected_container_border_style(selected: bool) -> Style {
+    if selected {
+        Style::default().fg(SELECTED_CONTAINER_BORDER_COLOR)
+    } else {
+        Style::default()
+    }
+}
+
 pub(crate) fn footer_text(message: &str, commands: &str) -> String {
     if message.is_empty() {
         commands.to_string()

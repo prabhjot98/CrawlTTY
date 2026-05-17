@@ -1663,8 +1663,22 @@ pub(crate) fn render_stash_screen(
             Constraint::Min(38),
         ])
         .split(layout[1]);
-        render_item_grid(frame, &c.inventory, inv_selected, body[0], &inventory_title);
-        render_item_grid(frame, &c.stash, stash_selected, body[1], &stash_title);
+        render_item_grid(
+            frame,
+            &c.inventory,
+            inv_selected,
+            body[0],
+            &inventory_title,
+            side == StashSide::Inventory,
+        );
+        render_item_grid(
+            frame,
+            &c.stash,
+            stash_selected,
+            body[1],
+            &stash_title,
+            side == StashSide::Stash,
+        );
         render_stash_details(frame, c, grid, label, selected_item, body[2]);
     } else {
         let body = Layout::vertical([Constraint::Length(10), Constraint::Min(3)]).split(layout[1]);
@@ -1690,8 +1704,16 @@ pub(crate) fn render_stash_screen(
             inv_selected,
             grids[0],
             &inventory_title,
+            side == StashSide::Inventory,
         );
-        render_item_grid(frame, &c.stash, stash_selected, grids[1], &stash_title);
+        render_item_grid(
+            frame,
+            &c.stash,
+            stash_selected,
+            grids[1],
+            &stash_title,
+            side == StashSide::Stash,
+        );
         render_stash_details(frame, c, grid, label, selected_item, body[1]);
     }
 

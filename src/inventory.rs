@@ -89,7 +89,7 @@ pub(crate) fn render_inventory_screen(
             .split(layout[1]);
         (body[0], body[1])
     };
-    render_item_grid(frame, &c.inventory, selected, grid_area, "Bag");
+    render_item_grid(frame, &c.inventory, selected, grid_area, "Bag", false);
     let details = Paragraph::new(selected_item_detail_lines(
         c,
         &c.inventory,
@@ -108,6 +108,7 @@ pub(crate) fn render_item_grid(
     selected: usize,
     area: Rect,
     title: &str,
+    selected_container: bool,
 ) {
     let mut lines = Vec::new();
     for row in 0..grid.rows {
@@ -120,7 +121,12 @@ pub(crate) fn render_item_grid(
         lines.push(Line::from(spans));
     }
     frame.render_widget(
-        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title)),
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .border_style(selected_container_border_style(selected_container)),
+        ),
         area,
     );
 }
