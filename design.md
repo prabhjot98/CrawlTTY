@@ -863,7 +863,7 @@ For early development, use simple gold loss and return to town.
 | ###########                 | Log                |
 | #.@....r..#                 | You hit rat.       |
 | #..##.....#                 | Rat dies.          |
-| #.....!...#                 | Found potion.      |
+| #.....!...#                 | Found sword.       |
 | ###########                 |                    |
 +-----------------------------+--------------------+
 | Skills: [1]Cleave [2]Bash [R]Potion              |
@@ -1041,7 +1041,7 @@ Example starter/early items:
 Other MVP items:
 
 - Lesser health potions: restore 15% of maximum health.
-- Lesser mana potions: restore 15% of maximum mana for mana-using classes. Rogues use Energy, cannot use mana potions, and class-aware consumable drops avoid mana potions for Rogues.
+- Lesser mana potions: restore 15% of maximum mana for mana-using classes. Rogues use Energy, cannot use mana potions, and class-aware consumable rolls avoid mana potions for Rogues.
 - Herbs: non-bag alchemy currency. Completing the Herb Garden project grows 1-3 herbs after each completed dungeon floor. Completing the Distillery project unlocks potion crafting: 3 herbs for a lesser health potion, and 4 herbs for a lesser mana potion for mana-using classes.
 - Gold
 
@@ -1051,11 +1051,11 @@ The inventory screen shows currently equipped weapon, armor, offhand/shield, hel
 
 Loot should feel rewarding:
 
-- Enemies have a chance to drop equipment; potions stay out of the enemy loot pool.
+- Enemies have a chance to drop equipment; potions stay out of enemy and chest item loot pools.
 - Enemy health and damage are doubled across the board and scale up by floor, reaching roughly 4x base values on floor 10.
 - Enemy hit and dodge ratings are explicit per archetype and scale modestly by floor.
 - XP and gold rewards scale up by floor, reaching roughly double values on floor 10.
-- Chests always drop gold and an item. Gold is always collected; if the bag is full, the item remains as ground loot on the chest tile.
+- Chests always drop gold and class-specific equipment. Gold is always collected; if the bag is full, the item remains as ground loot on the chest tile.
 - Bellkeeper drops guaranteed better loot.
 - Items can be Common, Magic, or Rare.
 - Magic and Rare loot has better stats and value.
