@@ -870,7 +870,7 @@ const HELP_TOPICS: &[HelpTopic] = &[
     },
     HelpTopic {
         keyword: "Strength",
-        details: "Primary attribute that increases maximum health, improves weapon damage, and helps equip heavy gear.",
+        details: "Primary attribute that increases maximum health and helps equip heavy gear.",
     },
     HelpTopic {
         keyword: "Stunned",

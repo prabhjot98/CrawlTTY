@@ -810,12 +810,8 @@ impl Character {
     pub(crate) fn weapon_damage(&self) -> (i32, i32) {
         let bonuses = self.socket_bonuses();
         (
-            self.equipped_weapon.damage_min
-                + (self.effective_strength() as i32 / 4)
-                + bonuses.weapon_damage,
-            self.equipped_weapon.damage_max
-                + (self.effective_strength() as i32 / 3)
-                + bonuses.weapon_damage,
+            self.equipped_weapon.damage_min + bonuses.weapon_damage,
+            self.equipped_weapon.damage_max + bonuses.weapon_damage,
         )
     }
     pub(crate) fn effective_strength(&self) -> u32 {

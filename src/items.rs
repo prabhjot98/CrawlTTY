@@ -241,7 +241,7 @@ pub(crate) fn mana_potion() -> Item {
 }
 pub(crate) fn rusted_sword() -> Item {
     item(
-        "Rusted Sword (3-5 dmg, STR F, DEX F)",
+        "Rusted Sword (3-5 dmg)",
         ItemKind::Weapon,
         20,
         weapon_stats(3, 5, 0, SWORD_CRIT_CHANCE),
@@ -249,7 +249,7 @@ pub(crate) fn rusted_sword() -> Item {
 }
 pub(crate) fn training_dagger() -> Item {
     item_with_rarity(
-        "Training Dagger (2-4 dmg, DEX D)",
+        "Training Dagger (2-4 dmg)",
         ItemKind::Weapon,
         20,
         weapon_stats(2, 4, 1, DAGGER_CRIT_CHANCE),
@@ -261,7 +261,7 @@ pub(crate) fn training_dagger() -> Item {
 
 pub(crate) fn cracked_wand() -> Item {
     item_with_rarity(
-        "Cracked Wand (2-3 spell, INT D)",
+        "Cracked Wand (2-3 spell)",
         ItemKind::Weapon,
         20,
         weapon_stats(2, 3, 0, WAND_CRIT_CHANCE),
@@ -273,7 +273,7 @@ pub(crate) fn cracked_wand() -> Item {
 
 pub(crate) fn cracked_focus() -> Item {
     item_with_rarity(
-        "Cracked Focus (+1 dodge, INT D)",
+        "Cracked Focus (+1 dodge)",
         ItemKind::Shield,
         20,
         item_stats(0, 0, 0, 1, 0),
@@ -297,7 +297,7 @@ pub(crate) fn frayed_robe() -> Item {
 #[cfg(test)]
 pub(crate) fn crude_axe() -> Item {
     item(
-        "Crude Axe (4-6 dmg, STR F)",
+        "Crude Axe (4-6 dmg)",
         ItemKind::Weapon,
         60,
         weapon_stats(4, 6, -1, AXE_CRIT_CHANCE),

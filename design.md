@@ -133,7 +133,7 @@ Derived combat stats:
 - Speed: comes from base stats, equipment, and socket bonuses.
 - Turn energy: gained each tick based on speed.
 - Armor: mainly from equipment.
-- Damage: mainly from equipped weapon and that weapon's attribute scaling.
+- Damage: mainly from equipped weapon base damage, flat gear/socket bonuses, and skill multipliers; items do not scale damage from Strength, Dexterity, or Intelligence.
 - Critical chance.
 - Fire resistance.
 - Frost resistance.
@@ -448,30 +448,9 @@ Utility modifiers:
 
 Magic items should usually have 1 modifier or a 25% stat boost. Rare items should usually have 2-3 modifiers or a 50% stat boost. More complex modifiers like life steal, mana on kill, chance-to-cast effects, and reduced cooldowns should be saved for later versions.
 
-### Attribute Scaling
+### Item Damage
 
-Weapons and some skill-focused items should have attribute scaling grades, inspired by action RPG scaling systems.
-
-Scaling grades:
-
-- F: tiny bonus
-- D: small bonus
-- C: moderate bonus
-- B: strong bonus
-- A: very strong bonus
-- S: exceptional bonus
-
-Items can scale with Strength, Dexterity, Intelligence, or a combination.
-
-Examples:
-
-- Rusted Sword: Strength D, Dexterity F
-- Heavy Axe: Strength C
-- Hunting Bow: Dexterity C
-- Ember Wand: Intelligence C
-- Knight Blade: Strength C, Dexterity D
-
-Damage should come from base item damage plus scaling bonuses from the relevant player attributes. This lets different classes prefer different weapons and makes stat choices matter.
+Weapons and skill-focused items use fixed base damage, crit chance, speed, requirements, sockets, and upgrade levels. Items no longer have Strength, Dexterity, or Intelligence scaling grades, and item damage does not add bonuses from primary attributes. Class preference comes from class-specific loot pools, equip restrictions, requirements, crit/speed profiles, sockets, and skill interactions instead of attribute scaling.
 
 ### Loot Goals
 
@@ -1168,7 +1147,7 @@ design.md
 - Implement Warrior skills: Cleave, Shield Bash, Battle Cry, Deep Cut, Iron Guard, Second Wind.
 - Add skill tree screen and skill point spending.
 - Add Common, Magic, Rare, and Unique item generation.
-- Add item scaling grades and item comparison UI.
+- Add item comparison UI. Attribute scaling grades were removed; items use fixed base damage plus upgrades and flat bonuses.
 
 ### Milestone 5: Balance and Polish
 
@@ -1210,7 +1189,7 @@ design.md
 - Dexterity gives +10 hit rating per point.
 - Intelligence gives +5 mana per point.
 - Hit chance uses `hit / (hit + dodge)` and is clamped between 20% and 95%.
-- Item damage scales from item base damage plus attribute scaling grades: F, D, C, B, A, S.
+- Item damage uses item base damage plus upgrades and flat bonuses; items do not scale from Strength, Dexterity, or Intelligence.
 - XP required to level starts at 40 and doubles each level.
 - Each level gives 3 attribute points and 1 skill point.
 - The player starts with 2 lesser health potions and 1 lesser mana potion.

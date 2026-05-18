@@ -4821,6 +4821,22 @@ fn item_summary_marks_gems_with_incomplete_metadata_invalid() {
 }
 
 #[test]
+fn starter_item_names_do_not_show_attribute_scaling_grades() {
+    for item in [
+        rusted_sword(),
+        training_dagger(),
+        cracked_wand(),
+        cracked_focus(),
+        crude_axe(),
+    ] {
+        let name = item.name;
+        assert!(!name.contains("STR "), "{name} should not show STR scaling");
+        assert!(!name.contains("DEX "), "{name} should not show DEX scaling");
+        assert!(!name.contains("INT "), "{name} should not show INT scaling");
+    }
+}
+
+#[test]
 fn dexterity_only_increases_hit_rating() {
     let mut c = test_character();
     c.dexterity = 0;
@@ -4833,6 +4849,18 @@ fn dexterity_only_increases_hit_rating() {
     assert_eq!(c.hit_rating(), base_hit + 40);
     assert_eq!(c.dodge_rating(), base_dodge);
     assert_eq!(c.speed(), base_speed);
+}
+
+#[test]
+fn primary_attributes_do_not_scale_weapon_damage() {
+    let mut c = test_character();
+    let base_damage = c.weapon_damage();
+
+    c.strength += 20;
+    c.dexterity += 20;
+    c.intelligence += 20;
+
+    assert_eq!(c.weapon_damage(), base_damage);
 }
 
 #[test]
@@ -4888,7 +4916,7 @@ fn equipped_socketed_gems_add_effective_stats() {
 
     assert_eq!(c.effective_strength(), c.strength + 1);
     assert_eq!(c.max_hp(), 10 + c.effective_strength() * 5 + 10);
-    assert_eq!(c.weapon_damage(), (7, 10));
+    assert_eq!(c.weapon_damage(), (6, 8));
     assert_eq!(c.weapon_crit_chance(), c.equipped_weapon.crit_chance + 4);
 }
 
@@ -4977,7 +5005,7 @@ fn socket_bench_inserts_removes_and_replaces_gems_for_free() {
 
     assert_eq!(
         insert_gem_into_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
-        "Inserted Chipped Ruby into Rusted Sword (3-5 dmg, STR F, DEX F)."
+        "Inserted Chipped Ruby into Rusted Sword (3-5 dmg)."
     );
     assert_eq!(c.inventory.len(), 1);
     assert_eq!(
@@ -4987,7 +5015,7 @@ fn socket_bench_inserts_removes_and_replaces_gems_for_free() {
 
     assert_eq!(
         replace_gem_in_equipped(&mut c, UpgradeSlot::Weapon, 0, 0),
-        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg, STR F, DEX F)."
+        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg)."
     );
     assert_eq!(c.inventory.len(), 1);
     assert_eq!(c.inventory[0].gem_kind, Some(GemKind::Ruby));
@@ -4998,7 +5026,7 @@ fn socket_bench_inserts_removes_and_replaces_gems_for_free() {
 
     assert_eq!(
         remove_gem_from_equipped(&mut c, UpgradeSlot::Weapon, 0),
-        "Removed Flawed Topaz from Rusted Sword (3-5 dmg, STR F, DEX F)."
+        "Removed Flawed Topaz from Rusted Sword (3-5 dmg)."
     );
     assert_eq!(c.inventory.len(), 2);
     assert!(c.equipped_weapon.sockets[0].is_none());
@@ -5058,7 +5086,7 @@ fn replacing_socketed_gem_when_bag_is_full_reuses_selected_gem_cell() {
 
     assert_eq!(
         message,
-        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg, STR F, DEX F)."
+        "Replaced Chipped Ruby with Flawed Topaz in Rusted Sword (3-5 dmg)."
     );
     assert_eq!(c.inventory.len(), 1);
     assert_eq!(c.inventory[0].gem_kind, Some(GemKind::Ruby));
@@ -5764,10 +5792,7 @@ fn blacksmith_upgrades_equipped_gear_with_shards_only_after_forge_project() {
     complete_project_for_test(&mut c, TownProject::RebuildForge);
 
     let weapon_message = upgrade_equipped_message(&mut c, UpgradeSlot::Weapon);
-    assert_eq!(
-        weapon_message,
-        "Upgraded Rusted Sword (3-5 dmg, STR F, DEX F) to +1."
-    );
+    assert_eq!(weapon_message, "Upgraded Rusted Sword (3-5 dmg) to +1.");
     assert_eq!(c.equipped_weapon.upgrade_level, 1);
     assert_eq!(c.equipped_weapon.damage_min, 4);
     assert_eq!(c.equipped_weapon.damage_max, 6);
@@ -5823,7 +5848,7 @@ fn salvage_requires_forge_and_reinforced_anvil_adds_one_shard() {
         .unwrap();
     assert_eq!(
         salvage_inventory_item(&mut c, axe_index),
-        "Salvaged Crude Axe (4-6 dmg, STR F) into 1 weapon shard(s)."
+        "Salvaged Crude Axe (4-6 dmg) into 1 weapon shard(s)."
     );
     assert_eq!(c.weapon_shards, 1);
 
@@ -5836,7 +5861,7 @@ fn salvage_requires_forge_and_reinforced_anvil_adds_one_shard() {
         .unwrap();
     assert_eq!(
         salvage_inventory_item(&mut c, axe_index),
-        "Salvaged Crude Axe (4-6 dmg, STR F) into 2 weapon shard(s)."
+        "Salvaged Crude Axe (4-6 dmg) into 2 weapon shard(s)."
     );
     assert_eq!(c.weapon_shards, 3);
 }
@@ -5927,7 +5952,7 @@ fn equipping_when_bag_is_full_reuses_selected_cell_for_old_gear() {
 
     let result = equip_or_use_inventory_item(&mut c, 0);
 
-    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg, STR F).");
+    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg).");
     assert!(result.spent_turn);
     assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
     assert_eq!(c.inventory.len(), 1);
@@ -5972,12 +5997,12 @@ fn dungeon_inventory_enter_actions_resolve_turn_and_keep_menu_open() {
     let result = finish_inventory_enter_action_for_test(&mut c, 0).unwrap();
 
     assert_eq!(result.flow, InventoryMenuFlow::StayOpen);
-    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg, STR F).");
+    assert_eq!(result.message, "Equipped Crude Axe (4-6 dmg).");
     assert!(c.equipped_weapon.name.starts_with("Crude Axe"));
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.log_turn, 1);
     assert_eq!(d.log[0], "== Turn 1: Inventory ==");
-    assert_eq!(d.log[1], "[INFO] Equipped Crude Axe (4-6 dmg, STR F).");
+    assert_eq!(d.log[1], "[INFO] Equipped Crude Axe (4-6 dmg).");
 
     c.hp = c.max_hp() - 1;
     let health_index = c.inventory.len();
