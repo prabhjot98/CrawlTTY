@@ -4266,6 +4266,27 @@ fn sorceress_skill_tree_shows_branches_and_starting_mana_shield() {
 }
 
 #[test]
+fn sorceress_mana_shield_details_do_not_show_frost_ring_requirement() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+
+    terminal
+        .draw(|frame| render_skill_tree_screen(frame, &c, 2, ""))
+        .unwrap();
+    let rendered = backend_text(&terminal);
+
+    assert!(rendered.contains("Mana Shield rank 1/5"));
+    assert!(rendered.contains("Free toggle; 1 mana prevents 1 damage."));
+    assert!(!rendered.contains("Requires Frost Ring rank 2."));
+}
+
+#[test]
 fn sorceress_skill_tree_upgrades_unlockable_skills_with_prerequisites() {
     let mut c = Character::new(
         "Lyra".to_string(),

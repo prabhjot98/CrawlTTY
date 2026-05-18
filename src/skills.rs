@@ -668,7 +668,6 @@ fn skill_effect_lines(c: &Character, skill: &str, rank: u32) -> Vec<String> {
                 mana_shield_absorb_percent_for_rank(rank)
             ),
             "Free toggle; 1 mana prevents 1 damage.".to_string(),
-            "Requires Frost Ring rank 2.".to_string(),
         ],
         "Chain Spark" => vec![
             format!("{}% spell damage", chain_spark_percent_for_rank(rank)),
