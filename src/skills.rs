@@ -1098,11 +1098,6 @@ fn passive_prerequisite(c: &Character, skill: &str) -> Option<SkillPrerequisite>
                 current_rank: c.sorceress.firebolt_rank,
                 required_rank: 2,
             }),
-            "Mana Shield" => Some(SkillPrerequisite {
-                starter: "Frost Ring",
-                current_rank: c.sorceress.frost_ring_rank,
-                required_rank: 2,
-            }),
             "Static Charge" => Some(SkillPrerequisite {
                 starter: "Chain Spark",
                 current_rank: c.sorceress.chain_spark_rank,
@@ -1146,8 +1141,8 @@ pub(crate) fn normalize_locked_skill_ranks(c: &mut Character) {
     if c.sorceress.firebolt_rank < 2 {
         c.sorceress.kindle_rank = 0;
     }
-    if c.sorceress.frost_ring_rank < 2 {
-        c.sorceress.mana_shield_rank = 0;
+    if c.class == CharacterClass::Sorceress && c.sorceress.mana_shield_rank == 0 {
+        c.sorceress.mana_shield_rank = 1;
         c.sorceress.mana_shield_active = false;
     }
     if c.sorceress.chain_spark_rank < 2 {

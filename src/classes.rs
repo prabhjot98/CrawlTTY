@@ -168,7 +168,7 @@ pub(crate) struct SorceressState {
     pub(crate) chain_spark_rank: u32,
     #[serde(default = "default_locked_skill_rank")]
     pub(crate) kindle_rank: u32,
-    #[serde(default = "default_locked_skill_rank")]
+    #[serde(default = "default_skill_rank")]
     pub(crate) mana_shield_rank: u32,
     #[serde(default = "default_locked_skill_rank")]
     pub(crate) static_charge_rank: u32,
@@ -187,7 +187,7 @@ impl Default for SorceressState {
             frost_ring_rank: 1,
             chain_spark_rank: 1,
             kindle_rank: 0,
-            mana_shield_rank: 0,
+            mana_shield_rank: 1,
             static_charge_rank: 0,
             frost_ring_cooldown: 0,
             chain_spark_cooldown: 0,

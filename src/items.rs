@@ -273,10 +273,10 @@ pub(crate) fn cracked_wand() -> Item {
 
 pub(crate) fn cracked_focus() -> Item {
     item_with_rarity(
-        "Cracked Focus (+1 dodge)",
+        "Cracked Focus (+2 dodge)",
         ItemKind::Shield,
         20,
-        item_stats(0, 0, 0, 1, 0),
+        item_stats(0, 0, 0, 2, 0),
         Rarity::Common,
         1,
         requirements(0, 0, 2),
@@ -285,10 +285,10 @@ pub(crate) fn cracked_focus() -> Item {
 
 pub(crate) fn frayed_robe() -> Item {
     item_with_rarity(
-        "Frayed Robe (+1 armor)",
+        "Frayed Robe (+1 armor, +1 dodge)",
         ItemKind::Armor,
         16,
-        item_stats(0, 0, 1, 0, 0),
+        item_stats(0, 0, 1, 1, 0),
         Rarity::Common,
         1,
         requirements(0, 0, 0),

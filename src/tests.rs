@@ -275,7 +275,7 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
 }
 
 #[test]
-fn sorceress_skill_help_lines_show_mana_cooldowns_and_locked_mana_shield() {
+fn sorceress_skill_help_lines_show_mana_cooldowns_and_starting_mana_shield() {
     let mut c = Character::new(
         "Lyra".to_string(),
         CharacterClass::Sorceress,
@@ -300,7 +300,7 @@ fn sorceress_skill_help_lines_show_mana_cooldowns_and_locked_mana_shield() {
         rendered
             .contains("3 Chain Spark r1: cost 7 mana, cd 2. 80% damage; up to 2 hits. Ready in 1.")
     );
-    assert!(rendered.contains("4 Mana Shield: locked; requires Frost Ring rank 2."));
+    assert!(rendered.contains("4 Mana Shield r1: free toggle. Absorbs 35% at 1 mana per damage."));
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn sorceress_unlearned_mana_shield_help_shows_skill_point_prompt() {
         CharacterClass::Sorceress,
         DeathMode::Softcore,
     );
-    c.sorceress.frost_ring_rank = 2;
+    c.sorceress.mana_shield_rank = 0;
 
     let rendered = dungeon_skill_help_lines(&c)
         .iter()
@@ -381,8 +381,8 @@ fn mana_shield_absorbs_rank_scaled_damage_using_mana() {
 
     apply_player_damage(&mut c, 10);
 
-    assert_eq!(c.mana, 37);
-    assert_eq!(c.hp, 8);
+    assert_eq!(c.mana, 36);
+    assert_eq!(c.hp, 9);
     assert!(c.sorceress.mana_shield_active);
 
     c.sorceress.mana_shield_rank = 5;
@@ -395,6 +395,25 @@ fn mana_shield_absorbs_rank_scaled_damage_using_mana() {
     assert_eq!(c.mana, 0);
     assert_eq!(c.hp, 7);
     assert!(!c.sorceress.mana_shield_active);
+}
+
+#[test]
+fn mana_shield_absorbs_at_least_one_damage_from_small_hits() {
+    let mut c = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    c.sorceress.mana_shield_rank = 1;
+    c.sorceress.mana_shield_active = true;
+    c.hp = 15;
+    c.mana = 40;
+
+    apply_player_damage(&mut c, 1);
+
+    assert_eq!(c.mana, 39);
+    assert_eq!(c.hp, 15);
+    assert!(c.sorceress.mana_shield_active);
 }
 
 #[test]
@@ -573,7 +592,7 @@ fn frost_ring_hits_all_eight_surrounding_tiles_and_freezes_on_chance() {
 }
 
 #[test]
-fn mana_shield_hotkey_toggles_freely_after_unlock() {
+fn new_sorceress_can_toggle_mana_shield_from_start() {
     let mut c = Character::new(
         "Lyra".to_string(),
         CharacterClass::Sorceress,
@@ -582,31 +601,28 @@ fn mana_shield_hotkey_toggles_freely_after_unlock() {
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
     assert!(!handle_class_skill_key(&mut c, '4'));
-    assert!(!c.sorceress.mana_shield_active);
+    assert!(c.sorceress.mana_shield_active);
     assert!(
         c.active_dungeon
             .as_ref()
             .unwrap()
             .log
             .iter()
-            .any(|line| line.contains("Mana Shield requires Frost Ring rank 2."))
+            .any(|line| line.contains("Mana Shield toggled on."))
     );
 
-    c.sorceress.mana_shield_rank = 1;
-    assert!(!handle_class_skill_key(&mut c, '4'));
-    assert!(c.sorceress.mana_shield_active);
     assert!(!handle_class_skill_key(&mut c, '4'));
     assert!(!c.sorceress.mana_shield_active);
 }
 
 #[test]
-fn mana_shield_hotkey_reports_unlearned_after_prerequisite_is_met() {
+fn mana_shield_hotkey_reports_unlearned_only_when_rank_zero() {
     let mut c = Character::new(
         "Lyra".to_string(),
         CharacterClass::Sorceress,
         DeathMode::Softcore,
     );
-    c.sorceress.frost_ring_rank = 2;
+    c.sorceress.mana_shield_rank = 0;
     c.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
 
     assert!(!handle_class_skill_key(&mut c, '4'));
@@ -618,7 +634,7 @@ fn mana_shield_hotkey_reports_unlearned_after_prerequisite_is_met() {
             .unwrap()
             .log
             .iter()
-            .any(|line| line.contains("Mana Shield is unlocked; spend a skill point to learn it."))
+            .any(|line| line.contains("Mana Shield is unlearned; spend a skill point to learn it."))
     );
 }
 
@@ -2262,6 +2278,39 @@ fn loading_save_normalizes_legacy_locked_skill_ranks() {
             assert_eq!(character.warrior.deep_cut_rank, 0);
             assert_eq!(character.warrior.iron_guard_rank, 0);
             assert_eq!(character.warrior.second_wind_rank, 0);
+        }
+        LoadedSave::Reset { warning } => panic!("compatible save was reset: {warning}"),
+    }
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn loading_sorceress_save_promotes_starting_mana_shield_rank() {
+    let mut sorceress = Character::new(
+        "Lyra".to_string(),
+        CharacterClass::Sorceress,
+        DeathMode::Softcore,
+    );
+    sorceress.sorceress.mana_shield_rank = 0;
+    sorceress.sorceress.mana_shield_active = true;
+    let dir = env::temp_dir().join(format!(
+        "crawltty-save-sorceress-mana-shield-promote-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let save_path = dir.join("save.json");
+    let save = serde_json::json!({
+        "save_version": SAVE_VERSION,
+        "character": sorceress,
+    });
+    fs::write(&save_path, serde_json::to_string_pretty(&save).unwrap()).unwrap();
+
+    let loaded = load_character_from_path(&save_path).unwrap();
+
+    match loaded {
+        LoadedSave::Loaded(character) => {
+            assert_eq!(character.sorceress.mana_shield_rank, 1);
+            assert!(!character.sorceress.mana_shield_active);
         }
         LoadedSave::Reset { warning } => panic!("compatible save was reset: {warning}"),
     }
@@ -4187,7 +4236,7 @@ fn sorceress_scaling_helpers_match_mvp_numbers() {
 }
 
 #[test]
-fn sorceress_skill_tree_shows_branches_and_locked_unlocks() {
+fn sorceress_skill_tree_shows_branches_and_starting_mana_shield() {
     let c = Character::new(
         "Lyra".to_string(),
         CharacterClass::Sorceress,
@@ -4206,7 +4255,8 @@ fn sorceress_skill_tree_shows_branches_and_locked_unlocks() {
     assert!(text.contains("└─⊘ Kindle unlocks at Firebolt rank 2 (1/2)"));
     assert!(text.contains("Frost Branch"));
     assert!(text.contains("Frost Ring rank 1/5"));
-    assert!(text.contains("└─⊘ Mana Shield unlocks at Frost Ring rank 2 (1/2)"));
+    assert!(text.contains("Mana Shield rank 1/5"));
+    assert!(!text.contains("Mana Shield unlocks at Frost Ring rank 2"));
     assert!(text.contains("Storm Branch"));
     assert!(text.contains("Chain Spark rank 1/5"));
     assert!(text.contains("└─⊘ Static Charge unlocks at Chain Spark rank 2 (1/2)"));
@@ -4226,15 +4276,11 @@ fn sorceress_skill_tree_upgrades_unlockable_skills_with_prerequisites() {
 
     assert_eq!(
         choose_skill_or_mastery(&mut c, "Mana Shield"),
-        "Mana Shield upgrades require Frost Ring rank 2."
+        "Upgraded Mana Shield to rank 2."
     );
     assert_eq!(
         choose_skill_or_mastery(&mut c, "Frost Ring"),
         "Upgraded Frost Ring to rank 2."
-    );
-    assert_eq!(
-        choose_skill_or_mastery(&mut c, "Mana Shield"),
-        "Upgraded Mana Shield to rank 1."
     );
     assert_eq!(
         choose_skill_or_mastery(&mut c, "Firebolt"),
@@ -4246,7 +4292,7 @@ fn sorceress_skill_tree_upgrades_unlockable_skills_with_prerequisites() {
     );
 
     assert_eq!(c.sorceress.frost_ring_rank, 2);
-    assert_eq!(c.sorceress.mana_shield_rank, 1);
+    assert_eq!(c.sorceress.mana_shield_rank, 2);
     assert_eq!(c.sorceress.firebolt_rank, 2);
     assert_eq!(c.sorceress.kindle_rank, 1);
 }
@@ -4432,7 +4478,7 @@ fn sorceress_state_defaults_match_mvp_skill_baseline() {
     assert_eq!(state.frost_ring_rank, 1);
     assert_eq!(state.chain_spark_rank, 1);
     assert_eq!(state.kindle_rank, 0);
-    assert_eq!(state.mana_shield_rank, 0);
+    assert_eq!(state.mana_shield_rank, 1);
     assert_eq!(state.static_charge_rank, 0);
     assert_eq!(state.frost_ring_cooldown, 0);
     assert_eq!(state.chain_spark_cooldown, 0);
@@ -4454,6 +4500,10 @@ fn new_sorceress_matches_starting_state() {
     assert_eq!(c.max_mana(), 40);
     assert_eq!(c.hp, c.max_hp());
     assert_eq!(c.mana, c.max_mana());
+    assert_eq!(c.sorceress.mana_shield_rank, 1);
+    assert!(!c.sorceress.mana_shield_active);
+    assert_eq!(c.armor(), 1);
+    assert_eq!(c.dodge_rating(), 13);
     assert_eq!(c.inventory.len(), 4);
     assert_eq!(
         c.inventory
@@ -4476,11 +4526,14 @@ fn new_sorceress_matches_starting_state() {
     assert_eq!(c.equipped_weapon.required_intelligence, 2);
     assert!(c.equipped_shield.name.contains("Focus"));
     assert_eq!(c.equipped_shield.kind, ItemKind::Shield);
+    assert_eq!(c.equipped_shield.dodge, 2);
     assert_eq!(c.equipped_shield.required_strength, 0);
     assert_eq!(c.equipped_shield.required_dexterity, 0);
     assert_eq!(c.equipped_shield.required_intelligence, 2);
     assert!(c.equipped_armor.name.contains("Robe"));
     assert_eq!(c.equipped_armor.kind, ItemKind::Armor);
+    assert_eq!(c.equipped_armor.armor, 1);
+    assert_eq!(c.equipped_armor.dodge, 1);
     assert!(can_equip_item(&c, &c.equipped_weapon));
     assert!(can_equip_item(&c, &c.equipped_shield));
     assert!(can_equip_item(&c, &c.equipped_armor));

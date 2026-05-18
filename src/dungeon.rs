@@ -537,15 +537,9 @@ fn sorceress_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
         )),
     ];
     if c.sorceress.mana_shield_rank == 0 {
-        if c.sorceress.frost_ring_rank < 2 {
-            lines.push(Line::from(
-                "4 Mana Shield: locked; requires Frost Ring rank 2.",
-            ));
-        } else {
-            lines.push(Line::from(
-                "4 Mana Shield: unlearned; spend a skill point to learn it.",
-            ));
-        }
+        lines.push(Line::from(
+            "4 Mana Shield: unlearned; spend a skill point to learn it.",
+        ));
     } else {
         lines.push(Line::from(format!(
             "4 Mana Shield r{}: free toggle. Absorbs {}% at 1 mana per damage.",
@@ -2145,9 +2139,12 @@ pub(crate) fn apply_player_damage(c: &mut Character, damage: u32) {
         if c.sorceress.mana_shield_rank == 0 || c.mana == 0 {
             c.sorceress.mana_shield_active = false;
         } else {
-            let desired_absorb = remaining.saturating_mul(mana_shield_absorb_percent_for_rank(
-                c.sorceress.mana_shield_rank,
-            )) / 100;
+            let absorb_percent = mana_shield_absorb_percent_for_rank(c.sorceress.mana_shield_rank);
+            let desired_absorb = if remaining == 0 {
+                0
+            } else {
+                remaining.saturating_mul(absorb_percent).saturating_add(99) / 100
+            };
             let mana_absorbed = desired_absorb.min(c.mana);
             c.mana -= mana_absorbed;
             remaining = remaining.saturating_sub(mana_absorbed);

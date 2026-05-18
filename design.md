@@ -194,7 +194,7 @@ Example skills:
 
 ### 2. Sorceress
 
-A playable spellcaster using fire, frost, and shock magic. The MVP Sorceress starts with STR 1 / DEX 3 / INT 6, Mana, a wand, a focus offhand, and a robe. Spell damage scales with Intelligence while spell accuracy uses the normal hit-rating model from Dexterity and gear.
+A playable spellcaster using fire, frost, and shock magic. The MVP Sorceress starts with STR 1 / DEX 3 / INT 6, Mana, a wand, a defensive focus offhand, a robe, and Mana Shield rank 1. The starter Cracked Focus grants +2 dodge, the starter Frayed Robe grants +1 armor and +1 dodge, and loaded Sorceress saves with rank 0 Mana Shield are promoted to the new inactive rank 1 baseline. Spell damage scales with Intelligence while spell accuracy uses the normal hit-rating model from Dexterity and gear.
 
 Possible builds:
 
@@ -377,7 +377,7 @@ Flame branch:
 Frost branch:
 
 - Frost Ring: active spell bound to `2`. Costs 8 mana, has a 3-turn cooldown, attacks all 8 adjacent tiles, and can Freeze enemies for their next turn.
-- Mana Shield: passive/toggle bound to `4` once unlocked by Frost Ring rank 2. Toggling is free when learned and mana is available; while active it absorbs a rank-scaled share of incoming damage at `1 mana = 1 damage prevented` and turns off when mana is depleted.
+- Mana Shield: passive/toggle bound to `4` from character creation at rank 1. Toggling is free when learned and mana is available; while active it absorbs a rank-scaled share of incoming damage at `1 mana = 1 damage prevented`, rounds absorption up so small hits can still lose at least 1 damage to the shield, and turns off when mana is depleted.
 
 Storm branch:
 
