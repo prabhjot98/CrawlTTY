@@ -300,7 +300,7 @@ fn sorceress_skill_help_lines_show_mana_cooldowns_and_starting_mana_shield() {
         rendered
             .contains("3 Chain Spark r1: cost 7 mana, cd 2. 80% damage; up to 2 hits. Ready in 1.")
     );
-    assert!(rendered.contains("4 Mana Shield r1: free toggle. Absorbs 35% at 1 mana per damage."));
+    assert!(rendered.contains("4 Mana Shield r1: free toggle. Absorbs 50% at 1 mana per damage."));
 }
 
 #[test]
@@ -339,7 +339,7 @@ fn sorceress_unlocked_mana_shield_help_shows_absorption_and_state() {
         .join("\n");
 
     assert!(rendered.contains("Sorceress: Mana 40/40  Mana Shield on"));
-    assert!(rendered.contains("4 Mana Shield r3: free toggle. Absorbs 45% at 1 mana per damage."));
+    assert!(rendered.contains("4 Mana Shield r3: free toggle. Absorbs 60% at 1 mana per damage."));
 }
 
 #[test]
@@ -381,8 +381,8 @@ fn mana_shield_absorbs_rank_scaled_damage_using_mana() {
 
     apply_player_damage(&mut c, 10);
 
-    assert_eq!(c.mana, 36);
-    assert_eq!(c.hp, 9);
+    assert_eq!(c.mana, 35);
+    assert_eq!(c.hp, 10);
     assert!(c.sorceress.mana_shield_active);
 
     c.sorceress.mana_shield_rank = 5;
@@ -4213,7 +4213,7 @@ fn sorceress_scaling_helpers_match_mvp_numbers() {
         (1..=5)
             .map(mana_shield_absorb_percent_for_rank)
             .collect::<Vec<_>>(),
-        vec![35, 40, 45, 50, 55]
+        vec![50, 55, 60, 65, 70]
     );
     assert_eq!(
         (1..=5)

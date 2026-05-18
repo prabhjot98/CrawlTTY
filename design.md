@@ -377,7 +377,7 @@ Flame branch:
 Frost branch:
 
 - Frost Ring: active spell bound to `2`. Costs 8 mana, has a 3-turn cooldown, attacks all 8 adjacent tiles, and can Freeze enemies for their next turn.
-- Mana Shield: passive/toggle bound to `4` from character creation at rank 1. Toggling is free when learned and mana is available; while active it absorbs a rank-scaled share of incoming damage at `1 mana = 1 damage prevented`, rounds absorption up so small hits can still lose at least 1 damage to the shield, and turns off when mana is depleted.
+- Mana Shield: passive/toggle bound to `4` from character creation at rank 1. Toggling is free when learned and mana is available; while active it absorbs a rank-scaled share of incoming damage, starting at 50% at rank 1 and gaining +5 percentage points per rank to 70% at rank 5, at `1 mana = 1 damage prevented`, rounds absorption up so small hits can still lose at least 1 damage to the shield, and turns off when mana is depleted.
 
 Storm branch:
 

@@ -47,7 +47,7 @@ pub(crate) fn mana_shield_absorb_percent_for_rank(rank: u32) -> u32 {
     if rank == 0 {
         0
     } else {
-        35 + rank.saturating_sub(1).min(4) * 5
+        50 + rank.saturating_sub(1).min(4) * 5
     }
 }
 
