@@ -10,8 +10,9 @@ pub(crate) const ACT2_FLOORS: u32 = 8;
 pub(crate) const ACT2_START_FLOOR: u32 = ACT1_FLOORS + 1;
 pub(crate) const FINAL_FLOOR: u32 = ACT1_FLOORS + ACT2_FLOORS;
 pub(crate) const HEALTH_POTION_COST: u32 = 50;
-pub(crate) const MANA_POTION_COST: u32 = 100;
+pub(crate) const MANA_POTION_COST: u32 = 50;
 pub(crate) const LESSER_POTION_RESTORE_PERCENT: u32 = 15;
+pub(crate) const LESSER_MANA_POTION_RESTORE_PERCENT: u32 = 35;
 pub(crate) const STARTING_BAG_COLUMNS: u16 = 4;
 pub(crate) const STARTING_BAG_ROWS: u16 = 4;
 #[allow(dead_code)]

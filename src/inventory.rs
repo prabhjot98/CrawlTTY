@@ -753,7 +753,7 @@ fn item_detail_lines(item: &Item) -> Vec<Line<'static>> {
             item.armor, item.dodge, item.speed
         ))),
         ItemKind::HealthPotion => lines.push(Line::from("Restores 15% HP.")),
-        ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
+        ItemKind::ManaPotion => lines.push(Line::from("Restores 35% mana.")),
         ItemKind::Gem => lines.push(Line::from(strip_ansi_codes(&gem_summary(item)))),
     }
     lines
@@ -1354,7 +1354,7 @@ pub(crate) fn equip_or_use_inventory_item(
                 c.inventory.insert(index, selected);
                 return InventoryActionResult::free("Mana is already full.");
             }
-            let restore = lesser_potion_restore(c.max_mana());
+            let restore = lesser_mana_potion_restore(c.max_mana());
             let before = c.mana;
             c.mana = (c.mana + restore).min(c.max_mana());
             let restored = c.mana - before;

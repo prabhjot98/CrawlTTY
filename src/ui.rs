@@ -532,6 +532,10 @@ pub(crate) fn lesser_potion_restore(max_resource: u32) -> u32 {
     ((max_resource * LESSER_POTION_RESTORE_PERCENT) / 100).max(1)
 }
 
+pub(crate) fn lesser_mana_potion_restore(max_resource: u32) -> u32 {
+    ((max_resource * LESSER_MANA_POTION_RESTORE_PERCENT) / 100).max(1)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LogKind {
     Hit,

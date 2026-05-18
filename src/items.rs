@@ -233,7 +233,7 @@ pub(crate) fn health_potion() -> Item {
 }
 pub(crate) fn mana_potion() -> Item {
     item(
-        "Lesser Mana Potion (restores 15% mana)",
+        "Lesser Mana Potion (restores 35% mana)",
         ItemKind::ManaPotion,
         MANA_POTION_COST,
         item_stats(0, 0, 0, 0, 0),

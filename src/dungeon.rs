@@ -1380,6 +1380,14 @@ pub(crate) fn resolve_enemy_death(
         enemy_death_message(&name, xp, gold, cause),
     );
     push_level_up_logs(&mut d.log, &levels_gained);
+    let mana_restored = restore_sorceress_mana_on_kill(c);
+    if mana_restored > 0 {
+        log_event(
+            &mut d.log,
+            LogKind::Heal,
+            format!("Arcane Recovery restores {mana_restored} mana."),
+        );
+    }
     if c.is_warrior()
         && matches!(cause, EnemyDeathCause::Bleed)
         && c.warrior.deep_cut_mastery == Some(SkillMastery::Bloodletting)
@@ -2559,7 +2567,7 @@ fn ground_item_detail_lines(c: &Character, selected: usize) -> Vec<Line<'static>
             item.armor, item.dodge, item.speed
         ))),
         ItemKind::HealthPotion => lines.push(Line::from("Restores 15% HP.")),
-        ItemKind::ManaPotion => lines.push(Line::from("Restores 15% mana.")),
+        ItemKind::ManaPotion => lines.push(Line::from("Restores 35% mana.")),
         ItemKind::Gem => {
             if let (Some(kind), Some(tier)) = (item.gem_kind, item.gem_tier) {
                 lines.push(Line::from(gem_bonus_text(gem_bonus(kind, tier))));
@@ -3202,41 +3210,58 @@ pub(crate) fn use_stairs(c: &mut Character) {
 }
 
 pub(crate) fn use_potion(c: &mut Character) -> bool {
-    if let Some(index) = c
+    let health_index = c
         .inventory
         .iter()
-        .position(|i| matches!(i.kind, ItemKind::HealthPotion))
-    {
-        if c.hp >= c.max_hp() {
+        .position(|i| matches!(i.kind, ItemKind::HealthPotion));
+    if c.hp < c.max_hp() {
+        if let Some(index) = health_index {
+            c.inventory.remove(index);
+            let heal = lesser_potion_restore(c.max_hp());
+            let before = c.hp;
+            c.hp = (c.hp + heal).min(c.max_hp());
+            let restored = c.hp - before;
             log_event(
                 &mut c.active_dungeon.as_mut().unwrap().log,
-                LogKind::Warn,
-                "HP is already full.",
+                LogKind::Heal,
+                format!(
+                    "You drink a lesser health potion and restore {}.",
+                    heal_amount_text(restored)
+                ),
             );
-            return false;
+            return true;
         }
-        c.inventory.remove(index);
-        let heal = lesser_potion_restore(c.max_hp());
-        let before = c.hp;
-        c.hp = (c.hp + heal).min(c.max_hp());
-        let restored = c.hp - before;
-        log_event(
-            &mut c.active_dungeon.as_mut().unwrap().log,
-            LogKind::Heal,
-            format!(
-                "You drink a lesser health potion and restore {}.",
-                heal_amount_text(restored)
-            ),
-        );
-        true
-    } else {
-        log_event(
-            &mut c.active_dungeon.as_mut().unwrap().log,
-            LogKind::Warn,
-            "No lesser health potion available.",
-        );
-        false
     }
+
+    let mana_index = c
+        .inventory
+        .iter()
+        .position(|i| matches!(i.kind, ItemKind::ManaPotion));
+    if c.class != CharacterClass::Rogue && c.mana < c.max_mana() {
+        if let Some(index) = mana_index {
+            c.inventory.remove(index);
+            let restore = lesser_mana_potion_restore(c.max_mana());
+            let before = c.mana;
+            c.mana = (c.mana + restore).min(c.max_mana());
+            let restored = c.mana - before;
+            log_event(
+                &mut c.active_dungeon.as_mut().unwrap().log,
+                LogKind::Heal,
+                format!("You drink a lesser mana potion and restore {restored} mana."),
+            );
+            return true;
+        }
+    }
+
+    let (kind, message) = if c.hp < c.max_hp() {
+        (LogKind::Warn, "No lesser health potion available.")
+    } else if c.class != CharacterClass::Rogue && c.mana < c.max_mana() {
+        (LogKind::Warn, "No lesser mana potion available.")
+    } else {
+        (LogKind::Warn, "HP is already full.")
+    };
+    log_event(&mut c.active_dungeon.as_mut().unwrap().log, kind, message);
+    false
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

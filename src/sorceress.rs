@@ -51,6 +51,19 @@ pub(crate) fn mana_shield_absorb_percent_for_rank(rank: u32) -> u32 {
     }
 }
 
+pub(crate) fn sorceress_kill_mana_restore_amount(c: &Character) -> u32 {
+    (c.max_mana() / 10).max(4)
+}
+
+pub(crate) fn restore_sorceress_mana_on_kill(c: &mut Character) -> u32 {
+    if c.class != CharacterClass::Sorceress {
+        return 0;
+    }
+    let before = c.mana;
+    c.mana = (c.mana + sorceress_kill_mana_restore_amount(c)).min(c.max_mana());
+    c.mana - before
+}
+
 pub(crate) fn kindle_fire_bonus_percent_for_rank(rank: u32) -> u32 {
     if rank == 0 {
         0

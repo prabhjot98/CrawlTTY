@@ -229,6 +229,10 @@ const HELP_TOPICS: &[HelpTopic] = &[
         details: "Town project group that improves merchant sell prices after Hire Appraiser is funded.",
     },
     HelpTopic {
+        keyword: "Arcane Recovery",
+        details: "Sorceress sustain that restores 10% maximum mana, minimum 4 mana, whenever a Sorceress kill resolves.",
+    },
+    HelpTopic {
         keyword: "Armor",
         details: "Defensive stat that reduces incoming physical damage after an attack hits.",
     },
@@ -606,7 +610,7 @@ const HELP_TOPICS: &[HelpTopic] = &[
     },
     HelpTopic {
         keyword: "Lesser Mana Potion",
-        details: "Town and loot consumable that restores 15% mana for mana-using classes. Rogues do not use mana potions.",
+        details: "Town and loot consumable that restores 35% mana for mana-using classes. Rogues do not use mana potions.",
     },
     HelpTopic {
         keyword: "Long Bash",
@@ -626,7 +630,7 @@ const HELP_TOPICS: &[HelpTopic] = &[
     },
     HelpTopic {
         keyword: "Mana Potion",
-        details: "Consumable that restores 15% mana for Warrior and Sorceress characters.",
+        details: "Consumable that restores 35% mana for Warrior and Sorceress characters.",
     },
     HelpTopic {
         keyword: "Mana Shield",

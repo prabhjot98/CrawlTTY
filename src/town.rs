@@ -38,7 +38,7 @@ pub(crate) fn quest_giver(c: &mut Character) -> String {
 
 pub(crate) const TOWN_FULL_HEAL_MESSAGE: &str = "You were fully healed.";
 pub(crate) const LESSER_HEALTH_POTION_HERB_COST: u32 = 3;
-pub(crate) const LESSER_MANA_POTION_HERB_COST: u32 = 4;
+pub(crate) const LESSER_MANA_POTION_HERB_COST: u32 = 3;
 
 pub(crate) fn full_heal(c: &mut Character) {
     c.hp = c.max_hp();

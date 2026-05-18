@@ -530,6 +530,32 @@ fn firebolt_hit_uses_int_spell_damage_and_can_apply_burning() {
 }
 
 #[test]
+fn sorceress_kills_restore_10_percent_max_mana_minimum_4() {
+    let mut c = character_for_class(CharacterClass::Sorceress);
+    c.mana = 12;
+    let target = enemy(
+        "Mana Dummy",
+        'm',
+        4,
+        2,
+        enemy_stats_with_ratings(1, 0, 0, 0, 10, DEFAULT_ENEMY_HIT_RATING, 0),
+        enemy_rewards(1, 0, 0),
+        false,
+    );
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![target]));
+
+    assert!(use_firebolt_with_rolls(&mut c, 0.0, 1.0, 0.0));
+
+    assert_eq!(c.mana, 12);
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(
+        d.log
+            .iter()
+            .any(|line| line.contains("Arcane Recovery restores 4 mana."))
+    );
+}
+
+#[test]
 fn frost_ring_hits_all_eight_surrounding_tiles_and_freezes_on_chance() {
     let mut c = Character::new(
         "Lyra".to_string(),
@@ -2556,7 +2582,7 @@ fn sorting_inventory_groups_items_by_type_rarity_level_value_and_name_without_sp
             .collect::<Vec<_>>(),
         vec![
             "Lesser Health Potion (restores 15% HP)",
-            "Lesser Mana Potion (restores 15% mana)",
+            "Lesser Mana Potion (restores 35% mana)",
             "Alpha Axe",
             "Amber Axe",
             "Cobalt Axe",
@@ -3050,7 +3076,7 @@ fn town_service_screens_render_with_ratatui() {
     let merchant = backend_text(&terminal);
     assert!(merchant.contains("Merchant"));
     assert!(merchant.contains("› Buy Lesser Health Potion - 50 gold"));
-    assert!(merchant.contains("Buy Lesser Mana Potion - 100 gold"));
+    assert!(merchant.contains("Buy Lesser Mana Potion - 50 gold"));
     assert!(merchant.contains("Sell items"));
 
     terminal
@@ -3074,7 +3100,7 @@ fn town_service_screens_render_with_ratatui() {
     assert!(distillery.contains("Distillery"));
     assert!(distillery.contains("Herbs: 7"));
     assert!(distillery.contains("› Craft Lesser Health Potion - 3 herbs"));
-    assert!(distillery.contains("Craft Lesser Mana Potion - 4 herbs"));
+    assert!(distillery.contains("Craft Lesser Mana Potion - 3 herbs"));
 
     terminal
         .draw(|frame| render_spend_attributes_screen(frame, &c, 0, ""))
@@ -3082,6 +3108,20 @@ fn town_service_screens_render_with_ratatui() {
     let attributes = backend_text(&terminal);
     assert!(attributes.contains("Spend Attributes"));
     assert!(attributes.contains("Strength"));
+}
+
+#[test]
+fn mana_potions_cost_50_restore_35_percent_and_craft_for_3_herbs() {
+    assert_eq!(MANA_POTION_COST, 50);
+    assert_eq!(LESSER_MANA_POTION_HERB_COST, 3);
+
+    let potion = mana_potion();
+    assert_eq!(potion.value, 50);
+    assert_eq!(potion.name, "Lesser Mana Potion (restores 35% mana)");
+
+    let sorceress = character_for_class(CharacterClass::Sorceress);
+    assert_eq!(sorceress.max_mana(), 40);
+    assert_eq!(lesser_mana_potion_restore(sorceress.max_mana()), 14);
 }
 
 #[test]
@@ -3102,7 +3142,7 @@ fn merchant_sells_lesser_health_and_mana_potions() {
 
     let message = buy_merchant_offer(&mut c, MerchantOffer::LesserManaPotion);
 
-    assert_eq!(message, "Bought Lesser Mana Potion for 100 gold.");
+    assert_eq!(message, "Bought Lesser Mana Potion for 50 gold.");
     assert_eq!(c.gold, 0);
     assert_eq!(c.inventory.len(), starting_inventory + 2);
     assert!(matches!(
@@ -3186,8 +3226,8 @@ fn distillery_crafts_potions_from_herbs() {
 
     let message = craft_distillery_recipe(&mut c, DistilleryRecipe::LesserManaPotion);
 
-    assert_eq!(message, "Crafted Lesser Mana Potion for 4 herbs.");
-    assert_eq!(c.herbs, 0);
+    assert_eq!(message, "Crafted Lesser Mana Potion for 3 herbs.");
+    assert_eq!(c.herbs, 1);
     assert!(matches!(c.inventory[1].kind, ItemKind::ManaPotion));
 }
 
@@ -6268,7 +6308,7 @@ fn ground_loot_picker_pickup_removes_selected_item() {
 
     let message = pick_up_ground_item_by_tile_index(&mut c, 1);
 
-    assert_eq!(message, "Picked up Lesser Mana Potion (restores 15% mana).");
+    assert_eq!(message, "Picked up Lesser Mana Potion (restores 35% mana).");
     assert_eq!(c.inventory.len(), 1);
     let d = c.active_dungeon.as_ref().unwrap();
     assert_eq!(d.ground_items.len(), 1);
@@ -6294,7 +6334,7 @@ fn ground_loot_picker_successful_pickup_spends_turn() {
 
     assert_eq!(
         result.message,
-        "Picked up Lesser Mana Potion (restores 15% mana)."
+        "Picked up Lesser Mana Potion (restores 35% mana)."
     );
     assert!(result.spent_turn);
     assert_eq!(c.inventory.len(), 1);
@@ -8022,6 +8062,36 @@ fn potion_hotkey_consumes_one_health_potion_and_caps_healing() {
         .retain(|item| !matches!(item.kind, ItemKind::HealthPotion));
     c.hp = 1;
     assert!(!use_potion(&mut c));
+}
+
+#[test]
+fn potion_hotkey_uses_mana_potion_when_hp_full_and_mana_missing() {
+    let mut c = character_for_class(CharacterClass::Sorceress);
+    c.active_dungeon = Some(generate_dungeon(1));
+    c.hp = c.max_hp();
+    c.mana = 0;
+    let starting_mana_potions = c
+        .inventory
+        .iter()
+        .filter(|item| matches!(item.kind, ItemKind::ManaPotion))
+        .count();
+
+    assert!(use_potion(&mut c));
+
+    assert_eq!(c.mana, lesser_mana_potion_restore(c.max_mana()));
+    assert_eq!(
+        c.inventory
+            .iter()
+            .filter(|item| matches!(item.kind, ItemKind::ManaPotion))
+            .count(),
+        starting_mana_potions - 1
+    );
+    let d = c.active_dungeon.as_ref().unwrap();
+    assert!(
+        d.log
+            .iter()
+            .any(|line| line.contains("You drink a lesser mana potion and restore 14 mana."))
+    );
 }
 
 #[test]
