@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CrawlTTY Gameplay Review</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #130f17;
+      --panel: #1e1726;
+      --panel-2: #271e31;
+      --ink: #efe5d0;
+      --muted: #a99bb4;
+      --gold: #d6a84f;
+      --amber: #f2b84b;
+      --green: #74b978;
+      --red: #cf5b5b;
+      --blue: #76a9e0;
+      --violet: #b087d8;
+      --cyan: #7bd0cf;
+      --border: #4b3a5f;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(176, 135, 216, 0.16), transparent 34rem),
+        radial-gradient(circle at 90% 10%, rgba(214, 168, 79, 0.11), transparent 28rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 64px;
+    }
+
+    header {
+      padding: 34px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(39, 30, 49, 0.94), rgba(30, 23, 38, 0.96));
+      box-shadow: 0 24px 70px var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.18;
+      margin: 0 0 14px;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 4.25rem);
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      color: var(--gold);
+      font-size: clamp(1.45rem, 2.5vw, 2.1rem);
+      margin-top: 4px;
+    }
+
+    h3 {
+      color: var(--cyan);
+      font-size: 1.12rem;
+      margin-top: 22px;
+    }
+
+    p { margin: 0 0 14px; }
+
+    a { color: var(--cyan); }
+
+    code {
+      background: rgba(0, 0, 0, 0.24);
+      color: var(--amber);
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.35rem;
+      font-size: 0.93em;
+    }
+
+    ul, ol { padding-left: 1.3rem; }
+    li { margin: 0.35rem 0; }
+
+    .eyebrow {
+      color: var(--violet);
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      font-size: 0.78rem;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      max-width: 860px;
+      color: var(--muted);
+      font-size: 1.12rem;
+    }
+
+    .meta-grid,
+    .score-grid,
+    .cards {
+      display: grid;
+      gap: 16px;
+    }
+
+    .meta-grid {
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      margin-top: 26px;
+    }
+
+    .score-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin: 18px 0 6px;
+    }
+
+    .cards {
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .section,
+    .card,
+    .meta,
+    .score,
+    .callout {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(30, 23, 38, 0.82);
+      box-shadow: 0 14px 42px rgba(0, 0, 0, 0.24);
+    }
+
+    .section {
+      padding: 28px;
+      margin-top: 22px;
+    }
+
+    .card,
+    .meta,
+    .score,
+    .callout {
+      padding: 18px;
+    }
+
+    .meta strong,
+    .score strong {
+      display: block;
+      color: var(--gold);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 5px;
+    }
+
+    .score b {
+      display: block;
+      font-size: 2rem;
+      color: var(--ink);
+    }
+
+    .score span,
+    .meta span {
+      color: var(--muted);
+    }
+
+    .verdict {
+      border-left: 4px solid var(--gold);
+      padding-left: 18px;
+      margin-top: 18px;
+      color: var(--ink);
+    }
+
+    .good { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--red); }
+    .magic { color: var(--violet); }
+    .blue { color: var(--blue); }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(176, 135, 216, 0.45);
+      background: rgba(176, 135, 216, 0.13);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.88rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      margin-top: 14px;
+      background: rgba(0, 0, 0, 0.16);
+    }
+
+    th, td {
+      border-bottom: 1px solid rgba(75, 58, 95, 0.8);
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--gold);
+      background: rgba(39, 30, 49, 0.92);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .priority-high { color: var(--red); font-weight: 800; }
+    .priority-medium { color: var(--amber); font-weight: 800; }
+    .priority-low { color: var(--green); font-weight: 800; }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .footer-note {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      text-align: center;
+    }
+
+    @media print {
+      body { background: #fff; color: #111; }
+      header, .section, .card, .meta, .score, .callout { box-shadow: none; }
+      .section, .card, .meta, .score, .callout, header { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Gameplay Review Report</div>
+      <h1>CrawlTTY</h1>
+      <p class="subtitle">A full gameplay review of the terminal ARPG repository, focused on player experience, combat feel, progression, loot, town systems, class identity, and near-term design priorities.</p>
+      <div class="meta-grid">
+        <div class="meta"><strong>Repository state</strong><span>Reviewed on clean <code>main</code></span></div>
+        <div class="meta"><strong>Validation</strong><span><code>cargo test</code>: 332 passed</span></div>
+        <div class="meta"><strong>Diagnostics</strong><span>LSP scan: no diagnostics in <code>src/</code></span></div>
+        <div class="meta"><strong>Report date</strong><span>2026-05-19</span></div>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Executive verdict</h2>
+      <p class="verdict">CrawlTTY is already a strong terminal ARPG foundation. The town-to-dungeon loop, class-specific combat kits, save/load system, Ratatui UI, and automated test coverage are all well beyond a typical prototype. The main gaps are not stability; they are pacing, balance, and deeper build expression.</p>
+      <div class="score-grid">
+        <div class="score"><strong>Core loop</strong><b>Strong</b><span>Town, dungeon, loot, upgrades, and quests are coherent.</span></div>
+        <div class="score"><strong>Combat feel</strong><b>Promising</b><span>Class kits are distinct; tactical pacing needs sharper tools.</span></div>
+        <div class="score"><strong>Loot</strong><b>Functional</b><span>Needs affix/build identity beyond stat inflation.</span></div>
+        <div class="score"><strong>UI/UX</strong><b>Excellent</b><span>Readable, polished, responsive, and well tested.</span></div>
+      </div>
+      <div class="tag-list">
+        <span class="tag">Fast tactical combat</span>
+        <span class="tag">Loot progression</span>
+        <span class="tag">Class identity</span>
+        <span class="tag">Town projects</span>
+        <span class="tag">Ratatui UI</span>
+        <span class="tag">Save/load</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>What works well</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Clear core loop</h3>
+          <p>The town → dungeon → loot → upgrade → quest loop is established and readable. Town services are distinct, and dungeon rules create commitment without trapping players too harshly.</p>
+          <p><strong>Relevant files:</strong> <code>src/main.rs</code>, <code>src/town.rs</code>, <code>src/dungeon_gen.rs</code>, <code>src/dungeon.rs</code></p>
+        </article>
+        <article class="card">
+          <h3>Strong class identity</h3>
+          <p>Warrior, Rogue, and Sorceress already feel mechanically different. Rogue Energy/combo points and Sorceress spell/status play prevent the added classes from feeling like Warrior reskins.</p>
+        </article>
+        <article class="card">
+          <h3>Polished terminal UI</h3>
+          <p>The Ratatui presentation is unusually mature: grid inventory, equipment comparison, stash/details layouts, footer commands, semantic colors, and a searchable help glossary.</p>
+          <p><strong>Relevant files:</strong> <code>src/ui.rs</code>, <code>src/inventory.rs</code>, <code>src/help.rs</code></p>
+        </article>
+        <article class="card">
+          <h3>Excellent stability foundation</h3>
+          <p>The save system, UI render tests, class mechanics tests, inventory tests, and combat tests create a strong safety net for gameplay balance changes.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Biggest gameplay issues</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Issue</th>
+            <th>Why it matters</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="priority-high">Health potions are too weak early</span></td>
+            <td>Current lesser potions restore 15% max HP. At level 1 that means Warrior heals 6, Rogue heals 3, and Sorceress heals 2, which can feel worse than losing a turn.</td>
+            <td>Use a floor such as <code>max(10, 25% max HP)</code>, or raise lesser potions closer to 30–35% max HP.</td>
+          </tr>
+          <tr>
+            <td><span class="priority-high">Speed/energy is opaque</span></td>
+            <td>The design promises an energy-based actor system, but current enemy pacing mostly resolves around player actions and a threshold derived from player speed.</td>
+            <td>Either simplify the design language or implement a fuller scheduler with fixed action thresholds and visible speed implications.</td>
+          </tr>
+          <tr>
+            <td><span class="priority-high">No wait command</span></td>
+            <td>Players cannot intentionally hold position to tick cooldowns, lure enemies, regenerate Rogue Energy, or preserve chokepoints.</td>
+            <td>Add <code>Space</code> or <code>.</code> as a wait action that spends a turn and resolves enemy turns.</td>
+          </tr>
+          <tr>
+            <td><span class="priority-high">Loot lacks build identity</span></td>
+            <td>Class-specific item families work, but magic/rare items mostly feel like higher numbers with colored names rather than build decisions.</td>
+            <td>Add rolled modifiers: +skill rank, +resource, +status chance, +crit, +potion healing, +gold find, +speed, +hit/dodge.</td>
+          </tr>
+          <tr>
+            <td><span class="priority-medium">Boss attacks need telegraphs</span></td>
+            <td>Bellkeeper and Glass Tyrant have strong concepts, but wave/prism damage currently resolves immediately, so danger tiles often explain what already happened.</td>
+            <td>Use a one-turn telegraph: mark danger tiles first, then resolve damage next boss action unless the player moves or uses cover.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Class-specific review</h2>
+      <div class="two-column">
+        <article class="card">
+          <h3>Warrior</h3>
+          <p><span class="good">Strengths:</span> Best-developed tree, meaningful masteries, strong Battle Cry charge model, and straightforward melee tactics.</p>
+          <p><span class="warn">Concerns:</span> Mana is scarce early, Battle Cry may dominate branch choices, and passive defensive paths may need more immediate payoff.</p>
+          <p><strong>Next steps:</strong> Improve early value for Deep Cut/Iron Guard and keep an eye on Battle Cry’s combined damage, mitigation, crit, and Second Wind synergy.</p>
+        </article>
+        <article class="card">
+          <h3>Rogue</h3>
+          <p><span class="good">Strengths:</span> Energy, combo points, poison, Smoke Step, and Eviscerate create a clear skirmisher identity.</p>
+          <p><span class="warn">Concerns:</span> Rank 0 Eviscerate being usable can be confusing, and Energy may not feel constraining once regeneration is understood.</p>
+          <p><strong>Next steps:</strong> Clarify whether Eviscerate rank 0 means “known but unupgraded” or “locked.” Tune Energy after more playtesting.</p>
+        </article>
+        <article class="card">
+          <h3>Sorceress</h3>
+          <p><span class="good">Strengths:</span> Firebolt, Frost Ring, Chain Spark, Mana Shield, and Arcane Recovery form a coherent caster kit.</p>
+          <p><span class="warn">Concerns:</span> Weak health potions hurt Sorceress most, and auto-targeting nearest visible enemy can be frustrating when prioritizing casters, elites, or bosses.</p>
+          <p><strong>Next steps:</strong> Add target cycling or directional spell targeting, plus clearer target indication in the HUD.</p>
+        </article>
+        <article class="card">
+          <h3>Shared progression</h3>
+          <p><span class="good">Strengths:</span> Leveling grants attributes and skills cleanly, and class resources restore appropriately.</p>
+          <p><span class="warn">Concerns:</span> Attributes lost some excitement after item damage stopped scaling from primary stats.</p>
+          <p><strong>Next steps:</strong> Add class-specific attribute explanations and consider light secondary benefits such as STR potion scaling, DEX crit/dodge, or INT spell/status strength.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Dungeon and boss review</h2>
+      <p>The room-and-corridor generator is appropriate for a readable terminal roguelike, and the 40×16 map keeps floors compact. The main repetition risk is that floors currently lean heavily on combat, chests, stairs, and bosses.</p>
+      <div class="cards">
+        <article class="card">
+          <h3>Floor variety</h3>
+          <p>Add one lightweight event category before more acts: shrines, cursed fountains, trapped chests, elite rooms, treasure rooms, or healing wells.</p>
+        </article>
+        <article class="card">
+          <h3>Boss arenas</h3>
+          <p>Bellkeeper and Glass Tyrant would benefit from intentionally placed cover/pillars that interact with telegraphed waves and prism attacks.</p>
+        </article>
+        <article class="card">
+          <h3>Retreat rules</h3>
+          <p>First-floor escape per act is a good rule. It gives players a safety valve without weakening deeper-floor commitment.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Economy, loot, and town systems</h2>
+      <p>Town projects are a good long-term sink. The Quartermaster bag chain is clear, while blacksmith/socket/herb systems create useful goals. The economy already supports tradeoffs between potions, projects, and item handling.</p>
+      <div class="callout">
+        <h3>Socket Bench timing</h3>
+        <p>Gems can drop from floor 3, but Socket Bench is locked behind Act I completion, Reinforced Anvil, and 600 gold. This can make gems feel like inventory clutter before they are useful.</p>
+        <p><strong>Options:</strong> delay gem drops, add a basic early socket service, or make gem storage/selling clearer in UI copy.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Prioritized recommendations</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Priority</th>
+            <th>Recommendation</th>
+            <th>Expected gameplay impact</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="priority-high">High</td><td>Buff early health potions.</td><td>Improves survivability, reduces “wasted turn” frustration, especially for Rogue and Sorceress.</td></tr>
+          <tr><td class="priority-high">High</td><td>Add a wait command.</td><td>Improves tactical positioning, cooldown management, and Rogue Energy play.</td></tr>
+          <tr><td class="priority-high">High</td><td>Clarify or rework speed/enemy energy.</td><td>Makes speed an understandable build/stat decision.</td></tr>
+          <tr><td class="priority-high">High</td><td>Add boss telegraphs before damage.</td><td>Turns boss mechanics into deliberate positioning puzzles instead of reactive log events.</td></tr>
+          <tr><td class="priority-high">High</td><td>Add real magic/rare item modifiers.</td><td>Improves ARPG loot excitement and build experimentation.</td></tr>
+          <tr><td class="priority-medium">Medium</td><td>Add Sorceress target control.</td><td>Reduces frustration and raises skill expression for casters.</td></tr>
+          <tr><td class="priority-medium">Medium</td><td>Add dungeon events, shrines, or traps.</td><td>Breaks floor repetition without requiring a large content expansion.</td></tr>
+          <tr><td class="priority-medium">Medium</td><td>Improve attribute choice impact.</td><td>Makes level-up decisions more interesting after removing attribute damage scaling.</td></tr>
+          <tr><td class="priority-medium">Medium</td><td>Clarify Rogue Eviscerate rank 0 behavior.</td><td>Reduces skill-tree confusion and improves onboarding.</td></tr>
+          <tr><td class="priority-low">Low</td><td>Add more direct menu hotkeys, sorting/filtering, lore snippets, and floor theme variation.</td><td>Polishes usability and atmosphere after the main gameplay loop is sharper.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Final assessment</h2>
+      <p>CrawlTTY has the hard foundation in place: stable save/load, a polished terminal UI, multiple classes, loot, progression, bosses, town systems, and a broad test suite. The next best phase is to make moment-to-moment decisions sharper: potions that matter, speed that players understand, bosses that telegraph, loot that changes builds, and dungeon events that break repetition.</p>
+    </section>
+
+    <p class="footer-note">Generated as <code>reports/gameplay-review.html</code>.</p>
+  </main>
+</body>
+</html>
