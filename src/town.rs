@@ -904,7 +904,12 @@ pub(crate) fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> 
     }
     let (cost_shards, kind, item_name) = {
         let item = equipped_item(c, slot);
-        let kind = shard_kind(item).expect("equipped gear has shard kind");
+        if is_empty_equipment_slot(item) {
+            return format!("No {} equipped to upgrade.", upgrade_slot_name(slot));
+        }
+        let Some(kind) = shard_kind(item) else {
+            return "Only equipped gear can be upgraded.".to_string();
+        };
         (upgrade_cost(item), kind, item.name.clone())
     };
     if shard_count(c, kind) < cost_shards {
@@ -919,6 +924,20 @@ pub(crate) fn upgrade_equipped_message(c: &mut Character, slot: UpgradeSlot) -> 
     let item = equipped_item_mut(c, slot);
     upgrade_item(item);
     format!("Upgraded {} to +{}.", item.name, item.upgrade_level)
+}
+
+fn upgrade_slot_name(slot: UpgradeSlot) -> &'static str {
+    match slot {
+        UpgradeSlot::Weapon => "weapon",
+        UpgradeSlot::Armor => "armor",
+        UpgradeSlot::Shield => "shield",
+        UpgradeSlot::Helm => "helm",
+        UpgradeSlot::Gloves => "gloves",
+        UpgradeSlot::Boots => "boots",
+        UpgradeSlot::Belt => "belt",
+        UpgradeSlot::Amulet => "amulet",
+        UpgradeSlot::Ring1 | UpgradeSlot::Ring2 => "ring",
+    }
 }
 
 pub(crate) fn upgrade_cost(item: &Item) -> u32 {

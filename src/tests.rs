@@ -266,7 +266,7 @@ fn rogue_skill_help_lines_show_energy_combo_points_and_four_skills() {
     assert!(rendered.contains(
         "2 Venom Edge r1: cost 30 Energy. 70% damage; build 1 CP and poison 2/turn for 3 turns."
     ));
-    assert!(rendered.contains("3 Eviscerate r0: cost 35 Energy. Spend CP for burst damage +0%."));
+    assert!(rendered.contains("3 Eviscerate locked: requires Backstab rank 2 and a skill point."));
     assert!(
         rendered.contains(
             "4 Smoke Step r1: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +20 dodge. Ready in 2."
@@ -1091,6 +1091,7 @@ fn rogue_missed_attacks_do_not_apply_on_hit_effects() {
             DeathMode::Softcore,
         );
         c.dexterity = 0;
+        c.rogue.eviscerate_rank = 1;
         c.rogue.combo_points = 3;
         c.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
         {
@@ -1141,6 +1142,35 @@ fn backstab_boss_kill_leaves_combo_cleared() {
 }
 
 #[test]
+fn locked_eviscerate_cannot_be_used_from_dungeon_hotkey() {
+    let enemy = armored_training_dummy(3, 2);
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    c.rogue.combo_points = 3;
+    c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+
+    assert!(!use_eviscerate(&mut c));
+    assert_eq!(c.rogue.eviscerate_rank, 0);
+    assert_eq!(c.rogue.combo_points, 3);
+    assert_eq!(c.rogue.energy, ROGUE_MAX_ENERGY);
+    let log = &c.active_dungeon.as_ref().unwrap().log;
+    assert!(
+        log.iter()
+            .any(|line| line.contains("Eviscerate is unlearned"))
+    );
+
+    let help = dungeon_skill_help_lines(&c)
+        .into_iter()
+        .map(|line| line_text(&line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(help.contains("3 Eviscerate locked"));
+}
+
+#[test]
 fn eviscerate_requires_and_spends_combo_points() {
     let enemy = armored_training_dummy(3, 2);
     let mut c = Character::new(
@@ -1148,6 +1178,7 @@ fn eviscerate_requires_and_spends_combo_points() {
         CharacterClass::Rogue,
         DeathMode::Softcore,
     );
+    c.rogue.eviscerate_rank = 1;
     c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
 
     assert!(!use_eviscerate(&mut c));
@@ -1189,6 +1220,7 @@ fn rogue_skills_spend_energy_on_valid_targets() {
         DeathMode::Softcore,
     );
     finisher.active_dungeon = Some(open_test_dungeon(2, 2, vec![armored_training_dummy(3, 2)]));
+    finisher.rogue.eviscerate_rank = 1;
     finisher.rogue.combo_points = 3;
     assert!(use_eviscerate(&mut finisher));
     assert_eq!(finisher.rogue.energy, ROGUE_MAX_ENERGY - 35);
@@ -1222,6 +1254,7 @@ fn rogue_skills_refund_energy_without_adjacent_target() {
         DeathMode::Softcore,
     );
     finisher.rogue.energy = 40;
+    finisher.rogue.eviscerate_rank = 1;
     finisher.rogue.combo_points = 3;
     finisher.active_dungeon = Some(open_test_dungeon(2, 2, Vec::new()));
     assert!(!use_eviscerate(&mut finisher));
@@ -1470,6 +1503,7 @@ fn eviscerate_poison_payoff_can_kill_and_award_rewards() {
             DeathMode::Softcore,
         );
         c.active_dungeon = Some(open_test_dungeon(2, 2, vec![enemy]));
+        c.rogue.eviscerate_rank = 1;
         c.rogue.combo_points = 5;
         c.rogue.energy = ROGUE_MAX_ENERGY;
         {
@@ -1504,6 +1538,7 @@ fn eviscerate_retained_boss_dungeon_leaves_smoke_protection_cleared() {
         c.equipped_weapon.damage_min = 1;
         c.equipped_weapon.damage_max = 1;
         c.equipped_weapon.crit_chance = 0;
+        c.rogue.eviscerate_rank = 1;
         c.rogue.combo_points = 5;
         c.rogue.energy = ROGUE_MAX_ENERGY;
         let mut boss = one_hp_test_boss(3, 2);
@@ -2184,6 +2219,48 @@ fn startup_load_prefers_last_character_from_profile() {
         load_startup_character_from_paths(&profile_path, &character_dir, &dir.join("save.json"))
             .unwrap();
     assert_eq!(loaded.unwrap().name, "Shade");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn startup_loads_existing_character_when_profile_is_missing_or_stale() {
+    let dir = env::temp_dir().join(format!(
+        "crawltty-startup-fallback-character-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    let profile_path = dir.join("profile.json");
+    let character_dir = dir.join("characters");
+    fs::create_dir_all(&character_dir).unwrap();
+
+    let mara = Character::new(
+        "Mara".to_string(),
+        CharacterClass::Warrior,
+        DeathMode::Softcore,
+    );
+    let shade = Character::new(
+        "Shade".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Hardcore,
+    );
+    save_character_to_path(&shade, &character_dir.join("shade.json")).unwrap();
+    save_character_to_path(&mara, &character_dir.join("mara.json")).unwrap();
+
+    let missing_profile =
+        load_startup_character_from_paths(&profile_path, &character_dir, &dir.join("save.json"))
+            .unwrap();
+    assert_eq!(missing_profile.unwrap().name, "Mara");
+
+    fs::write(
+        &profile_path,
+        serde_json::json!({ "last_character_id": "ghost" }).to_string(),
+    )
+    .unwrap();
+    let stale_profile =
+        load_startup_character_from_paths(&profile_path, &character_dir, &dir.join("save.json"))
+            .unwrap();
+    assert_eq!(stale_profile.unwrap().name, "Mara");
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -5926,6 +6003,27 @@ fn blacksmith_upgrades_equipped_gear_with_shards_only_after_forge_project() {
 }
 
 #[test]
+fn blacksmith_does_not_upgrade_empty_offhand() {
+    let mut c = Character::new(
+        "Sneak".to_string(),
+        CharacterClass::Rogue,
+        DeathMode::Softcore,
+    );
+    complete_project_for_test(&mut c, TownProject::RebuildForge);
+    c.shield_shards = 2;
+    let armor_before = c.armor();
+
+    assert_eq!(
+        upgrade_equipped_message(&mut c, UpgradeSlot::Shield),
+        "No shield equipped to upgrade."
+    );
+    assert_eq!(c.shield_shards, 2);
+    assert_eq!(c.equipped_shield.armor, 0);
+    assert_eq!(c.armor(), armor_before);
+    assert!(is_empty_equipment_slot(&c.equipped_shield));
+}
+
+#[test]
 fn blacksmith_upgrade_cost_scales_with_upgrade_level() {
     let mut item = rusted_sword();
     assert_eq!(upgrade_cost(&item), 2);
@@ -6593,6 +6691,32 @@ fn retained_boss_dungeon_leave_does_not_grow_herbs_twice() {
 
     assert_eq!(c.herbs, herbs_after_boss);
     assert!(c.active_dungeon.is_none());
+}
+
+#[test]
+fn retained_boss_floor_stairs_wait_when_full_bag_reward_is_unresolved() {
+    let mut c = test_character();
+    c.bellkeeper_defeated = true;
+    fill_inventory_to_capacity(&mut c);
+    let mut d = open_test_dungeon(2, 2, Vec::new());
+    d.floor = ACT1_FLOORS;
+    d.stairs_x = 2;
+    d.stairs_y = 2;
+    d.ground_items.push(GroundItem {
+        x: 2,
+        y: 2,
+        item: rusted_sword(),
+    });
+    c.active_dungeon = Some(d);
+
+    auto_interact_tile(&mut c);
+
+    let d = c
+        .active_dungeon
+        .as_ref()
+        .expect("unresolved boss reward should retain dungeon");
+    assert_eq!(d.ground_items.len(), 1);
+    assert_eq!((d.ground_items[0].x, d.ground_items[0].y), (2, 2));
 }
 
 #[test]

@@ -222,6 +222,13 @@ pub(crate) fn use_venom_edge(c: &mut Character) -> bool {
 }
 
 pub(crate) fn use_eviscerate(c: &mut Character) -> bool {
+    if c.rogue.eviscerate_rank == 0 {
+        log_rogue_warning(
+            c,
+            "Eviscerate is unlearned. Upgrade Backstab to rank 2, then spend a skill point to learn it.",
+        );
+        return false;
+    }
     let points = c.rogue.combo_points;
     if points == 0 {
         log_rogue_warning(c, "Eviscerate requires combo points.");

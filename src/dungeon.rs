@@ -466,6 +466,15 @@ fn warrior_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
 }
 
 fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
+    let eviscerate_line = if c.rogue.eviscerate_rank == 0 {
+        Line::from("3 Eviscerate locked: requires Backstab rank 2 and a skill point.")
+    } else {
+        Line::from(format!(
+            "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage +{}%.",
+            c.rogue.eviscerate_rank,
+            eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank)
+        ))
+    };
     vec![
         Line::from(format!(
             "Rogue: Energy {}/{}  CP {}/{}",
@@ -484,11 +493,7 @@ fn rogue_dungeon_skill_help_lines(c: &Character) -> Vec<Line<'static>> {
             poison_damage_for_rank(c.rogue.venom_edge_rank),
             rupture_poison_duration_for_rank(c.rogue.rupture_rank)
         )),
-        Line::from(format!(
-            "3 Eviscerate r{}: cost 35 Energy. Spend CP for burst damage +{}%.",
-            c.rogue.eviscerate_rank,
-            eviscerate_bonus_percent_for_rank(c.rogue.eviscerate_rank)
-        )),
+        eviscerate_line,
         Line::from(format!(
             "4 Smoke Step r{}: cost 35 Energy, cd 4. Then WASD=1 tile, Shift+WASD=2. +{} dodge. Ready in {}.",
             c.rogue.smoke_step_rank,
@@ -3115,8 +3120,8 @@ pub(crate) fn xp_required_for_next_level(current_level: u32) -> u32 {
 }
 
 pub(crate) fn auto_interact_tile(c: &mut Character) {
-    if !ground_item_indices_at_player(c).is_empty() {
-        pickup_ground_items_on_player(c);
+    if !ground_item_indices_at_player(c).is_empty() && !pickup_ground_items_on_player(c) {
+        return;
     }
     open_chest_on_player(c);
     let standing_on_stairs = c

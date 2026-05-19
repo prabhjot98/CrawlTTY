@@ -141,6 +141,23 @@ pub(crate) fn load_last_character_from_paths(
     }
 }
 
+fn load_first_character_from_dir(
+    profile_path: &Path,
+    character_dir: &Path,
+) -> Result<Option<Character>> {
+    for summary in load_character_summaries_from_dir(character_dir)? {
+        let character_path = character_file_path(character_dir, &summary.id);
+        match load_character_from_path(&character_path)? {
+            LoadedSave::Loaded(character) => {
+                save_profile_to_path(profile_path, &summary.id)?;
+                return Ok(Some(*character));
+            }
+            LoadedSave::Reset { warning } => drop(warning),
+        }
+    }
+    Ok(None)
+}
+
 pub(crate) fn load_character_summaries_from_dir(
     character_dir: &Path,
 ) -> Result<Vec<CharacterSummary>> {
@@ -209,6 +226,9 @@ pub(crate) fn load_startup_character_from_paths(
     legacy_save_path: &Path,
 ) -> Result<Option<Character>> {
     if let Some(character) = load_last_character_from_paths(profile_path, character_dir)? {
+        return Ok(Some(character));
+    }
+    if let Some(character) = load_first_character_from_dir(profile_path, character_dir)? {
         return Ok(Some(character));
     }
     if legacy_save_path.exists() && load_character_summaries_from_dir(character_dir)?.is_empty() {
