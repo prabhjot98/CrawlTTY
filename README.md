@@ -47,6 +47,14 @@ CrawlTTY is a terminal-based action RPG/dungeon crawler built in Rust. It focuse
 
 Dungeon glyphs use the Unicode visual set for terrain and effects, with letter glyphs for enemies: `@` player, `▓` wall, `·` floor, `⌄` stairs, `◈` chest, `✦` loot, `✶` bell wave, `r/s/c/b` enemies, `E` elite, and `B`/`T` bosses.
 
+## Install
+
+```sh
+brew tap prabhjot98/crawltty
+brew install crawltty
+crawltty
+```
+
 ## Running
 
 ```sh

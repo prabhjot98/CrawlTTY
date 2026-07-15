@@ -4,6 +4,8 @@ All notable player-facing gameplay changes should be recorded here.
 
 ## Unreleased
 
+## 1.0.0
+
 - Fixed reviewed gameplay edge cases: locked Rogue Eviscerate can no longer be cast, unresolved full-bag boss rewards on stairs no longer auto-exit the dungeon, empty offhands cannot be upgraded, and startup falls back to existing character saves when the profile is missing or stale.
 - Improved Sorceress mana sustain: cheaper stronger mana potions, mana-potion hotkey fallback, and Arcane Recovery on kills.
 - Increased Mana Shield's base damage redirection to 50% at rank 1, scaling to 70% by rank 5.
