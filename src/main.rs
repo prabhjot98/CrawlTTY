@@ -50,7 +50,16 @@ pub(crate) use town::*;
 pub(crate) use town_projects::*;
 pub(crate) use ui::*;
 
+fn version_string() -> String {
+    format!("crawltty {}", env!("CARGO_PKG_VERSION"))
+}
+
 fn main() -> Result<()> {
+    if env::args().any(|arg| arg == "--version" || arg == "-V") {
+        println!("{}", version_string());
+        return Ok(());
+    }
+
     fs::create_dir_all("saves").context("failed to create saves directory")?;
 
     if env::args().any(|arg| arg == "reset-save") {
@@ -215,3 +224,19 @@ impl Drop for TerminalSession {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod version_tests {
+    use super::version_string;
+
+    #[test]
+    fn version_string_has_expected_format() {
+        let v = version_string();
+        assert!(v.starts_with("crawltty "), "expected 'crawltty ' prefix, got {v}");
+        let version_part = v.strip_prefix("crawltty ").unwrap();
+        assert!(
+            version_part.split('.').count() >= 2,
+            "expected a semver-like version, got {version_part}"
+        );
+    }
+}
